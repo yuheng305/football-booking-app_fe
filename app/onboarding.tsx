@@ -17,7 +17,7 @@ const onboarding = () => {
                 </View>
                 
                 {/* Button at the bottom with some padding */}
-                <TouchableOpacity onPress={() => router.replace('/home')} className="w-[90%] bg-blue-500 rounded-lg py-4 items-center self-center mb-8">
+                <TouchableOpacity onPress={() => router.replace('/(tabs)/home')} className="w-[90%] bg-blue-500 rounded-lg py-4 items-center self-center mb-8">
                     <Text className="text-lg text-white font-bold">Start</Text>
                 </TouchableOpacity>
             </SafeAreaView>
