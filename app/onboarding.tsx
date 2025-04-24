@@ -1,28 +1,89 @@
-import { router } from "expo-router"
-import { SafeAreaView, Text, TouchableOpacity, View } from "react-native"
-import Swiper from "react-native-swiper"
+import { router } from "expo-router";
+import {
+  SafeAreaView,
+  Text,
+  TouchableOpacity,
+  View,
+  Image,
+} from "react-native";
+import Swiper from "react-native-swiper";
 
-const onboarding = () => {
-    return (
-        <Swiper loop={false} showsPagination={true}>
-            <SafeAreaView className="flex-1 justify-center items-center bg-white">
-                <Text className="text-center text-3xl font-bold text-indigo-600 mb-4">👋 Hi Mom, onboarding screen 1!</Text>
-                <Text className="text-center text-lg text-gray-500">Swipe to continue</Text>
-            </SafeAreaView>
+const Onboarding = () => {
+  return (
+    <Swiper
+      loop={false}
+      showsPagination={true}
+      dotStyle={{ backgroundColor: "#4b5563" }}
+      activeDotStyle={{ backgroundColor: "#3b82f6" }}
+    >
+      {/* Slide 1 */}
+      <SafeAreaView className="flex-1 items-center justify-center bg-[#060b28] px-0">
+        <Image
+          source={require("../assets/images/onboarding1.png")}
+          className="w-full h-1/2 mt-10"
+          resizeMode="contain"
+        />
+        <View className="items-center mt-8">
+          <Text className="text-white font-bold text-3xl mb-4">
+            Đặt sân nhanh chóng
+          </Text>
+          <Text className="text-gray-300 text-xl text-center mb-10">
+            Thao tác nhanh, gọn trong vài giây
+          </Text>
+        </View>
+        {/* <Text className="text-center text-lg text-gray-400">
+          Lướt sang phải để tiếp tục
+        </Text> */}
+      </SafeAreaView>
 
-            <SafeAreaView className="flex-1 bg-white">
-                {/* Text centered in the flex space */}
-                <View className="flex-1 justify-center items-center">
-                    <Text className="text-center text-3xl font-bold text-indigo-600 mb-4">👋 Hi Mom, onboarding screen 2!</Text>
-                </View>
-                
-                {/* Button at the bottom with some padding */}
-                <TouchableOpacity onPress={() => router.replace('/(tabs)/home')} className="w-[90%] bg-blue-500 rounded-lg py-4 items-center self-center mb-8">
-                    <Text className="text-lg text-white font-bold">Start</Text>
-                </TouchableOpacity>
-            </SafeAreaView>
-        </Swiper>
-    )
-}
+      {/* Slide 2 */}
+      <SafeAreaView className="flex-1 items-center justify-center bg-[#060b28] px-0">
+        <Image
+          source={require("../assets/images/onboarding2.png")}
+          className="w-full h-1/2 mt-10"
+          resizeMode="contain"
+        />
+        <View className="items-center mt-8">
+          <Text className="text-white font-bold text-3xl mb-4">
+            Tìm đối thủ linh hoạt
+          </Text>
+          <Text className="text-gray-300 text-xl text-center mb-10">
+            Ghép trận linh hoạt theo trình độ
+          </Text>
+        </View>
+        {/* <Text className="text-center text-lg text-gray-400">
+          Lướt sang phải để tiếp tục
+        </Text> */}
+      </SafeAreaView>
 
-export default onboarding
+      {/* Slide 2 */}
+      <SafeAreaView className="flex-1 items-center justify-center bg-[#060b28] px-0">
+        <Image
+          source={require("../assets/images/onboarding3.png")}
+          className="w-full h-1/2 mt-28 mb-"
+          resizeMode="contain"
+        />
+        <View className="items-center">
+          <Text className="text-white font-bold text-3xl mb-4">
+            Dịch vụ đa dạng
+          </Text>
+          <Text className="text-gray-300 text-xl text-center mb-5">
+            Mang lại trải nghiệm đá bóng trọn vẹn!
+          </Text>
+        </View>
+        {/* <Text className="text-center text-lg text-gray-400">
+          Swipe to continue
+        </Text> */}
+
+        <TouchableOpacity
+          onPress={() => router.replace("/(tabs)/home")}
+          className="w-[50%] bg-blue-500 rounded-lg items-center self-center"
+        >
+          <Text className="text-lg text-white font-bold py-3">Bắt đầu</Text>
+        </TouchableOpacity>
+      </SafeAreaView>
+    </Swiper>
+  );
+};
+
+export default Onboarding;
