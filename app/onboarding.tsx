@@ -81,6 +81,12 @@ const Onboarding = () => {
         >
           <Text className="text-lg text-white font-bold py-3">Bắt đầu</Text>
         </TouchableOpacity>
+        <TouchableOpacity
+          onPress={() => router.replace("/(owners)/home")}
+          className="w-[50%] bg-blue-700 rounded-lg items-center self-center"
+        >
+          <Text className="text-lg text-white font-bold py-3">Chủ sân</Text>
+        </TouchableOpacity>
       </SafeAreaView>
     </Swiper>
   );
