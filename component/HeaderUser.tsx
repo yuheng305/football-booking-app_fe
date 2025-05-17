@@ -27,7 +27,7 @@ const HeaderUser: React.FC<HeaderProps> = ({ location, time }) => {
         paddingTop: Platform.OS === "android" ? StatusBar.currentHeight : 0,
       }}
     >
-      <View className="h-24 w-full bg-black flex-row justify-end items-center px-4">
+      <View className="h-20 w-full bg-black flex-row justify-end items-center px-4">
         <View className="items-start flex-1">
           <Text className="text-blue-300 text-3xl font-bold">{location}</Text>
           <Text className="text-blue-300 text-2xl">{time}</Text>

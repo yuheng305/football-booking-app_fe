@@ -11,11 +11,10 @@ import {
 import { router } from "expo-router";
 
 type HeaderProps = {
-  location?: string;
-  time?: string;
+  title?: string;
 };
 
-const HeaderUser: React.FC<HeaderProps> = ({ location, time }) => {
+const HeaderOne: React.FC<HeaderProps> = ({ title }) => {
   const handleLogoPress = () => {
     router.push("/(tabs)/home");
   };
@@ -27,10 +26,9 @@ const HeaderUser: React.FC<HeaderProps> = ({ location, time }) => {
         paddingTop: Platform.OS === "android" ? StatusBar.currentHeight : 0,
       }}
     >
-      <View className="h-24 w-full bg-black flex-row justify-end items-center px-4">
-        <View className="items-start flex-1">
-          <Text className="text-blue-300 text-3xl font-bold">{location}</Text>
-          <Text className="text-blue-300 text-2xl">{time}</Text>
+      <View className="h-20 w-full bg-black flex-row justify-end items-center px-4">
+        <View className="justify-center flex-1">
+          <Text className="text-blue-300 text-3xl font-bold">{title}</Text>
         </View>
         <TouchableOpacity onPress={handleLogoPress}>
           <Image
@@ -44,4 +42,4 @@ const HeaderUser: React.FC<HeaderProps> = ({ location, time }) => {
   );
 };
 
-export default HeaderUser;
+export default HeaderOne;
