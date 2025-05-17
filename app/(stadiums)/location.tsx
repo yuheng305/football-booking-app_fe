@@ -10,6 +10,7 @@ import RNPickerSelect from "react-native-picker-select";
 import { useState } from "react";
 import { router } from "expo-router";
 import Header from "@/component/Header";
+import FooterStadium from "@/component/FooterStadium";
 
 const stadiumData = [
   { id: 1, name: "Cụm sân A", location: "Thủ Đức" },
@@ -106,6 +107,9 @@ const Stadium = () => {
           ))}
         </ScrollView>
       )}
+      {/* <View className="pb-14">
+        <FooterStadium />
+      </View> */}
     </SafeAreaView>
   );
 };

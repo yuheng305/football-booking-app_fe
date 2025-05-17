@@ -11,9 +11,8 @@ import { router } from "expo-router";
 import HeaderUser from "@/component/HeaderUser";
 import FooterUser from "@/component/FooterUser";
 import { useState } from "react";
-import { Ionicons } from "@expo/vector-icons";
 
-const Payment = () => {
+const HistoryDetail = () => {
   const userData = {
     id: 1,
     name: "Nguyễn Văn A",
@@ -76,7 +75,7 @@ const Payment = () => {
     <SafeAreaView className="flex-1 bg-white">
       <View className="flex-1">
         <HeaderUser location="Tài khoản" time={userData.name} />
-        <View className="px-6 space-y-4">
+        <View className="px-6 mt-6 space-y-4">
           {/* Mã đặt sân */}
           <View className="border-b border-gray-300 pb-2 pt-20">
             <Text className="text-xl font-semibold text-gray-800">
@@ -144,71 +143,50 @@ const Payment = () => {
             </Text>
           </View>
 
+          {/* Nút QR Code */}
           <TouchableOpacity
             onPress={() => setShowQRModal(true)}
-            className="border border-black mt-4 px-4 py-3 rounded-lg"
+            className="border border-gray-300 rounded-full py-3 mt-4"
           >
-            <View className="flex-row items-center">
-              <Image
-                source={require("../../assets/images/momo.png")}
-                className="w-12 h-12 mr-3"
-                resizeMode="contain"
-              />
-              <Text className="text-xl font-bold text-black">
-                Thanh toán qua Momo
-              </Text>
-            </View>
+            <Text className="text-center text-gray-800 font-semibold">
+              QR CODE
+            </Text>
           </TouchableOpacity>
 
+          {/* Nút Quay lại */}
           <TouchableOpacity
-            onPress={() => setShowQRModal(true)}
-            className="border border-black mt-4 px-4 py-3 rounded-lg"
+            onPress={() => router.back()}
+            className="bg-red-500 p-3 rounded-full mt-4"
           >
-            <View className="flex-row items-center">
-              <Image
-                source={require("../../assets/images/card.jpg")}
-                className="w-12 h-12 mr-3"
-                resizeMode="contain"
-              />
-              <Text className="text-xl font-bold text-black space-x-40">
-                Thanh toán qua Thẻ nội địa
-              </Text>
-            </View>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            onPress={() => setShowQRModal(true)}
-            className="border border-black mt-4 px-4 py-3 rounded-lg"
-          >
-            <View className="flex-row items-center">
-              <Image
-                source={require("../../assets/images/Mastercard-logo.png")}
-                className="w-12 h-12 mr-3"
-                resizeMode="contain"
-              />
-              <Text className="text-xl font-bold text-black">
-                Thanh toán qua Thẻ quốc tế
-              </Text>
-            </View>
+            <Text className="text-center text-white font-semibold text-lg">
+              Quay lại
+            </Text>
           </TouchableOpacity>
         </View>
       </View>
+      {/* Đảm bảo FooterUser không bị che */}
+      <View className="pb-14">
+        <FooterUser />
+      </View>
+      {/* Modal hiển thị QR Code */}
       <Modal
-        visible={showQRModal}
+        animationType="slide"
         transparent={true}
-        animationType="fade"
+        visible={showQRModal}
         onRequestClose={() => setShowQRModal(false)}
       >
         <View className="flex-1 justify-center items-center bg-black/50">
-          <View className="bg-white p-6 rounded-xl shadow-lg items-center">
-            <Text className="text-2xl font-bold text-green-600 mb-2">
-              Thanh toán thành công!
-            </Text>
+          <View className="bg-white p-6 rounded-lg">
+            <Image
+              source={require("../../assets/images/qr.png")}
+              className="w-64 h-64"
+              resizeMode="contain"
+            />
             <TouchableOpacity
               onPress={() => setShowQRModal(false)}
-              className="mt-4 bg-green-500 px-6 py-2 rounded-full"
+              className="bg-red-500 p-3 rounded mt-4"
             >
-              <Text className="text-white font-semibold text-lg">Đóng</Text>
+              <Text className="text-center text-white font-semibold">Đóng</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -217,4 +195,4 @@ const Payment = () => {
   );
 };
 
-export default Payment;
+export default HistoryDetail;

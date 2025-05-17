@@ -9,6 +9,7 @@ import {
 } from "react-native";
 import { router } from "expo-router";
 import Header from "@/component/Header";
+import FooterStadium from "@/component/FooterStadium";
 
 const availableTime = [
   { id: 1, time: "08:00" },
@@ -121,6 +122,9 @@ const LocationTime = () => {
           </View>
         )}
       </ScrollView>
+      {/* <View className="pb-14">
+        <FooterStadium />
+      </View> */}
     </SafeAreaView>
   );
 };
