@@ -31,7 +31,7 @@ export default function ServiceManagement() {
 
         <TouchableOpacity
           className="w-10 h-10 bg-white border border-gray-200 rounded-xl items-center justify-center"
-          onPress={() => router.push("/(owners)/bookingManagement")}
+          onPress={() => router.push("/(owners)/(booking)/bookingManagement")}
         >
           <Ionicons name="arrow-back" size={20} color="#1E232C" />
         </TouchableOpacity>
@@ -41,7 +41,7 @@ export default function ServiceManagement() {
             Quản lý dịch vụ
           </Text>
           <TouchableOpacity
-            onPress={() => router.push("/(owners)/bookingManagement")}
+            onPress={() => router.push("/(owners)/(booking)/bookingManagement")}
           >
             <Text className="text-[#114F99] text-base font-normal">
               Quản lý đặt sân
@@ -81,7 +81,7 @@ export default function ServiceManagement() {
               className="p-2"
               onPress={() =>
                 router.push({
-                  pathname: "/(services)/editServicePrice",
+                  pathname: "/(owners)/(service)/editServicePrice",
                   params: { name: service.name, price: service.price.toString() },
                 })
               }

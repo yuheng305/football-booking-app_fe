@@ -30,9 +30,7 @@ export default function BookingManagement() {
       {/* Status bar */}
       <View className="w-full h-11 bg-black" />
 
-      {/* Header section */}
       <View className="flex-row items-center px-4 pt-4">
-        {/* Nút quay lại */}
         <TouchableOpacity
           className="w-10 h-10 bg-white border border-gray-200 rounded-xl items-center justify-center"
           onPress={() => router.back()}
@@ -40,21 +38,18 @@ export default function BookingManagement() {
           <Ionicons name="arrow-back" size={20} color="#1E232C" />
         </TouchableOpacity>
 
-        {/* Tiêu đề */}
         <Text className="flex-1 font-bold text-[26px] text-[#1E232C] text-center">
           Quản lý đặt sân
         </Text>
 
-        {/* Quản lý dịch vụ */}
         <TouchableOpacity
           className="ml-2"
-          onPress={() => router.push("/(services)/serviceManagement")}
+          onPress={() => router.push("/(owners)/(service)/serviceManagement")}
         >
           <Text className="text-[#114F99] text-base font-medium">Quản lý dịch vụ</Text>
         </TouchableOpacity>
       </View>
 
-      {/* Nút lọc trạng thái */}
       <View className="flex-row justify-center gap-4 px-4 mt-6">
         <TouchableOpacity
           className={`${
@@ -99,8 +94,6 @@ export default function BookingManagement() {
           </Text>
         </TouchableOpacity>
       </View>
-
-      {/* Danh sách đặt sân */}
       <ScrollView className="flex-1 px-4 mt-6">
         {filteredBookings.map((booking) => (
           <View
