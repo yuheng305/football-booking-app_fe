@@ -28,7 +28,6 @@ export default function ServiceManagement() {
 
       {/* Header section */}
       <View className="flex-row items-center px-4 pt-4">
-
         <TouchableOpacity
           className="w-10 h-10 bg-white border border-gray-200 rounded-xl items-center justify-center"
           onPress={() => router.push("/(owners)/(booking)/bookingManagement")}
@@ -54,13 +53,12 @@ export default function ServiceManagement() {
 
       <TouchableOpacity
         className="bg-[#0B8FAC] py-2 rounded px-4 mx-4 mt-4 items-center"
-        onPress={() => console.log("Thêm dịch vụ pressed")}
+        onPress={() => router.push("/(owners)/(service)/addService")}
       >
         <Text className="text-white font-semibold text-xs">Thêm dịch vụ</Text>
       </TouchableOpacity>
 
       <ScrollView className="flex-1 px-4 mt-4">
-
         <View className="flex-row bg-gray-200 border border-gray-400 rounded-t">
           <Text className="flex-1 p-2 font-bold text-sm text-black">Dịch vụ</Text>
           <Text className="flex-1 p-2 font-bold text-sm text-black text-right">Giá (VND)</Text>
