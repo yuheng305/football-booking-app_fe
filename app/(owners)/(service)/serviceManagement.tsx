@@ -21,12 +21,12 @@ const services = [
 export default function ServiceManagement() {
   const router = useRouter();
 
+  const nonDeletableServices = ["Thuê sân (1 giờ)", "Thuê trọng tài", "Thuê thủ môn"];
+
   return (
     <SafeAreaView className="flex-1 bg-white">
-      {/* Status bar */}
       <View className="w-full h-11 bg-black" />
 
-      {/* Header section */}
       <View className="flex-row items-center px-4 pt-4">
         <TouchableOpacity
           className="w-10 h-10 bg-white border border-gray-200 rounded-xl items-center justify-center"
@@ -86,9 +86,11 @@ export default function ServiceManagement() {
             >
               <Ionicons name="pencil-outline" size={20} color="#0B8FAC" />
             </TouchableOpacity>
-            <TouchableOpacity className="p-2">
-              <Ionicons name="trash-outline" size={20} color="#FF0000" />
-            </TouchableOpacity>
+            {!nonDeletableServices.includes(service.name) && (
+              <TouchableOpacity className="p-2">
+                <Ionicons name="trash-outline" size={20} color="#FF0000" />
+              </TouchableOpacity>
+            )}
           </View>
         ))}
       </ScrollView>
