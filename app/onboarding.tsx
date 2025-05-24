@@ -31,9 +31,6 @@ const Onboarding = () => {
             Thao tác nhanh, gọn trong vài giây
           </Text>
         </View>
-        {/* <Text className="text-center text-lg text-gray-400">
-          Lướt sang phải để tiếp tục
-        </Text> */}
       </SafeAreaView>
 
       {/* Slide 2 */}
@@ -51,16 +48,13 @@ const Onboarding = () => {
             Ghép trận linh hoạt theo trình độ
           </Text>
         </View>
-        {/* <Text className="text-center text-lg text-gray-400">
-          Lướt sang phải để tiếp tục
-        </Text> */}
       </SafeAreaView>
 
-      {/* Slide 2 */}
+      {/* Slide 3 */}
       <SafeAreaView className="flex-1 items-center justify-center bg-[#060b28] px-0">
         <Image
           source={require("../assets/images/onboarding3.png")}
-          className="w-full h-1/2 mt-28 mb-"
+          className="w-full h-1/2 mt-28"
           resizeMode="contain"
         />
         <View className="items-center">
@@ -71,22 +65,20 @@ const Onboarding = () => {
             Mang lại trải nghiệm đá bóng trọn vẹn!
           </Text>
         </View>
-        {/* <Text className="text-center text-lg text-gray-400">
-          Swipe to continue
-        </Text> */}
 
         <TouchableOpacity
-          onPress={() => router.replace("/(tabs)/home")}
-          className="w-[50%] bg-blue-500 rounded-lg items-center self-center"
+          onPress={() => router.replace("/login")}
+          className="w-[50%] bg-blue-500 rounded-lg items-center self-center mt-6"
         >
           <Text className="text-lg text-white font-bold py-3">Bắt đầu</Text>
         </TouchableOpacity>
-        <TouchableOpacity
+        {/* Loại bỏ hoặc giữ tùy chọn "Chủ sân" nếu cần */}
+        {/* <TouchableOpacity
           onPress={() => router.replace("/(owners)/home")}
-          className="w-[50%] bg-blue-700 rounded-lg items-center self-center"
+          className="w-[50%] bg-blue-700 rounded-lg items-center self-center mt-2"
         >
           <Text className="text-lg text-white font-bold py-3">Chủ sân</Text>
-        </TouchableOpacity>
+        </TouchableOpacity> */}
       </SafeAreaView>
     </Swiper>
   );
