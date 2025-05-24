@@ -2,6 +2,15 @@ import { Tabs } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 
 export default function OwnerLayout() {
+  const hiddenScreens = [
+    "(service)/addService",
+    "(service)/editServicePrice",
+    "(service)/serviceManagement",
+    "(stadium)/addField",
+    "(stadium)/editField",
+
+  ];
+
   return (
     <Tabs
       screenOptions={({ route }) => ({
@@ -9,14 +18,21 @@ export default function OwnerLayout() {
         tabBarIcon: ({ focused, color, size }) => {
           let iconName: any;
 
-          if (route.name === "stadiumManagement") {
-            iconName = focused ? "football" : "football-outline";
-          } else if (route.name === "account") {
-            iconName = focused ? "person" : "person-outline";
-          } else if (route.name === "bookingManagement" || route.name === "serviceManagement") {
-            iconName = focused ? "calendar" : "calendar-outline";
-          } else if (route.name === "home") {
-            iconName = focused ? "home" : "home-outline";
+          switch (route.name) {
+            case "home":
+              iconName = focused ? "home" : "home-outline";
+              break;
+            case "(stadium)/stadiumManagement":
+              iconName = focused ? "football" : "football-outline";
+              break;
+            case "(booking)/bookingManagement":
+              iconName = focused ? "calendar" : "calendar-outline";
+              break;
+            case "(account)/account":
+              iconName = focused ? "person" : "person-outline";
+              break;
+            default:
+              iconName = "ellipse-outline";
           }
 
           return <Ionicons name={iconName} size={size} color={color} />;
@@ -25,10 +41,14 @@ export default function OwnerLayout() {
         tabBarInactiveTintColor: "gray",
       })}
     >
-      <Tabs.Screen name="stadiumManagement" options={{ title: "Danh sách sân" }} />
-      <Tabs.Screen name="account" options={{ title: "Tài khoản" }} />
-      <Tabs.Screen name="bookingManagement" options={{ title: "Quản lý" }} />
       <Tabs.Screen name="home" options={{ title: "Trang chủ" }} />
+      <Tabs.Screen name="(stadium)/stadiumManagement" options={{ title: "Danh sách sân" }} />
+      <Tabs.Screen name="(booking)/bookingManagement" options={{ title: "Quản lý" }} />
+      <Tabs.Screen name="(account)/account" options={{ title: "Tài khoản" }} />
+
+      {hiddenScreens.map((screenName) => (
+        <Tabs.Screen key={screenName} name={screenName} options={{ href: null }} />
+      ))}
     </Tabs>
   );
 }

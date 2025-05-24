@@ -16,20 +16,18 @@ import {
   
     const handleSave = () => {
       console.log(`Lưu giá mới cho ${name}: ${newPrice}`);
-      router.push("/(services)/serviceManagement");
+      router.push("/(owners)/(service)/serviceManagement");
     };
   
     return (
       <SafeAreaView className="flex-1 bg-white">
-        {/* Status bar */}
         <View className="w-full h-11 bg-black" />
   
-        {/* Header section */}
         <View className="flex-row items-center px-4 pt-4">
 
           <TouchableOpacity
             className="w-10 h-10 bg-white border border-gray-200 rounded-xl items-center justify-center"
-            onPress={() => router.push("/(services)/serviceManagement")}
+            onPress={() => router.push("/(owners)/(service)/serviceManagement")}
           >
             <Ionicons name="arrow-back" size={20} color="#1E232C" />
           </TouchableOpacity>
