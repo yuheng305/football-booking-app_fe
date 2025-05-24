@@ -39,7 +39,7 @@ export default function StadiumManagement() {
 
         <TouchableOpacity
           className="bg-[#0B8FAC] py-2 px-4 rounded-lg items-center"
-          onPress={() => console.log("Thêm sân pressed")}
+          onPress={() => router.push("/(owners)/(stadium)/addField")}
         >
           <Text className="text-white text-xs font-semibold">Thêm sân</Text>
         </TouchableOpacity>
@@ -86,7 +86,7 @@ export default function StadiumManagement() {
             <View className="flex-row items-center gap-2">
               <TouchableOpacity
                 className="bg-white border-2 border-gray-500 rounded-full w-8 h-8 items-center justify-center"
-                onPress={() => console.log(`Xem thông tin ${stadium.name}`)}
+                onPress={() => router.push({ pathname: "/(owners)/(stadium)/editField", params: { stadiumName: stadium.name } })}
               >
                 <Ionicons name="time-outline" size={20} color="#000000" />
               </TouchableOpacity>

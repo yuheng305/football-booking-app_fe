@@ -6,6 +6,9 @@ export default function OwnerLayout() {
     "(service)/addService",
     "(service)/editServicePrice",
     "(service)/serviceManagement",
+    "(stadium)/addField",
+    "(stadium)/editField",
+
   ];
 
   return (
