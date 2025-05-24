@@ -27,7 +27,6 @@ export default function BookingManagement() {
 
   return (
     <SafeAreaView className="flex-1 bg-white">
-      {/* Status bar */}
       <View className="w-full h-11 bg-black" />
 
       <View className="flex-row items-center px-4 pt-4">
