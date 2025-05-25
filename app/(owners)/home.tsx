@@ -62,7 +62,7 @@ export default function Home() {
             onPress={() => router.push("/(owners)/(booking)/bookingManagement")}
           >
             <Image
-              source={require("../../assets/images/book.png")}
+              source={require("../../assets/images/bookinghistory.png")}
               className="w-full h-full"
               resizeMode="contain"
             />
@@ -77,7 +77,7 @@ export default function Home() {
             onPress={() => router.push("/(owners)/(service)/serviceManagement")}
           >
             <Image
-              source={require("../../assets/images/bookinghistory.png")}
+              source={require("../../assets/images/service.png")}
               className="w-full h-full"
               resizeMode="contain"
             />

@@ -14,7 +14,7 @@ import { router } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const Login = () => {
-  const [emailOrUsername, setEmailOrUsername] = useState("huydt04@gmail.com"); // Thay đổi tên state
+  const [emailOrUsername, setEmailOrUsername] = useState(""); // Thay đổi tên state
   const [password, setPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -46,7 +46,15 @@ const Login = () => {
       if (response.ok && data.token) {
         const token = data.token;
         await AsyncStorage.setItem("authToken", token);
-        router.replace("/(tabs)/home");
+        // Kiểm tra loại tài khoản dựa trên username
+        const isOwner =
+          data.user &&
+          data.user.username &&
+          data.user.username.startsWith("owner");
+        const destination = isOwner ? "/(owners)/home" : "/(tabs)/home";
+
+        console.log("Navigating to:", destination);
+        router.replace(destination);
       } else {
         // Xử lý lỗi chi tiết hơn dựa trên message từ API
         let errorMessage = "Email hoặc mật khẩu không đúng!";
@@ -99,7 +107,7 @@ const Login = () => {
             <TextInput
               value={emailOrUsername}
               onChangeText={setEmailOrUsername}
-              placeholder="Email hoặc Username"
+              placeholder="Email hoặc Tài khoản"
               placeholderTextColor="gray"
               className="flex-1 text-white"
               keyboardType="default" // Thay email-address bằng default để hỗ trợ cả username

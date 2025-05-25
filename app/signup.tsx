@@ -5,25 +5,85 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
+  Alert,
+  ActivityIndicator,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 
 const Signup = () => {
   const [name, setName] = useState("");
+  const [username, setUsername] = useState(""); // Thêm state cho username
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false); // Thêm state cho loading
 
-  const handleSignup = () => {
-    if (password !== confirmPassword) {
-      alert("Mật khẩu và xác nhận mật khẩu không khớp!");
+  const handleSignup = async () => {
+    // Kiểm tra các trường bắt buộc
+    if (
+      !name ||
+      !username ||
+      !phone ||
+      !email ||
+      !password ||
+      !confirmPassword
+    ) {
+      Alert.alert("Lỗi", "Vui lòng điền đầy đủ tất cả các trường!");
       return;
     }
-    // Logic đăng ký (gọi API hoặc xử lý dữ liệu)
-    router.replace("/login"); // Sau khi đăng ký thành công, điều hướng về login
+
+    if (password !== confirmPassword) {
+      Alert.alert("Lỗi", "Mật khẩu và xác nhận mật khẩu không khớp!");
+      return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      const response = await fetch(
+        "https://gopitch.onrender.com/auth/register",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            name: name.trim(),
+            username: username.trim(),
+            phone: phone.trim(),
+            email: email.trim(),
+            password: password,
+          }),
+        }
+      );
+
+      const data = await response.json();
+
+      console.log("Response status:", response.status);
+      console.log("Response data:", data);
+
+      if (response.ok) {
+        Alert.alert("Thành công", "Đăng ký thành công! Vui lòng đăng nhập.");
+        router.replace("/login"); // Điều hướng về màn hình đăng nhập
+      } else {
+        let errorMessage = "Đăng ký thất bại!";
+        if (data.message) {
+          errorMessage = data.message;
+        }
+        Alert.alert("Lỗi", errorMessage);
+      }
+    } catch (error) {
+      Alert.alert(
+        "Lỗi",
+        "Không thể kết nối đến server. Vui lòng kiểm tra kết nối internet!"
+      );
+      console.error("Signup error:", error);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -55,6 +115,26 @@ const Signup = () => {
               placeholderTextColor="gray"
               className="flex-1 text-white"
               autoCapitalize="words"
+            />
+          </View>
+        </View>
+
+        {/* Trường Username */}
+        <View className="mb-6">
+          <View className="flex-row items-center border-b border-gray-500 py-2">
+            <Ionicons
+              name="person-add-outline"
+              size={24}
+              color="#3b82f6"
+              className="mr-3"
+            />
+            <TextInput
+              value={username}
+              onChangeText={setUsername}
+              placeholder="Username"
+              placeholderTextColor="gray"
+              className="flex-1 text-white"
+              autoCapitalize="none"
             />
           </View>
         </View>
@@ -160,10 +240,15 @@ const Signup = () => {
         <TouchableOpacity
           onPress={handleSignup}
           className="bg-blue-500 p-4 rounded-lg"
+          disabled={isLoading}
         >
-          <Text className="text-center text-white font-semibold text-lg">
-            Đăng ký
-          </Text>
+          {isLoading ? (
+            <ActivityIndicator size="small" color="#ffffff" />
+          ) : (
+            <Text className="text-center text-white font-semibold text-lg">
+              Đăng ký
+            </Text>
+          )}
         </TouchableOpacity>
       </View>
 
