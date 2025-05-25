@@ -4,6 +4,8 @@ import {
   TouchableOpacity,
   SafeAreaView,
   ScrollView,
+  Modal,
+  StyleSheet,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -18,8 +20,42 @@ const stadiums = [
 export default function StadiumManagement() {
   const router = useRouter();
   const [filter, setFilter] = useState("Đang hoạt động");
+  const [maintenanceModalVisible, setMaintenanceModalVisible] = useState(false);
+  const [resumeModalVisible, setResumeModalVisible] = useState(false);
+  const [deleteModalVisible, setDeleteModalVisible] = useState(false);
+  const [selectedStadiumName, setSelectedStadiumName] = useState("");
 
   const filteredStadiums = stadiums.filter((stadium) => stadium.status === filter);
+
+  const handleMaintenance = (stadiumName: string) => {
+    setSelectedStadiumName(stadiumName);
+    setMaintenanceModalVisible(true);
+  };
+
+  const handleResume = (stadiumName: string) => {
+    setSelectedStadiumName(stadiumName);
+    setResumeModalVisible(true);
+  };
+
+  const handleDelete = (stadiumName: string) => {
+    setSelectedStadiumName(stadiumName);
+    setDeleteModalVisible(true);
+  };
+
+  const closeMaintenanceModal = () => {
+    setMaintenanceModalVisible(false);
+    setSelectedStadiumName("");
+  };
+
+  const closeResumeModal = () => {
+    setResumeModalVisible(false);
+    setSelectedStadiumName("");
+  };
+
+  const closeDeleteModal = () => {
+    setDeleteModalVisible(false);
+    setSelectedStadiumName("");
+  };
 
   return (
     <SafeAreaView className="flex-1 bg-white">
@@ -93,21 +129,21 @@ export default function StadiumManagement() {
               {stadium.status === "Đang hoạt động" ? (
                 <TouchableOpacity
                   className="bg-white border-2 border-gray-500 rounded-full px-4 py-2"
-                  onPress={() => console.log(`Bảo trì ${stadium.name}`)}
+                  onPress={() => handleMaintenance(stadium.name)}
                 >
                   <Text className="text-gray-500 text-base font-medium">Bảo trì</Text>
                 </TouchableOpacity>
               ) : (
                 <TouchableOpacity
                   className="bg-white border-2 border-gray-500 rounded-full px-4 py-2"
-                  onPress={() => console.log(`Hoạt động lại ${stadium.name}`)}
+                  onPress={() => handleResume(stadium.name)}
                 >
                   <Text className="text-gray-500 text-base font-medium">Hoạt động lại</Text>
                 </TouchableOpacity>
               )}
               <TouchableOpacity
                 className="bg-[#C21010] rounded-full px-4 py-2"
-                onPress={() => console.log(`Xóa ${stadium.name}`)}
+                onPress={() => handleDelete(stadium.name)}
               >
                 <Text className="text-white text-base font-medium">Xóa</Text>
               </TouchableOpacity>
@@ -115,6 +151,116 @@ export default function StadiumManagement() {
           </View>
         ))}
       </ScrollView>
+
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={maintenanceModalVisible}
+        onRequestClose={closeMaintenanceModal}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <TouchableOpacity style={styles.closeButton} onPress={closeMaintenanceModal}>
+              <Ionicons name="close" size={18} color="#FFFFFF" />
+            </TouchableOpacity>
+            <View style={styles.checkmarkContainer}>
+              <Ionicons name="checkmark-circle-outline" size={60} color="#119916" />
+            </View>
+            <Text style={styles.successText}>Bảo trì thành công</Text>
+          </View>
+        </View>
+      </Modal>
+
+
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={resumeModalVisible}
+        onRequestClose={closeResumeModal}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <TouchableOpacity style={styles.closeButton} onPress={closeResumeModal}>
+              <Ionicons name="close" size={18} color="#FFFFFF" />
+            </TouchableOpacity>
+            <View style={styles.checkmarkContainer}>
+              <Ionicons name="checkmark-circle-outline" size={60} color="#119916" />
+            </View>
+            <Text style={styles.successText}>Hoạt động lại thành công</Text>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={deleteModalVisible}
+        onRequestClose={closeDeleteModal}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <TouchableOpacity style={styles.closeButton} onPress={closeDeleteModal}>
+              <Ionicons name="close" size={18} color="#FFFFFF" />
+            </TouchableOpacity>
+            <View style={styles.checkmarkContainer}>
+              <Ionicons name="checkmark-circle-outline" size={60} color="#119916" />
+            </View>
+            <Text style={[styles.successText, { left: 80, width: 225 }]}>Xóa thành công</Text>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  modalContainer: {
+    width: 384,
+    height: 252,
+    backgroundColor: "#E3FFE2",
+    borderRadius: 20,
+    shadowColor: "#000",
+    shadowOffset: { width: 5, height: 5 },
+    shadowOpacity: 0.25,
+    shadowRadius: 10,
+    elevation: 5,
+  },
+  closeButton: {
+    position: "absolute",
+    top: 18,
+    left: 332,
+    width: 38,
+    height: 38,
+    backgroundColor: "#808080",
+    borderRadius: 30,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  checkmarkContainer: {
+    position: "absolute",
+    top: 66,
+    left: 162,
+    width: 60,
+    height: 60,
+  },
+  successText: {
+    position: "absolute",
+    top: 153,
+    left: 60, 
+    width: 264, 
+    height: 28,
+    fontFamily: "Exo",
+    fontWeight: "700",
+    fontSize: 24,
+    lineHeight: 28,
+    textAlign: "center",
+    letterSpacing: -1,
+    color: "#119916",
+  },
+});
