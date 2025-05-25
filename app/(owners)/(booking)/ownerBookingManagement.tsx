@@ -9,7 +9,15 @@ import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useState } from "react";
 
-const bookings = [
+interface Booking {
+  id: string;
+  field: string;
+  time: string;
+  date: string;
+  status: string;
+}
+
+const bookings: Booking[] = [
   { id: "#2212700", field: "Sân 1", time: "17:00", date: "25/03/2025", status: "Sắp tới" },
   { id: "#234567", field: "Sân 1", time: "15:00", date: "25/03/2025", status: "Hoàn thành" },
   { id: "#0123456", field: "Sân 2", time: "17:00", date: "24/03/2025", status: "Chờ duyệt" },
@@ -110,12 +118,27 @@ export default function BookingManagement() {
               <Text className="text-base text-black">Trạng thái: {booking.status}</Text>
             </View>
             <View className="flex-row items-center gap-2">
-              <TouchableOpacity
-                className="bg-[#0B8FAC] rounded-full px-4 py-2"
-                onPress={() => console.log(`Xem chi tiết ${booking.id}`)}
-              >
-                <Text className="text-white text-base font-medium">Xem</Text>
-              </TouchableOpacity>
+              {booking.status === "Chờ duyệt" ? (
+                <TouchableOpacity
+                  className="bg-[#0B8FAC] rounded-full px-4 py-2"
+                  onPress={() => router.push({
+                    pathname: "/bookingDetail",
+                    params: { id: booking.id },
+                  })}
+                >
+                  <Text className="text-white text-base font-medium">Chi tiết</Text>
+                </TouchableOpacity>
+              ) : (
+                <TouchableOpacity
+                  className="bg-[#0B8FAC] rounded-full px-4 py-2"
+                  onPress={() => router.push({
+                    pathname: "/bookingDetail",
+                    params: { id: booking.id },
+                  })}
+                >
+                  <Text className="text-white text-base font-medium">Xem</Text>
+                </TouchableOpacity>
+              )}
             </View>
           </View>
         ))}

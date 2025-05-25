@@ -8,6 +8,7 @@ export default function OwnerLayout() {
     "(service)/serviceManagement",
     "(stadium)/addField",
     "(stadium)/editField",
+    "(booking)/bookingDetail",
 
   ];
 
@@ -25,7 +26,7 @@ export default function OwnerLayout() {
             case "(stadium)/stadiumManagement":
               iconName = focused ? "football" : "football-outline";
               break;
-            case "(booking)/bookingManagement":
+            case "(booking)/ownerBookingManagement":
               iconName = focused ? "calendar" : "calendar-outline";
               break;
             case "(account)/account":
@@ -43,7 +44,7 @@ export default function OwnerLayout() {
     >
       <Tabs.Screen name="home" options={{ title: "Trang chủ" }} />
       <Tabs.Screen name="(stadium)/stadiumManagement" options={{ title: "Danh sách sân" }} />
-      <Tabs.Screen name="(booking)/bookingManagement" options={{ title: "Quản lý" }} />
+      <Tabs.Screen name="(booking)/ownerBookingManagement" options={{ title: "Quản lý" }} />
       <Tabs.Screen name="(account)/account" options={{ title: "Tài khoản" }} />
 
       {hiddenScreens.map((screenName) => (

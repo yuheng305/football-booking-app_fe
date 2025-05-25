@@ -59,7 +59,7 @@ export default function Home() {
           {/* Card: Quản lý đặt sân */}
           <TouchableOpacity
             className="w-40 h-40 bg-white rounded-2xl items-center justify-center p-4 border-2 border-[#3b82f6] mr-4"
-            onPress={() => router.push("/(owners)/(booking)/bookingManagement")}
+            onPress={() => router.push("/(owners)/(booking)/ownerBookingManagement")}
           >
             <Image
               source={require("../../assets/images/bookinghistory.png")}

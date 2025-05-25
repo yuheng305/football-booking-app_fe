@@ -6,6 +6,7 @@ import {
   TextInput,
   ScrollView,
   Modal,
+  StyleSheet,
 } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -27,8 +28,9 @@ export default function editField() {
   const [isStartDatePickerVisible, setIsStartDatePickerVisible] = useState(false);
   const [isEndDatePickerVisible, setIsEndDatePickerVisible] = useState(false);
   const [selectedDay, setSelectedDay] = useState(20);
-  const [selectedMonth, setSelectedMonth] = useState(4); // 1-12
+  const [selectedMonth, setSelectedMonth] = useState(4); 
   const [selectedYear, setSelectedYear] = useState(2025);
+  const [successModalVisible, setSuccessModalVisible] = useState(false); 
 
   const months = [
     "Jan",
@@ -85,7 +87,12 @@ export default function editField() {
     console.log(
       `Lưu thông tin thời gian cho ${stadiumName}: Từ ${startDate} đến ${endDate}, Mở ${openHour}:${openMinute} ${openPeriod} - Đóng ${closeHour}:${closeMinute} ${closePeriod}`
     );
-    router.push("/stadium");
+    setSuccessModalVisible(true); 
+  };
+
+  const closeSuccessModal = () => {
+    setSuccessModalVisible(false);
+    router.push("/stadiumManagement"); 
   };
 
   const getDaysInMonth = (month: number, year: number) => {
@@ -102,9 +109,7 @@ export default function editField() {
     const days = [];
 
     for (let i = 0; i < firstDay; i++) {
-      days.push(
-        <View key={`empty-${i}`} className="w-[30px] h-[30px]" />
-      );
+      days.push(<View key={`empty-${i}`} className="w-[30px] h-[30px]" />);
     }
 
     for (let day = 1; day <= daysInMonth; day++) {
@@ -135,11 +140,10 @@ export default function editField() {
   return (
     <SafeAreaView className="flex-1 bg-white">
       <View className="w-full h-11 bg-black" />
-
       <View className="flex-row items-center px-4 pt-4">
         <TouchableOpacity
           className="w-10 h-10 bg-white border border-gray-200 rounded-xl items-center justify-center"
-          onPress={() => router.push("/stadium")}
+          onPress={() => router.push("/stadiumManagement")}
         >
           <Ionicons name="arrow-back" size={20} color="#1E232C" />
         </TouchableOpacity>
@@ -460,7 +464,6 @@ export default function editField() {
       >
         <View className="flex-1 justify-center items-center bg-black/50">
           <View className="w-[334px] h-[440px] bg-[#FCFCFC] rounded-[14px] p-5">
-            {/* Top Bar */}
             <View className="flex-row justify-between items-center w-[293px] h-[34px] mb-5">
               <View className="flex-row items-center w-[88px] h-[22px]">
                 <Text
@@ -551,6 +554,77 @@ export default function editField() {
           </View>
         </View>
       </Modal>
+
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={successModalVisible}
+        onRequestClose={closeSuccessModal}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <TouchableOpacity style={styles.closeButton} onPress={closeSuccessModal}>
+              <Ionicons name="close" size={18} color="#FFFFFF" />
+            </TouchableOpacity>
+            <View style={styles.checkmarkContainer}>
+              <Ionicons name="checkmark-circle-outline" size={60} color="#119916" />
+            </View>
+            <Text style={styles.successText}>Điều chỉnh thành công</Text>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  modalContainer: {
+    width: 384,
+    height: 252,
+    backgroundColor: "#E3FFE2",
+    borderRadius: 20,
+    shadowColor: "#000",
+    shadowOffset: { width: 5, height: 5 },
+    shadowOpacity: 0.25,
+    shadowRadius: 10,
+    elevation: 5,
+  },
+  closeButton: {
+    position: "absolute",
+    top: 18,
+    left: 332,
+    width: 38,
+    height: 38,
+    backgroundColor: "#808080",
+    borderRadius: 30,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  checkmarkContainer: {
+    position: "absolute",
+    top: 66,
+    left: 162,
+    width: 60,
+    height: 60,
+  },
+  successText: {
+    position: "absolute",
+    top: 153,
+    left: 60, 
+    width: 264, 
+    height: 28,
+    fontFamily: "Exo",
+    fontWeight: "700",
+    fontSize: 24,
+    lineHeight: 28,
+    textAlign: "center",
+    letterSpacing: -1,
+    color: "#119916",
+  },
+});
