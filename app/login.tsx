@@ -45,7 +45,9 @@ const Login = () => {
 
       if (response.ok && data.token) {
         const token = data.token;
+
         await AsyncStorage.setItem("authToken", token);
+        await AsyncStorage.setItem("userData", JSON.stringify(data.user)); // Lưu thông tin người dùng vào AsyncStorage
         // Kiểm tra loại tài khoản dựa trên username
         const isOwner =
           data.user &&

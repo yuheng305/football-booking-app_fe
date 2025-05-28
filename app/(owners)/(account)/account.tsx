@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   SafeAreaView,
   Text,
@@ -7,7 +7,7 @@ import {
   TouchableOpacity,
   TextInput,
   Alert,
-  ScrollView, // Thêm ScrollView
+  ScrollView,
 } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -16,16 +16,49 @@ import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 
 const Owner = () => {
-  const [name, setName] = useState("Nguyễn Văn A");
-  const [email, setEmail] = useState("huydt04@gmail.com");
-  const [phone, setPhone] = useState("0123456789");
-  const [username, setUsername] = useState("huydt04");
-  const [clustername, setClustername] = useState("Cụm sân A");
-  const [address, setAddress] = useState("123 Đường ABC, Quận 1, TP.HCM");
-
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [username, setUsername] = useState("");
+  const [clustername, setClustername] = useState("");
+  const [address, setAddress] = useState("");
   const [imageUri, setImageUri] = useState(
     require("../../../assets/images/user_placeholder.jpg")
   );
+  const [loading, setLoading] = useState(true);
+  const [ownerId, setOwnerId] = useState("");
+
+  // Lấy dữ liệu người dùng từ AsyncStorage khi component được mount
+  useEffect(() => {
+    const fetchUserData = async () => {
+      try {
+        const userDataString = await AsyncStorage.getItem("userData");
+        console.log("Dữ liệu từ AsyncStorage:", userDataString); // Debug
+        if (userDataString) {
+          const userData = JSON.parse(userDataString);
+          console.log("Dữ liệu sau khi parse:", userData); // Debug
+          setOwnerId(userData._id || "");
+          setName(userData.fullName || "");
+          setEmail(userData.email || "");
+          setPhone(userData.phone || "");
+          setUsername(userData.username || "");
+          setClustername(userData.clusterName || "");
+          setAddress(userData.address || "");
+        } else {
+          console.log("Không tìm thấy userData");
+          Alert.alert("Lỗi", "Không tìm thấy thông tin người dùng!");
+          router.replace("/login");
+        }
+      } catch (error) {
+        console.error("Lỗi lấy dữ liệu:", error);
+        Alert.alert("Lỗi", "Không thể tải thông tin người dùng!");
+      } finally {
+        console.log("Hoàn tất lấy dữ liệu"); // Debug
+        setLoading(false);
+      }
+    };
+    fetchUserData();
+  }, []);
 
   const pickImage = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -40,8 +73,60 @@ const Owner = () => {
     }
   };
 
-  const handleUpdate = () => {
-    Alert.alert("Thông báo", "Cập nhật tài khoản thành công!");
+  const handleUpdate = async () => {
+    if (!ownerId) {
+      Alert.alert("Lỗi", "Không tìm thấy thông tin người dùng!");
+      return;
+    }
+
+    try {
+      const token = await AsyncStorage.getItem("authToken");
+      console.log("Token:", token); // Debug
+      if (!token) {
+        Alert.alert("Lỗi", "Vui lòng đăng nhập lại!");
+        return;
+      }
+
+      const userData = {
+        fullName: name,
+        username,
+        phone,
+        email,
+        clusterName: clustername, // Đổi thành clusterName để khớp với API
+        address,
+      };
+
+      console.log("Dữ liệu gửi API:", userData); // Debug
+      const response = await fetch(
+        `https://gopitch.onrender.com/owners/${ownerId}`, // Sửa template literal
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify(userData),
+        }
+      );
+
+      const data = await response.json();
+      console.log("API response:", data); // Debug
+      if (response.ok) {
+        const updatedUserData = {
+          ...data,
+          _id: ownerId,
+          imageUri: imageUri?.uri || null, // Giữ imageUri cục bộ
+        };
+        await AsyncStorage.setItem("userData", JSON.stringify(updatedUserData));
+        console.log("Dữ liệu đã lưu lại:", updatedUserData); // Debug
+        Alert.alert("Thành công", "Cập nhật tài khoản thành công!");
+      } else {
+        Alert.alert("Lỗi", data.message || "Cập nhật tài khoản thất bại!");
+      }
+    } catch (error) {
+      console.error("Lỗi cập nhật:", error);
+      Alert.alert("Lỗi", "Đã có lỗi xảy ra. Vui lòng thử lại!");
+    }
   };
 
   const handleLogout = async () => {
@@ -57,9 +142,10 @@ const Owner = () => {
           text: "Đăng xuất",
           style: "destructive",
           onPress: async () => {
-            // Xóa token khỏi AsyncStorage
+            console.log("Đang đăng xuất..."); // Debug
             await AsyncStorage.removeItem("authToken");
-            // Điều hướng về màn hình đăng nhập
+            await AsyncStorage.removeItem("userData");
+            await AsyncStorage.removeItem("userRole");
             router.replace("/login");
           },
         },
@@ -68,21 +154,30 @@ const Owner = () => {
     );
   };
 
-  const userData = {
-    id: 1,
+  console.log("Render với state:", {
     name,
     email,
     phone,
     username,
     clustername,
     address,
-  };
+  }); // Debug
+
+  if (loading) {
+    return (
+      <SafeAreaView className="flex-1 bg-white">
+        <Text className="text-center text-lg mt-10">Đang tải...</Text>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView className="flex-1 bg-white">
       <HeaderUser location="Tài khoản" time={name} />
-
-      <ScrollView className="flex-1">
+      <ScrollView
+        className="flex-1"
+        contentContainerStyle={{ paddingBottom: 20 }}
+      >
         {/* Avatar người dùng */}
         <View className="items-center mt-6">
           <TouchableOpacity onPress={pickImage} className="relative">
@@ -107,6 +202,7 @@ const Owner = () => {
               className="text-2xl font-bold"
               value={name}
               onChangeText={setName}
+              placeholder="Nhập tên"
             />
           </View>
 
@@ -116,6 +212,7 @@ const Owner = () => {
               className="text-2xl font-bold"
               value={username}
               onChangeText={setUsername}
+              placeholder="Nhập tài khoản"
             />
           </View>
 
@@ -139,6 +236,7 @@ const Owner = () => {
               value={phone}
               onChangeText={setPhone}
               keyboardType="phone-pad"
+              placeholder="Nhập số điện thoại"
             />
           </View>
 
@@ -149,6 +247,7 @@ const Owner = () => {
               value={email}
               onChangeText={setEmail}
               keyboardType="email-address"
+              placeholder="Nhập email"
             />
           </View>
 
@@ -159,6 +258,7 @@ const Owner = () => {
               value={clustername}
               onChangeText={setClustername}
               keyboardType="default"
+              placeholder="Nhập tên cụm sân"
             />
           </View>
 
@@ -169,6 +269,7 @@ const Owner = () => {
               value={address}
               onChangeText={setAddress}
               keyboardType="default"
+              placeholder="Nhập địa chỉ"
             />
           </View>
 
@@ -182,17 +283,32 @@ const Owner = () => {
             </Text>
           </TouchableOpacity>
 
-          {/* Nút lịch sử */}
+          {/* Nút thống kê doanh thu */}
           <TouchableOpacity
             className="bg-blue-400 rounded-xl p-3 mt-4"
-            onPress={() =>
+            onPress={() => {
+              console.log("Truyền userData:", {
+                name,
+                email,
+                phone,
+                username,
+                clustername,
+                address,
+              }); // Debug
               router.push({
                 pathname: "/history",
                 params: {
-                  userData: JSON.stringify(userData),
+                  userData: JSON.stringify({
+                    name,
+                    email,
+                    phone,
+                    username,
+                    clustername,
+                    address,
+                  }),
                 },
-              })
-            }
+              });
+            }}
           >
             <Text className="text-white font-semibold text-xl text-center">
               Thống kê doanh thu

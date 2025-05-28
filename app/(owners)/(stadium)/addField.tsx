@@ -6,26 +6,81 @@ import {
   TextInput,
   Modal,
   StyleSheet,
+  Alert,
+  ActivityIndicator,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useState } from "react";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 export default function AddField() {
   const router = useRouter();
   const [fieldName, setFieldName] = useState("");
   const [note, setNote] = useState("");
   const [successModalVisible, setSuccessModalVisible] = useState(false);
+  const [loading, setLoading] = useState(false);
 
-  const handleSave = () => {
-    console.log(`Thêm sân mới: ${fieldName}, Ghi chú: ${note}`);
-    setSuccessModalVisible(true);
+  const handleSave = async () => {
+    if (!fieldName) {
+      Alert.alert("Lỗi", "Vui lòng điền tên sân!");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const authToken = await AsyncStorage.getItem("authToken");
+      if (!authToken) {
+        Alert.alert("Lỗi", "Vui lòng đăng nhập lại!");
+        return;
+      }
+
+      const response = await fetch("https://gopitch.onrender.com/fields", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${authToken}`,
+        },
+        body: JSON.stringify({
+          name: fieldName,
+          openHour: 7, // Mặc định theo ví dụ
+          closeHour: 22, // Mặc định theo ví dụ
+          isMaintain: false, // Mặc định theo ví dụ
+          clusterId: "6809b04e7456305b0fb34f5b", // Mặc định theo ví dụ
+        }),
+      });
+
+      const data = await response.json();
+      if (response.ok) {
+        setSuccessModalVisible(true);
+      } else {
+        Alert.alert("Lỗi", data.message || "Thêm sân thất bại!");
+      }
+    } catch (error: any) {
+      console.error("Lỗi khi thêm sân:", error);
+      let errorMessage = "Đã có lỗi xảy ra. Vui lòng thử lại!";
+      if (error.message.includes("Network request failed")) {
+        errorMessage =
+          "Không thể kết nối đến server. Vui lòng kiểm tra kết nối internet.";
+      }
+      Alert.alert("Lỗi", errorMessage);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const closeSuccessModal = () => {
     setSuccessModalVisible(false);
     router.push("/stadiumManagement");
   };
+
+  if (loading) {
+    return (
+      <SafeAreaView className="flex-1 justify-center items-center bg-white">
+        <ActivityIndicator size="large" color="#0000ff" />
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView className="flex-1 bg-white">
@@ -85,6 +140,7 @@ export default function AddField() {
         <TouchableOpacity
           className="bg-[#0B8FAC] py-4 px-20 rounded-lg items-center mt-8 self-center"
           onPress={handleSave}
+          disabled={loading}
         >
           <Text className="text-white text-xl font-semibold">Thêm</Text>
         </TouchableOpacity>

@@ -9,7 +9,8 @@ import {
 } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 export default function EditServicePrice() {
   const router = useRouter();
@@ -17,24 +18,156 @@ export default function EditServicePrice() {
   const [newPrice, setNewPrice] = useState(price as string);
   const [successModalVisible, setSuccessModalVisible] = useState(false);
   const [errorModalVisible, setErrorModalVisible] = useState(false);
+  const [errorMessage, setErrorMessage] = useState(
+    "Vui lòng nhập đầy đủ thông tin"
+  );
+  const [clusterId, setClusterId] = useState<string | null>(null);
+  const [isStaticService, setIsStaticService] = useState<boolean>(false); // Thêm state để kiểm tra loại dịch vụ
+  const [loading, setLoading] = useState(true);
 
-  const handleSave = () => {
+  useEffect(() => {
+    const fetchClusterIdAndServices = async () => {
+      try {
+        const userDataString = await AsyncStorage.getItem("userData");
+        if (!userDataString) {
+          console.log("Không tìm thấy userData");
+          router.replace("/login");
+          return;
+        }
+        const userData = JSON.parse(userDataString);
+        const ownerId = userData._id;
+        if (!ownerId) {
+          console.log("Không tìm thấy ownerId");
+          router.replace("/login");
+          return;
+        }
+
+        const token = await AsyncStorage.getItem("authToken");
+        if (!token) {
+          console.log("Không tìm thấy token");
+          router.replace("/login");
+          return;
+        }
+
+        const response = await fetch(
+          `https://gopitch.onrender.com/clusters/owner/${ownerId}`,
+          {
+            method: "GET",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+
+        if (!response.ok) {
+          throw new Error(`Lỗi khi gọi API: ${response.statusText}`);
+        }
+
+        const data = await response.json();
+        console.log("Dữ liệu từ API clusters/owner:", data);
+
+        if (data && data._id) {
+          setClusterId(data._id);
+          // Kiểm tra xem dịch vụ có phải là staticService không
+          const staticServiceNames = data.staticServices.map(
+            (service: any) => service.name
+          );
+          setIsStaticService(staticServiceNames.includes(name));
+        } else {
+          throw new Error("Không tìm thấy cụm sân cho owner này");
+        }
+      } catch (error) {
+        console.error("Lỗi khi lấy clusterId:", error);
+        setErrorMessage("Không thể lấy thông tin cụm sân. Vui lòng thử lại.");
+        setErrorModalVisible(true);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchClusterIdAndServices();
+  }, [name, router]); // Thêm name vào dependency để đảm bảo kiểm tra lại nếu name thay đổi
+
+  const handleSave = async () => {
     if (!newPrice.trim() || isNaN(Number(newPrice))) {
+      setErrorMessage("Vui lòng nhập giá hợp lệ");
       setErrorModalVisible(true);
-    } else {
-      console.log(`Lưu giá mới cho ${name}: ${newPrice}`);
+      return;
+    }
+
+    if (!clusterId) {
+      setErrorMessage("Không tìm thấy cụm sân để cập nhật dịch vụ");
+      setErrorModalVisible(true);
+      return;
+    }
+
+    try {
+      const token = await AsyncStorage.getItem("authToken");
+      if (!token) {
+        console.log("Không tìm thấy token");
+        router.replace("/login");
+        return;
+      }
+
+      // Xác định endpoint dựa trên loại dịch vụ
+      const endpointType = isStaticService
+        ? "static-services"
+        : "dynamic-services";
+      const url = `https://gopitch.onrender.com/clusters/${clusterId}/${endpointType}?name=${encodeURIComponent(
+        name as string
+      )}&price=${Number(newPrice)}`;
+
+      const response = await fetch(url, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: "",
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(
+          `Lỗi khi cập nhật dịch vụ: ${response.status} - ${errorText}`
+        );
+      }
+
+      const data = await response.json();
+      console.log("Kết quả cập nhật dịch vụ:", data);
+
       setSuccessModalVisible(true);
+    } catch (error: unknown) {
+      console.error("Lỗi khi cập nhật dịch vụ:", error);
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      setErrorMessage(
+        `Có lỗi xảy ra khi cập nhật dịch vụ: ${errorMsg}. Vui lòng thử lại.`
+      );
+      setErrorModalVisible(true);
     }
   };
 
   const closeSuccessModal = () => {
     setSuccessModalVisible(false);
-    router.push("/(owners)/(service)/serviceManagement");
+    router.push({
+      pathname: "/(owners)/(service)/serviceManagement",
+      params: { refresh: "true" },
+    });
   };
 
   const closeErrorModal = () => {
     setErrorModalVisible(false);
   };
+
+  if (loading) {
+    return (
+      <SafeAreaView className="flex-1 bg-white">
+        <Text className="text-center text-lg mt-10">Đang tải...</Text>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView className="flex-1 bg-white">
@@ -53,7 +186,9 @@ export default function EditServicePrice() {
       </View>
       <View className="px-4 mt-8">
         <View className="mb-6">
-          <Text className="text-black text-[15px] font-medium mb-2">Tên dịch vụ</Text>
+          <Text className="text-black text-[15px] font-medium mb-2">
+            Tên dịch vụ
+          </Text>
           <View className="bg-gray-100 border border-gray-300 rounded-lg p-4">
             <Text className="text-black text-[15px] font-medium">{name}</Text>
           </View>
@@ -85,13 +220,20 @@ export default function EditServicePrice() {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContainer}>
-            <TouchableOpacity style={styles.closeButton} onPress={closeSuccessModal}>
+            <TouchableOpacity
+              style={styles.closeButton}
+              onPress={closeSuccessModal}
+            >
               <Ionicons name="close" size={18} color="#FFFFFF" />
             </TouchableOpacity>
             <View style={styles.checkmarkContainer}>
-              <Ionicons name="checkmark-circle-outline" size={60} color="#119916" />
+              <Ionicons
+                name="checkmark-circle-outline"
+                size={60}
+                color="#119916"
+              />
             </View>
-            <Text style={styles.successText}>Chỉnh sửa dịch vụ thành công</Text>
+            <Text style={styles.successText}>Cập nhật thành công</Text>
           </View>
         </View>
       </Modal>
@@ -103,14 +245,22 @@ export default function EditServicePrice() {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContainer}>
-            <TouchableOpacity style={styles.closeButton} onPress={closeErrorModal}>
+            <TouchableOpacity
+              style={styles.closeButton}
+              onPress={closeErrorModal}
+            >
               <Ionicons name="close" size={18} color="#FFFFFF" />
             </TouchableOpacity>
             <View style={styles.checkmarkContainer}>
               <Ionicons name="warning-outline" size={60} color="#FF0000" />
             </View>
-            <Text style={[styles.successText, { left: 40, width: 304, color: "#FF0000" }]}>
-              Vui lòng nhập đầy đủ thông tin
+            <Text
+              style={[
+                styles.successText,
+                { left: 40, width: 304, color: "#FF0000" },
+              ]}
+            >
+              {errorMessage}
             </Text>
           </View>
         </View>

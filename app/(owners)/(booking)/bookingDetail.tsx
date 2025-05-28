@@ -10,6 +10,7 @@ import {
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useState, useEffect } from "react";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 interface Booking {
   id: string;
@@ -17,26 +18,83 @@ interface Booking {
   time: string;
   date: string;
   status: string;
+  userName?: string;
+  phoneNumber?: string;
+  email?: string;
+  address?: string;
+  slot?: number;
+  services?: { name: string; price: number }[];
+  price?: number;
 }
-
-const bookings: Booking[] = [
-  { id: "#2212700", field: "Sân 1", time: "17:00", date: "25/03/2025", status: "Sắp tới" },
-  { id: "#234567", field: "Sân 1", time: "15:00", date: "25/03/2025", status: "Hoàn thành" },
-  { id: "#0123456", field: "Sân 2", time: "17:00", date: "24/03/2025", status: "Chờ duyệt" },
-  { id: "#9876543", field: "Sân 1", time: "17:00", date: "24/03/2025", status: "Chờ duyệt" },
-];
 
 export default function BookingDetail() {
   const router = useRouter();
   const { id } = useLocalSearchParams();
   const [booking, setBooking] = useState<Booking | null>(null);
+  const [loading, setLoading] = useState(true);
   const [approveModalVisible, setApproveModalVisible] = useState(false);
   const [rejectModalVisible, setRejectModalVisible] = useState(false);
 
   useEffect(() => {
-    const foundBooking = bookings.find((b) => b.id === id);
-    setBooking(foundBooking || null);
+    const fetchBookingDetail = async () => {
+      try {
+        const token = await AsyncStorage.getItem("authToken");
+        if (!token) {
+          console.log("Không tìm thấy token");
+          router.replace("/login");
+          return;
+        }
+
+        const response = await fetch(
+          `https://gopitch.onrender.com/bookings/${id}`,
+          {
+            method: "GET",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+
+        if (!response.ok) {
+          throw new Error(`Lỗi khi gọi API: ${response.statusText}`);
+        }
+
+        const data = await response.json();
+        console.log("Dữ liệu từ API:", data);
+
+        // Map API response to Booking interface
+        setBooking({
+          id: data.bookingId,
+          field: data.fieldName,
+          time: `${data.startHour}:00`,
+          date: data.date.split("T")[0],
+          status: "Chờ duyệt", // Assume pending status for detail page (adjust based on API if needed)
+          userName: data.userName,
+          phoneNumber: data.phoneNumber,
+          email: data.email,
+          address: data.address,
+          slot: data.slot,
+          services: data.services,
+          price: data.price,
+        });
+      } catch (error) {
+        console.error("Lỗi khi lấy dữ liệu chi tiết đặt sân:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchBookingDetail();
   }, [id]);
+
+  if (loading) {
+    return (
+      <SafeAreaView className="flex-1 bg-white items-center justify-center">
+        <Text>Đang tải...</Text>
+      </SafeAreaView>
+    );
+  }
 
   if (!booking) {
     return (
@@ -58,12 +116,18 @@ export default function BookingDetail() {
 
   const closeApproveModal = () => {
     setApproveModalVisible(false);
-    router.push({ pathname: "/ownerBookingManagement", params: { filter: "Chờ duyệt" } });
+    router.push({
+      pathname: "/ownerBookingManagement",
+      params: { filter: "Chờ duyệt" },
+    });
   };
 
   const closeRejectModal = () => {
     setRejectModalVisible(false);
-    router.push({ pathname: "/ownerBookingManagement", params: { filter: "Chờ duyệt" } });
+    router.push({
+      pathname: "/ownerBookingManagement",
+      params: { filter: "Chờ duyệt" },
+    });
   };
 
   return (
@@ -72,7 +136,12 @@ export default function BookingDetail() {
       <View className="flex-row items-center px-4 pt-4">
         <TouchableOpacity
           className="w-10 h-10 bg-white border border-gray-200 rounded-xl items-center justify-center"
-          onPress={() => router.push({ pathname: "/ownerBookingManagement", params: { filter: "Chờ duyệt" } })}
+          onPress={() =>
+            router.push({
+              pathname: "/ownerBookingManagement",
+              params: { filter: "Chờ duyệt" },
+            })
+          }
         >
           <Ionicons name="arrow-back" size={20} color="#1E232C" />
         </TouchableOpacity>
@@ -87,62 +156,93 @@ export default function BookingDetail() {
 
       <ScrollView className="flex-1 px-4 mt-4">
         <View className="mb-4">
-          <Text className="text-black text-base font-bold">Người đặt sân: Nguyễn Văn A</Text>
+          <Text className="text-black text-base font-bold">
+            Người đặt sân: {booking.userName}
+          </Text>
         </View>
         <View className="w-full h-[1px] bg-black" />
 
         <View className="mt-4 mb-4">
-          <Text className="text-black text-base font-bold">Liên hệ: 0123456789</Text>
+          <Text className="text-black text-base font-bold">
+            Liên hệ: {booking.phoneNumber}
+          </Text>
         </View>
         <View className="w-full h-[1px] bg-black" />
 
         <View className="mt-4 mb-4">
-          <Text className="text-black text-base font-bold">Email: user@gmail.com</Text>
+          <Text className="text-black text-base font-bold">
+            Email: {booking.email}
+          </Text>
         </View>
         <View className="w-full h-[1px] bg-black" />
 
         <View className="mt-4 mb-4">
-          <Text className="text-black text-base font-bold">Sân: {booking.field}</Text>
+          <Text className="text-black text-base font-bold">
+            Sân: {booking.field}
+          </Text>
         </View>
         <View className="w-full h-[1px] bg-black" />
 
         <View className="mt-4 mb-4">
-          <Text className="text-black text-base font-bold">Ngày: 23/06/2025</Text>
+          <Text className="text-black text-base font-bold">
+            Ngày: {booking.date}
+          </Text>
         </View>
         <View className="w-full h-[1px] bg-black" />
 
         <View className="mt-4 mb-4">
-          <Text className="text-black text-base font-bold">Thời gian: 1 giờ</Text>
+          <Text className="text-black text-base font-bold">
+            Thời gian: {booking.slot} giờ
+          </Text>
         </View>
         <View className="w-full h-[1px] bg-black" />
 
         <View className="mt-4 mb-4">
-          <Text className="text-black text-base font-normal">Địa chỉ: TP Thủ Đức, Thành phố Hồ Chí Minh</Text>
+          <Text className="text-black text-base font-normal">
+            Địa chỉ: {booking.address}
+          </Text>
         </View>
         <View className="w-full h-[1px] bg-black" />
 
         <View className="mt-4 mb-4">
-          <Text className="text-black text-base font-bold">Loại hình: Đặt nửa sân</Text>
+          <Text className="text-black text-base font-bold">
+            Loại hình: Đặt {booking.slot === 1 ? "nửa sân" : "toàn sân"}
+          </Text>
         </View>
         <View className="w-full h-[1px] bg-black" />
 
         <View className="mt-4 mb-4">
-          <Text className="text-black text-base font-bold">Thuê trọng tài: Có</Text>
+          <Text className="text-black text-base font-bold">
+            Thuê trọng tài:{" "}
+            {booking.services?.some((s) => s.name === "Thuê trọng tài")
+              ? "Có"
+              : "Không"}
+          </Text>
         </View>
         <View className="w-full h-[1px] bg-black" />
 
         <View className="mt-4 mb-4">
-          <Text className="text-black text-base font-bold">Dịch vụ khác: Nước uống | Găng tay thủ môn | Áo bib | Quay lại trận đấu</Text>
+          <Text className="text-black text-base font-bold">
+            Dịch vụ khác:{" "}
+            {booking.services
+              ?.filter((s) => s.name !== "Thuê trọng tài")
+              .map((s) => s.name)
+              .join(" | ") || "Không có"}
+          </Text>
         </View>
         <View className="w-full h-[1px] bg-black" />
 
         <View className="mt-4 mb-4">
-          <Text className="text-black text-base font-normal">Tổng cộng: 500000</Text>
+          <Text className="text-black text-base font-normal">
+            Tổng cộng: {booking.price} VND
+          </Text>
         </View>
         <View className="w-full h-[1px] bg-black" />
 
         <View className="mt-4 mb-8">
-          <Text className="text-black text-base font-normal">Trạng thái: Chưa thanh toán</Text>
+          <Text className="text-black text-base font-normal">
+            Trạng thái: Chưa thanh toán
+          </Text>
         </View>
 
         {booking.status === "Chờ duyệt" && (
@@ -171,11 +271,18 @@ export default function BookingDetail() {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContainer}>
-            <TouchableOpacity style={styles.closeButton} onPress={closeApproveModal}>
+            <TouchableOpacity
+              style={styles.closeButton}
+              onPress={closeApproveModal}
+            >
               <Ionicons name="close" size={18} color="#FFFFFF" />
             </TouchableOpacity>
             <View style={styles.checkmarkContainer}>
-              <Ionicons name="checkmark-circle-outline" size={60} color="#119916" />
+              <Ionicons
+                name="checkmark-circle-outline"
+                size={60}
+                color="#119916"
+              />
             </View>
             <Text style={styles.successText}>Phê duyệt thành công</Text>
           </View>
@@ -190,13 +297,18 @@ export default function BookingDetail() {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContainer}>
-            <TouchableOpacity style={styles.closeButton} onPress={closeRejectModal}>
+            <TouchableOpacity
+              style={styles.closeButton}
+              onPress={closeRejectModal}
+            >
               <Ionicons name="close" size={18} color="#FFFFFF" />
             </TouchableOpacity>
             <View style={styles.checkmarkContainer}>
               <Ionicons name="close-circle-outline" size={60} color="#FF0000" />
             </View>
-            <Text style={[styles.successText, { left: 95, width: 195 }]}>Từ chối thành công</Text>
+            <Text style={[styles.successText, { left: 95, width: 195 }]}>
+              Từ chối thành công
+            </Text>
           </View>
         </View>
       </Modal>
