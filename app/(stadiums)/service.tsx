@@ -7,9 +7,9 @@ import {
   Modal,
   Pressable,
 } from "react-native";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import Header from "@/component/Header";
-// import FooterStadium from "@/component/FooterStadium";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const services = [
   { service: "Thời gian (1 tiếng)", price: "100.000đ" },
@@ -49,9 +49,11 @@ const CountdownTimer = ({ initialSeconds }: { initialSeconds: number }) => {
 };
 
 const Service = () => {
+  const { fieldId, clusterId, bookingTime } = useLocalSearchParams();
   const [selectedServices, setSelectedServices] = useState<string[]>([]);
   const [sumService, setSumService] = useState<number>(0);
   const [modalVisible, setModalVisible] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleToggleService = (service: string) => {
     setSelectedServices((prev) =>
@@ -72,6 +74,83 @@ const Service = () => {
     setSumService(total);
   }, [selectedServices]);
 
+  const handleBooking = async () => {
+    try {
+      const token = await AsyncStorage.getItem("authToken");
+      if (!token) {
+        console.log("Không tìm thấy token");
+        router.replace("/login");
+        return;
+      }
+
+      const userDataString = await AsyncStorage.getItem("userData");
+      if (!userDataString) {
+        console.log("Không tìm thấy userData");
+        router.replace("/login");
+        return;
+      }
+      const userData = JSON.parse(userDataString);
+      const userId = userData._id;
+      if (!userId) {
+        console.log("Không tìm thấy userId");
+        router.replace("/login");
+        return;
+      }
+
+      if (!fieldId || !clusterId || !bookingTime) {
+        setError("Thiếu thông tin cần thiết để đặt sân");
+        setModalVisible(false);
+        return;
+      }
+
+      const currentDate = new Date().toISOString().split("T")[0]; // Lấy ngày hiện tại: 2025-05-29
+      const startHour = parseInt(bookingTime.toString().split(":")[0], 10); // Lấy giờ từ bookingTime (ví dụ: "08:00" -> 8)
+
+      const selectedServicesData = services
+        .filter((item) => selectedServices.includes(item.service))
+        .map((item) => ({
+          name: item.service,
+          price: parseInt(item.price.replace(/[^\d]/g, "")),
+        }));
+
+      const requestBody = {
+        userId,
+        clusterId,
+        fieldId,
+        date: currentDate,
+        startHour,
+        status: "pending",
+        services: selectedServicesData,
+      };
+
+      console.log("Request body:", requestBody);
+
+      const response = await fetch("https://gopitch.onrender.com/bookings", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(requestBody),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Lỗi khi gọi API: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      console.log("Đặt sân thành công:", data);
+
+      setModalVisible(false);
+      router.push("/payment");
+    } catch (error: unknown) {
+      console.error("Lỗi khi đặt sân:", error);
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      setError(`Không thể đặt sân: ${errorMsg}`);
+      setModalVisible(false);
+    }
+  };
+
   return (
     <SafeAreaView className="flex-1 bg-gray-100">
       <Header />
@@ -88,6 +167,8 @@ const Service = () => {
           <CountdownTimer initialSeconds={300} />
         </View>
       </View>
+
+      {error && <Text className="text-center text-red-500 mb-4">{error}</Text>}
 
       {services.map((item, index) => (
         <TouchableOpacity
@@ -140,7 +221,7 @@ const Service = () => {
           className="border border-red-500 px-8 py-2 rounded-full ml-10"
           onPress={() => setModalVisible(true)}
         >
-          <Text className="text-red-600 font-semibold text-lg">Thanh toán</Text>
+          <Text className="text-red-600 font-semibold text-lg">Đặt sân</Text>
         </TouchableOpacity>
       </View>
 
@@ -171,22 +252,15 @@ const Service = () => {
               </Pressable>
 
               <Pressable
-                onPress={() => {
-                  setModalVisible(false);
-                  router.push("/payment");
-                }}
+                onPress={handleBooking}
                 className="px-4 py-2 rounded-md bg-green-500 ml-4"
               >
-                <Text className="text-white">Thanh toán</Text>
+                <Text className="text-white">Đặt sân</Text>
               </Pressable>
             </View>
           </View>
         </View>
       </Modal>
-
-      {/* <View className="pb-14">
-        <FooterStadium />
-      </View> */}
     </SafeAreaView>
   );
 };

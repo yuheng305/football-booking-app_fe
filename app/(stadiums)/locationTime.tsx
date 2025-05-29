@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Text,
   SafeAreaView,
@@ -7,9 +7,27 @@ import {
   Image,
   ScrollView,
 } from "react-native";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
 import Header from "@/component/Header";
 import FooterStadium from "@/component/FooterStadium";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+
+interface Field {
+  _id: string;
+  name: string;
+  openHour: number;
+  closeHour: number;
+  isMaintain: boolean;
+  clusterId: string;
+  schedules: any[]; // Có thể điều chỉnh kiểu chi tiết hơn nếu cần
+  __v: number;
+}
+
+interface FieldResponse {
+  field: Field;
+  slotbooked: number;
+}
 
 const availableTime = [
   { id: 1, time: "08:00" },
@@ -22,44 +40,87 @@ const availableTime = [
   { id: 8, time: "15:00" },
 ];
 
-const ministadiumData = [
-  { id: 1, name: "Sân 1", status: "Tìm đối thủ để ghép trận" },
-  { id: 2, name: "Sân 2", status: "Trống" },
-  { id: 3, name: "Sân 3", status: "Đã được đặt" },
-  { id: 4, name: "Sân 4", status: "Trống" },
-  { id: 5, name: "Sân 5", status: "Tìm đối thủ để ghép trận" },
-  { id: 6, name: "Sân 6", status: "Đã được đặt" },
-  { id: 7, name: "Sân 7", status: "Trống" },
-  { id: 8, name: "Sân 8", status: "Đã được đặt" },
-  { id: 9, name: "Sân 9", status: "Trống" },
-  { id: 10, name: "Sân 10", status: "Tìm đối thủ để ghép trận" },
-];
-
 const LocationTime = () => {
+  const { clusterId } = useLocalSearchParams();
+  const [bookingTime, setBookingTime] = useState("");
+  const [fields, setFields] = useState<FieldResponse[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Hàm gọi API để lấy danh sách sân con
+  const fetchFields = async (hour: string) => {
+    if (!clusterId) {
+      setError("Không tìm thấy clusterId");
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError(null);
+
+      const token = await AsyncStorage.getItem("authToken");
+      if (!token) {
+        console.log("Không tìm thấy token");
+        router.replace("/login");
+        return;
+      }
+
+      const currentDate = new Date().toISOString().split("T")[0]; // Lấy ngày hiện tại: 2025-05-29
+      const hourNumber = parseInt(hour.split(":")[0], 10); // Lấy giờ từ chuỗi (ví dụ: "08:00" -> 8)
+
+      const response = await fetch(
+        `https://gopitch.onrender.com/fields/${clusterId}?date=${currentDate}&hour=${hourNumber}`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`Lỗi khi gọi API: ${response.statusText}`);
+      }
+
+      const data: FieldResponse[] = await response.json();
+      console.log("Dữ liệu từ API:", data);
+      setFields(data);
+    } catch (error: unknown) {
+      console.error("Lỗi khi lấy danh sách sân con:", error);
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      setError(`Không thể lấy danh sách sân: ${errorMsg}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Gọi API khi bookingTime thay đổi
+  useEffect(() => {
+    if (bookingTime) {
+      fetchFields(bookingTime);
+    } else {
+      setFields([]); // Reset danh sách khi không chọn giờ
+    }
+  }, [bookingTime, clusterId]);
+
   const handleLogoPress = () => {
     router.push("/(tabs)/home");
   };
 
-  const [bookingTime, setBookingTime] = useState("");
+  const handleFieldPress = (fieldId: string) => {
+    // Chuyển đến trang tiếp theo hoặc xử lý đặt sân
+    console.log(`Chọn sân ${fieldId}`);
+    router.push({
+      pathname: "/(stadiums)/service",
+      params: { fieldId, clusterId, bookingTime },
+    });
+  };
 
   return (
     <SafeAreaView className="flex-1 bg-gray-100">
       {/* Header */}
-      {/* <View className="h-20 w-full bg-black flex-row justify-end items-center px-4">
-        <View className="items-start flex-1">
-          <Text className="text-green-500 text-3xl font-bold">Cụm sân A</Text>
-        </View>
-        <TouchableOpacity onPress={handleLogoPress}>
-          <Image
-            source={require("../../assets/images/logo.png")}
-            className="w-32 h-20"
-            resizeMode="contain"
-          />
-        </TouchableOpacity>
-      </View> */}
       <Header location="Cụm sân A" time={bookingTime} />
-
-      {/* Content */}
 
       {/* Main scrollable content */}
       <ScrollView
@@ -99,32 +160,58 @@ const LocationTime = () => {
         </ScrollView>
 
         {/* Stadium List */}
-        {bookingTime !== "" && (
+        {loading && (
+          <Text className="text-center text-lg mt-4">Đang tải...</Text>
+        )}
+
+        {error && (
+          <Text className="text-center text-red-500 mt-4">{error}</Text>
+        )}
+
+        {!loading && !error && bookingTime && fields.length > 0 && (
           <View className="mt-4 px-4">
-            {ministadiumData.map((stadium) => (
+            {fields.map((item) => (
               <TouchableOpacity
-                key={stadium.id}
-                onPress={() => router.push("/(stadiums)/service")}
+                key={item.field._id}
+                onPress={
+                  item.slotbooked === 2
+                    ? undefined
+                    : () => handleFieldPress(item.field._id)
+                }
                 className={`rounded-2xl p-4 my-2 border-2 ${
-                  stadium.status === "Đã được đặt"
-                    ? "bg-white border-red-500"
+                  item.slotbooked === 2
+                    ? "bg-white border-red-500 opacity-50"
                     : "bg-green-500 border-green-500"
                 }`}
+                disabled={item.slotbooked === 2}
               >
                 <View className="flex-row items-center">
                   <Text className="text-xl font-semibold px-4">
-                    {stadium.name}
+                    {item.field.name}
                   </Text>
-                  <Text className="text-xl">{stadium.status}</Text>
+                  {item.slotbooked === 2 ? (
+                    <Text className="text-xl text-red-500">Đã được đặt</Text>
+                  ) : (
+                    <Text className="text-xl text-white">
+                      {item.slotbooked > 0 ? "Tìm đối thủ" : "Trống"}
+                    </Text>
+                  )}
                 </View>
               </TouchableOpacity>
             ))}
           </View>
         )}
+
+        {!loading && !error && bookingTime && fields.length === 0 && (
+          <Text className="text-center text-lg mt-4">
+            Không có sân nào vào thời điểm này.
+          </Text>
+        )}
       </ScrollView>
-      {/* <View className="pb-14">
+
+      <View className="pb-14">
         <FooterStadium />
-      </View> */}
+      </View>
     </SafeAreaView>
   );
 };
