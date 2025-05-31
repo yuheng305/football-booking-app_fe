@@ -3,13 +3,13 @@ import { Ionicons } from "@expo/vector-icons";
 
 export default function OwnerLayout() {
   const hiddenScreens = [
+    "(account)/changePassword",
     "(service)/addService",
     "(service)/editServicePrice",
     "(service)/serviceManagement",
     "(stadium)/addField",
     "(stadium)/editField",
     "(booking)/bookingDetail",
-
   ];
 
   return (
@@ -43,12 +43,22 @@ export default function OwnerLayout() {
       })}
     >
       <Tabs.Screen name="home" options={{ title: "Trang chủ" }} />
-      <Tabs.Screen name="(stadium)/stadiumManagement" options={{ title: "Danh sách sân" }} />
-      <Tabs.Screen name="(booking)/ownerBookingManagement" options={{ title: "Quản lý" }} />
+      <Tabs.Screen
+        name="(stadium)/stadiumManagement"
+        options={{ title: "Danh sách sân" }}
+      />
+      <Tabs.Screen
+        name="(booking)/ownerBookingManagement"
+        options={{ title: "Quản lý" }}
+      />
       <Tabs.Screen name="(account)/account" options={{ title: "Tài khoản" }} />
 
       {hiddenScreens.map((screenName) => (
-        <Tabs.Screen key={screenName} name={screenName} options={{ href: null }} />
+        <Tabs.Screen
+          key={screenName}
+          name={screenName}
+          options={{ href: null }}
+        />
       ))}
     </Tabs>
   );

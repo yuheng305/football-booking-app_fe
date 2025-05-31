@@ -195,10 +195,10 @@ export default function ServiceManagement() {
         <View className="w-10 h-10" />
       </View>
       <TouchableOpacity
-        className="bg-[#0B8FAC] py-2 rounded px-4 mx-4 mt-4 items-center"
+        className="bg-[#0B8FAC] py-2 rounded-lg px-4 mx-4 mt-4 items-center"
         onPress={() => router.push("/(owners)/(service)/addService")}
       >
-        <Text className="text-white font-semibold text-xs">Thêm dịch vụ</Text>
+        <Text className="text-white font-semibold text-xl">Thêm dịch vụ</Text>
       </TouchableOpacity>
       <ScrollView className="flex-1 px-4 mt-4">
         <View className="flex-row bg-gray-200 border border-gray-400 rounded-t">

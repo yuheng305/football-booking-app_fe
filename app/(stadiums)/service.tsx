@@ -11,29 +11,28 @@ import { router, useLocalSearchParams } from "expo-router";
 import Header from "@/component/Header";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-const services = [
-  { service: "Thời gian (1 tiếng)", price: "100.000đ" },
-  { service: "Thuê trọng tài", price: "200.000đ" },
-  { service: "Thuê thủ môn", price: "80.000đ" },
-  { service: "Nước uống", price: "150.000đ" },
-  { service: "Áo bibs (10 cái)", price: "50.000đ" },
-  { service: "Găng tay thủ môn", price: "200.000đ" },
-  { service: "Quay lại trận đấu", price: "90.000đ" },
-];
-
 // Component đếm ngược
-const CountdownTimer = ({ initialSeconds }: { initialSeconds: number }) => {
+const CountdownTimer = ({
+  initialSeconds,
+  onTimeUp,
+}: {
+  initialSeconds: number;
+  onTimeUp: () => void;
+}) => {
   const [secondsLeft, setSecondsLeft] = useState(initialSeconds);
 
   useEffect(() => {
-    if (secondsLeft <= 0) return;
+    if (secondsLeft <= 0) {
+      onTimeUp();
+      return;
+    }
 
     const interval = setInterval(() => {
       setSecondsLeft((prev) => prev - 1);
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [secondsLeft]);
+  }, [secondsLeft, onTimeUp]);
 
   const formatTime = (secs: number) => {
     const minutes = Math.floor(secs / 60);
@@ -51,11 +50,101 @@ const CountdownTimer = ({ initialSeconds }: { initialSeconds: number }) => {
 const Service = () => {
   const { fieldId, clusterId, bookingTime } = useLocalSearchParams();
   const [selectedServices, setSelectedServices] = useState<string[]>([]);
+  const [staticServices, setStaticServices] = useState<
+    { _id: string; name: string; price: number }[]
+  >([]);
+  const [dynamicServices, setDynamicServices] = useState<
+    { _id: string; name: string; price: number }[]
+  >([]);
   const [sumService, setSumService] = useState<number>(0);
   const [modalVisible, setModalVisible] = useState(false);
+  const [timeUpModalVisible, setTimeUpModalVisible] = useState(false);
+  const [noticeModalVisible, setNoticeModalVisible] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  // Lấy dữ liệu static và dynamic services từ API
+  const fetchServices = async () => {
+    if (!clusterId) {
+      setError("Không tìm thấy clusterId");
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError(null);
+
+      const token = await AsyncStorage.getItem("authToken");
+      if (!token) {
+        console.log("Không tìm thấy token");
+        router.replace("/login");
+        return;
+      }
+
+      // Gọi API static services
+      const staticResponse = await fetch(
+        `https://gopitch.onrender.com/clusters/${clusterId}/static-services`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (!staticResponse.ok) {
+        throw new Error(
+          `Lỗi khi gọi API static services: ${staticResponse.statusText}`
+        );
+      }
+
+      const staticData = await staticResponse.json();
+      setStaticServices(staticData);
+
+      // Gọi API dynamic services
+      const dynamicResponse = await fetch(
+        `https://gopitch.onrender.com/clusters/${clusterId}/dynamic-services`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (!dynamicResponse.ok) {
+        throw new Error(
+          `Lỗi khi gọi API dynamic services: ${dynamicResponse.statusText}`
+        );
+      }
+
+      const dynamicData = await dynamicResponse.json();
+      setDynamicServices(dynamicData);
+
+      // Tự động chọn static services
+      const staticServiceNames = staticData.map((item: any) => item.name);
+      setSelectedServices(staticServiceNames);
+    } catch (error: unknown) {
+      console.error("Lỗi khi lấy dữ liệu dịch vụ:", error);
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      setError(`Không thể lấy dữ liệu dịch vụ: ${errorMsg}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchServices();
+  }, [clusterId]);
 
   const handleToggleService = (service: string) => {
+    // Không cho phép bỏ chọn static services
+    if (staticServices.some((item) => item.name === service)) {
+      return;
+    }
+
     setSelectedServices((prev) =>
       prev.includes(service)
         ? prev.filter((item) => item !== service)
@@ -65,14 +154,13 @@ const Service = () => {
 
   useEffect(() => {
     let total = 0;
-    for (let item of services) {
-      if (selectedServices.includes(item.service)) {
-        const numericPrice = parseInt(item.price.replace(/[^\d]/g, ""));
-        total += numericPrice;
+    [...staticServices, ...dynamicServices].forEach((item) => {
+      if (selectedServices.includes(item.name)) {
+        total += item.price;
       }
-    }
+    });
     setSumService(total);
-  }, [selectedServices]);
+  }, [selectedServices, staticServices, dynamicServices]);
 
   const handleBooking = async () => {
     try {
@@ -103,14 +191,14 @@ const Service = () => {
         return;
       }
 
-      const currentDate = new Date().toISOString().split("T")[0]; // Lấy ngày hiện tại: 2025-05-29
-      const startHour = parseInt(bookingTime.toString().split(":")[0], 10); // Lấy giờ từ bookingTime (ví dụ: "08:00" -> 8)
+      const currentDate = new Date().toISOString().split("T")[0];
+      const startHour = parseInt(bookingTime.toString().split(":")[0], 10);
 
-      const selectedServicesData = services
-        .filter((item) => selectedServices.includes(item.service))
+      const selectedServicesData = [...dynamicServices]
+        .filter((item) => selectedServices.includes(item.name))
         .map((item) => ({
-          name: item.service,
-          price: parseInt(item.price.replace(/[^\d]/g, "")),
+          name: item.name,
+          price: item.price,
         }));
 
       const requestBody = {
@@ -141,8 +229,9 @@ const Service = () => {
       const data = await response.json();
       console.log("Đặt sân thành công:", data);
 
+      await AsyncStorage.setItem("currentBookingId", data._id);
+
       setModalVisible(false);
-      router.push("/payment");
     } catch (error: unknown) {
       console.error("Lỗi khi đặt sân:", error);
       const errorMsg = error instanceof Error ? error.message : String(error);
@@ -151,34 +240,103 @@ const Service = () => {
     }
   };
 
+  const handleModalAction = async (action: "cancel" | "pay") => {
+    await handleBooking();
+    if (action === "pay") {
+      const bookingId = await AsyncStorage.getItem("currentBookingId");
+      if (bookingId) {
+        router.push({
+          pathname: "/payment",
+          params: { bookingId },
+        });
+      } else {
+        setError("Không tìm thấy bookingId");
+      }
+    }
+  };
+
+  const handleTimeUp = () => {
+    setTimeUpModalVisible(true);
+  };
+
+  const handleTimeUpModalClose = () => {
+    setTimeUpModalVisible(false);
+    //router.replace("/(tabs)/home");
+  };
+
   return (
     <SafeAreaView className="flex-1 bg-gray-100">
       <Header />
 
       <View className="w-full px-4 flex-row justify-between items-center mb-4">
-        <TouchableOpacity className="bg-green-500 items-center rounded-2xl w-1/2 h-20 p-2 m-2">
-          <Text className="text-white font-semibold text-center py-4">
-            Bảng giá dịch vụ
+        <TouchableOpacity
+          className="bg-blue-400 rounded-lg max-w-[150px] h-16 p-2 m-2 flex-1 items-center justify-center"
+          onPress={() => setNoticeModalVisible(true)}
+        >
+          <Text className="text-white font-semibold text-center py-2">
+            Lưu ý
           </Text>
         </TouchableOpacity>
 
-        <View className="bg-yellow-300 rounded-2xl w-1/2 h-20 p-2 m-2 items-center justify-center">
-          <Text className="font-semibold text-center">Thời gian đặt:</Text>
-          <CountdownTimer initialSeconds={300} />
+        <View className="bg-yellow-300 rounded-lg max-w-[150px] h-16 p-2 m-2 flex-1 items-center justify-center">
+          <Text className="font-semibold text-center text-sm">
+            Thời gian đặt:
+          </Text>
+          <CountdownTimer initialSeconds={300} onTimeUp={handleTimeUp} />
         </View>
       </View>
 
+      {loading && <Text className="text-center text-lg mb-4">Đang tải...</Text>}
+
       {error && <Text className="text-center text-red-500 mb-4">{error}</Text>}
 
-      {services.map((item, index) => (
+      {/* Hiển thị static services (bắt buộc) */}
+      <Text className="text-lg font-semibold text-gray-800 px-4 mb-2">
+        Dịch vụ mặc định
+      </Text>
+      {staticServices.map((item, index) => (
         <TouchableOpacity
           key={index}
-          onPress={() => handleToggleService(item.service)}
+          onPress={() => handleToggleService(item.name)}
+          disabled={true}
           style={{
             flexDirection: "row",
             alignItems: "center",
             marginBottom: 10,
-            backgroundColor: selectedServices.includes(item.service)
+            backgroundColor: "#46d73f", // Xanh đậm hơn
+            padding: 10,
+            marginHorizontal: 10,
+            borderRadius: 8,
+            borderWidth: 1,
+            borderColor: "#2e7d32",
+            opacity: 0.6,
+          }}
+        >
+          <Text
+            style={{
+              fontSize: 16,
+              color: "#000",
+              marginLeft: 10,
+            }}
+          >
+            {item.name} - {item.price.toLocaleString("vi-VN")}đ
+          </Text>
+        </TouchableOpacity>
+      ))}
+
+      {/* Hiển thị dynamic services (tùy chọn) */}
+      <Text className="text-lg font-semibold text-gray-800 px-4 mb-2">
+        Dịch vụ tùy chọn
+      </Text>
+      {dynamicServices.map((item, index) => (
+        <TouchableOpacity
+          key={index}
+          onPress={() => handleToggleService(item.name)}
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            marginBottom: 10,
+            backgroundColor: selectedServices.includes(item.name)
               ? "#4caf50"
               : "#fff",
             padding: 10,
@@ -191,13 +349,11 @@ const Service = () => {
           <Text
             style={{
               fontSize: 16,
-              color: selectedServices.includes(item.service)
-                ? "#fff"
-                : "#4caf50",
+              color: selectedServices.includes(item.name) ? "#fff" : "#4caf50",
               marginLeft: 10,
             }}
           >
-            {item.service} - {item.price}
+            {item.name} - {item.price.toLocaleString("vi-VN")}đ
           </Text>
         </TouchableOpacity>
       ))}
@@ -208,24 +364,23 @@ const Service = () => {
         </Text>
       </View>
 
-      {/* Nút hành động */}
       <View className="flex-row justify-center items-center mt-4">
         <TouchableOpacity
-          className="border border-red-500 px-8 py-2 rounded-full"
+          className="border border-red-500 bg-white px-8 py-2 rounded-full"
           onPress={() => router.back()}
         >
           <Text className="text-red-600 font-semibold text-lg">Quay lại</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
-          className="border border-red-500 px-8 py-2 rounded-full ml-10"
+          className="border border-red-500 bg-white px-8 py-2 rounded-full ml-10"
           onPress={() => setModalVisible(true)}
         >
           <Text className="text-red-600 font-semibold text-lg">Đặt sân</Text>
         </TouchableOpacity>
       </View>
 
-      {/* Modal cảnh báo */}
+      {/* Modal cảnh báo đặt sân */}
       <Modal
         visible={modalVisible}
         transparent
@@ -245,19 +400,80 @@ const Service = () => {
 
             <View className="flex-row justify-end space-x-4">
               <Pressable
-                onPress={() => setModalVisible(false)}
+                onPress={() => handleModalAction("cancel")}
                 className="px-4 py-2 rounded-md bg-gray-200"
               >
                 <Text className="text-gray-700">Hủy</Text>
               </Pressable>
 
               <Pressable
-                onPress={handleBooking}
+                onPress={() => handleModalAction("pay")}
                 className="px-4 py-2 rounded-md bg-green-500 ml-4"
               >
-                <Text className="text-white">Đặt sân</Text>
+                <Text className="text-white">Thanh toán</Text>
               </Pressable>
             </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Modal thông báo hết thời gian */}
+      <Modal
+        visible={timeUpModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={handleTimeUpModalClose}
+      >
+        <View className="flex-1 justify-center items-center bg-black bg-opacity-50 px-6">
+          <View className="bg-white p-6 rounded-xl w-full">
+            <View className="flex-row justify-between items-center mb-4">
+              <Text className="text-lg font-semibold text-center flex-1">
+                Thời gian đặt sân đã hết
+              </Text>
+              <Pressable onPress={handleTimeUpModalClose}>
+                <Text className="text-gray-500 text-lg">✕</Text>
+              </Pressable>
+            </View>
+            <Text className="text-gray-700 mb-4 text-center">
+              Thời gian đặt sân đã hết, vui lòng thực hiện lại thao tác đặt sân.
+            </Text>
+            <TouchableOpacity
+              className="bg-blue-500 px-6 py-2 rounded-md mx-auto"
+              onPress={handleTimeUpModalClose}
+            >
+              <Text className="text-white font-semibold">Trở về trang chủ</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Modal thông báo lưu ý */}
+      <Modal
+        visible={noticeModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setNoticeModalVisible(false)}
+      >
+        <View className="flex-1 justify-center items-center bg-black bg-opacity-50 px-6">
+          <View className="bg-white p-4 rounded-lg w-full max-w-md mx-auto">
+            <View className="flex-row justify-between items-center mb-2">
+              <Text className="text-xl font-semibold text-center flex-1">
+                Lưu ý
+              </Text>
+              <Pressable onPress={() => setNoticeModalVisible(false)}>
+                <Text className="text-gray-500 text-base">✕</Text>
+              </Pressable>
+            </View>
+            <Text className="text-gray-700 mb-2 text-justify text-base">
+              Theo chính sách, các trận đấu ghép cần có sự chỉ đạo của trọng tài
+              để đảm bảo công bằng.
+            </Text>
+            <TouchableOpacity
+              className="bg-blue-500 px-4 py-1 rounded-md mx-auto mt-2"
+              onPress={() => setNoticeModalVisible(false)}
+            >
+              <Text className="text-white font-semibold text-base">Đóng</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </Modal>

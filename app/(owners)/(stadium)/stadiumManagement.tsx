@@ -12,6 +12,7 @@ import {
 import { useRouter, useFocusEffect } from "expo-router"; // Added useFocusEffect
 import { Ionicons } from "@expo/vector-icons";
 import { useState, useEffect, useCallback } from "react"; // Added useCallback
+import HeaderOwner from "@/component/HeaderOwner";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 interface Stadium {

@@ -126,17 +126,15 @@ const Stadium = () => {
       <Header />
 
       {/* Content */}
-      <View className="w-full px-4 flex-row justify-between items-center">
+      <View className="w-full px-4 py-2 flex-row justify-between items-center">
         <Text className="text-2xl font-semibold mt-4 mb-2">
           Chọn địa điểm đặt sân
         </Text>
         <TouchableOpacity
-          className="bg-white rounded-2xl w-1/4 h-1/8 p-2 m-2 border-2 border-red-500"
+          className="border border-red-500  bg-white px-8 py-2 rounded-full"
           onPress={() => router.back()}
         >
-          <Text className="text-red-500 font-semibold text-center">
-            Quay lại
-          </Text>
+          <Text className="text-red-600 font-semibold text-lg">Quay lại</Text>
         </TouchableOpacity>
       </View>
 

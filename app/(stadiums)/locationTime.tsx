@@ -20,7 +20,7 @@ interface Field {
   closeHour: number;
   isMaintain: boolean;
   clusterId: string;
-  schedules: any[]; // Có thể điều chỉnh kiểu chi tiết hơn nếu cần
+  schedules: any[];
   __v: number;
 }
 
@@ -38,6 +38,13 @@ const availableTime = [
   { id: 6, time: "13:00" },
   { id: 7, time: "14:00" },
   { id: 8, time: "15:00" },
+  { id: 9, time: "16:00" },
+  { id: 10, time: "17:00" },
+  { id: 11, time: "18:00" },
+  { id: 12, time: "19:00" },
+  { id: 13, time: "20:00" },
+  { id: 14, time: "21:00" },
+  { id: 15, time: "22:00" },
 ];
 
 const LocationTime = () => {
@@ -47,7 +54,6 @@ const LocationTime = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Hàm gọi API để lấy danh sách sân con
   const fetchFields = async (hour: string) => {
     if (!clusterId) {
       setError("Không tìm thấy clusterId");
@@ -65,8 +71,8 @@ const LocationTime = () => {
         return;
       }
 
-      const currentDate = new Date().toISOString().split("T")[0]; // Lấy ngày hiện tại: 2025-05-29
-      const hourNumber = parseInt(hour.split(":")[0], 10); // Lấy giờ từ chuỗi (ví dụ: "08:00" -> 8)
+      const currentDate = new Date().toISOString().split("T")[0];
+      const hourNumber = parseInt(hour.split(":")[0], 10);
 
       const response = await fetch(
         `https://gopitch.onrender.com/fields/${clusterId}?date=${currentDate}&hour=${hourNumber}`,
@@ -95,12 +101,11 @@ const LocationTime = () => {
     }
   };
 
-  // Gọi API khi bookingTime thay đổi
   useEffect(() => {
     if (bookingTime) {
       fetchFields(bookingTime);
     } else {
-      setFields([]); // Reset danh sách khi không chọn giờ
+      setFields([]);
     }
   }, [bookingTime, clusterId]);
 
@@ -109,7 +114,6 @@ const LocationTime = () => {
   };
 
   const handleFieldPress = (fieldId: string) => {
-    // Chuyển đến trang tiếp theo hoặc xử lý đặt sân
     console.log(`Chọn sân ${fieldId}`);
     router.push({
       pathname: "/(stadiums)/service",
@@ -178,9 +182,9 @@ const LocationTime = () => {
                     ? undefined
                     : () => handleFieldPress(item.field._id)
                 }
-                className={`rounded-2xl p-4 my-2 border-2 ${
+                className={`rounded-full p-4 my-2 border-2 ${
                   item.slotbooked === 2
-                    ? "bg-white border-red-500 opacity-50"
+                    ? "bg-white border-red-500"
                     : "bg-green-500 border-green-500"
                 }`}
                 disabled={item.slotbooked === 2}
@@ -208,6 +212,14 @@ const LocationTime = () => {
           </Text>
         )}
       </ScrollView>
+
+      {/* Nút Quay lại được căn giữa */}
+      <TouchableOpacity
+        className="border border-red-500 bg-white px-8 py-2 rounded-full mx-auto mb-4"
+        onPress={() => router.back()}
+      >
+        <Text className="text-red-600 font-semibold text-lg">Quay lại</Text>
+      </TouchableOpacity>
 
       <View className="pb-14">
         <FooterStadium />

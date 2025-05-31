@@ -11,7 +11,7 @@ import {
 } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import HeaderUser from "@/component/HeaderUser";
+import HeaderOwner from "@/component/HeaderOwner";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 
@@ -173,7 +173,7 @@ const Owner = () => {
 
   return (
     <SafeAreaView className="flex-1 bg-white">
-      <HeaderUser location="Tài khoản" time={name} />
+      <HeaderOwner location="Tài khoản" time={name} />
       <ScrollView
         className="flex-1"
         contentContainerStyle={{ paddingBottom: 20 }}
@@ -222,7 +222,7 @@ const Owner = () => {
               <Text className="text-2xl font-bold text-gray-800">********</Text>
             </View>
             <TouchableOpacity
-              onPress={() => router.push("/change-password")}
+              onPress={() => router.push("/changePassword")}
               className="bg-blue-500 px-3 py-1 rounded"
             >
               <Text className="text-white font-semibold text-xl">Đổi</Text>
@@ -284,7 +284,7 @@ const Owner = () => {
           </TouchableOpacity>
 
           {/* Nút thống kê doanh thu */}
-          <TouchableOpacity
+          {/* <TouchableOpacity
             className="bg-blue-400 rounded-xl p-3 mt-4"
             onPress={() => {
               console.log("Truyền userData:", {
@@ -313,7 +313,7 @@ const Owner = () => {
             <Text className="text-white font-semibold text-xl text-center">
               Thống kê doanh thu
             </Text>
-          </TouchableOpacity>
+          </TouchableOpacity> */}
 
           {/* Nút đăng xuất */}
           <TouchableOpacity

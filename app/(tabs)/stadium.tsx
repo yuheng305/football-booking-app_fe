@@ -1,4 +1,4 @@
-import { SafeAreaView, Text, View, Image, Button } from "react-native";
+import { SafeAreaView, Text, View, Button } from "react-native";
 import { Calendar } from "react-native-calendars";
 import { useState } from "react";
 import { router } from "expo-router";
@@ -6,6 +6,13 @@ import Header from "@/component/Header";
 
 const Stadium = () => {
   const [selectedDate, setSelectedDate] = useState("");
+
+  // Format date from YYYY-MM-DD to DD/MM/YYYY
+  const formatDate = (dateString: string) => {
+    if (!dateString) return "";
+    const [year, month, day] = dateString.split("-");
+    return `${day}/${month}/${year}`;
+  };
 
   return (
     <SafeAreaView className="flex-1 bg-gray-100">
@@ -54,7 +61,9 @@ const Stadium = () => {
         {/* Selected Date Display */}
         {selectedDate && (
           <View className="mt-4 p-4 bg-white rounded-lg shadow">
-            <Text className="text-base">Ngày đã chọn: {selectedDate}</Text>
+            <Text className="text-base font-semibold mb-2">
+              Ngày đã chọn: {formatDate(selectedDate)}
+            </Text>
             <Button
               title="Chọn địa điểm"
               onPress={() => router.push("/(stadiums)/location")}

@@ -13,12 +13,21 @@ import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-const Login = () => {
-  const [emailOrUsername, setEmailOrUsername] = useState(""); // Thay đổi tên state
-  const [password, setPassword] = useState("");
-  const [rememberMe, setRememberMe] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
+// Define the expected shape of the API response
+interface LoginResponse {
+  token?: string;
+  user?: {
+    username?: string;
+  };
+  message?: string;
+}
+
+const Login: React.FC = () => {
+  const [emailOrUsername, setEmailOrUsername] = useState<string>("");
+  const [password, setPassword] = useState<string>("");
+  const [rememberMe, setRememberMe] = useState<boolean>(false);
+  const [showPassword, setShowPassword] = useState<boolean>(false);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
 
   const handleLogin = async () => {
     if (!emailOrUsername || !password) {
@@ -35,20 +44,25 @@ const Login = () => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          email: emailOrUsername.trim(), // Gửi cả email và username, để server xử lý
-          username: emailOrUsername.trim(), // Thêm username vào body
-          password: password,
+          email: emailOrUsername.trim(),
+          username: emailOrUsername.trim(),
+          password,
         }),
       });
 
-      const data = await response.json();
+      const contentType = response.headers.get("content-type");
+      if (!contentType || !contentType.includes("application/json")) {
+        throw new Error("Server returned non-JSON response");
+      }
+
+      const data: LoginResponse = await response.json();
+      console.log("Server response:", data);
 
       if (response.ok && data.token) {
         const token = data.token;
 
         await AsyncStorage.setItem("authToken", token);
-        await AsyncStorage.setItem("userData", JSON.stringify(data.user)); // Lưu thông tin người dùng vào AsyncStorage
-        // Kiểm tra loại tài khoản dựa trên username
+        await AsyncStorage.setItem("userData", JSON.stringify(data.user));
         const isOwner =
           data.user &&
           data.user.username &&
@@ -58,9 +72,8 @@ const Login = () => {
         console.log("Navigating to:", destination);
         router.replace(destination);
       } else {
-        // Xử lý lỗi chi tiết hơn dựa trên message từ API
-        let errorMessage = "Email hoặc mật khẩu không đúng!";
-        if (data.message) {
+        let errorMessage = "Tên người dùng hoặc mật khẩu không đúng!";
+        if (typeof data.message === "string") {
           if (data.message.includes("Tên người dùng không tồn tại")) {
             errorMessage = "Tên người dùng không tồn tại!";
           } else if (data.message.includes("Mật khẩu")) {
@@ -71,16 +84,23 @@ const Login = () => {
         }
         Alert.alert("Lỗi đăng nhập", errorMessage);
       }
-    } catch (error) {
-      //   if (error.message.includes("Network request failed")) {
-      //     Alert.alert(
-      //       "Lỗi",
-      //       "Không thể kết nối đến server. Vui lòng kiểm tra kết nối internet!"
-      //     );
-      //   } else {
-      //     Alert.alert("Lỗi", "Đã có lỗi xảy ra. Vui lòng thử lại!");
-      //   }
+    } catch (error: unknown) {
       console.error("Login error:", error);
+      if (error instanceof Error) {
+        if (error.message.includes("Network request failed")) {
+          Alert.alert(
+            "Lỗi",
+            "Không thể kết nối đến server. Vui lòng kiểm tra kết nối internet!"
+          );
+        } else {
+          Alert.alert("Lỗi", "Đã có lỗi xảy ra. Vui lòng thử lại!");
+        }
+      } else {
+        Alert.alert(
+          "Lỗi",
+          "Đã có lỗi không xác định xảy ra. Vui lòng thử lại!"
+        );
+      }
     } finally {
       setIsLoading(false);
     }
@@ -105,14 +125,13 @@ const Login = () => {
               color="gray"
               className="mr-3"
             />
-            {/* Thay biểu tượng mail bằng person */}
             <TextInput
               value={emailOrUsername}
               onChangeText={setEmailOrUsername}
               placeholder="Email hoặc Tài khoản"
               placeholderTextColor="gray"
               className="flex-1 text-white"
-              keyboardType="default" // Thay email-address bằng default để hỗ trợ cả username
+              keyboardType="default"
               autoCapitalize="none"
             />
           </View>
@@ -153,9 +172,6 @@ const Login = () => {
             />
             <Text className="text-gray-400 ml-2">Ghi nhớ mật khẩu</Text>
           </View>
-          {/* <TouchableOpacity onPress={() => router.push("/forgot-password")}>
-            <Text className="text-gray-400">Quên mật khẩu</Text>
-          </TouchableOpacity> */}
         </View>
         <TouchableOpacity
           onPress={handleLogin}
@@ -170,33 +186,6 @@ const Login = () => {
             </Text>
           )}
         </TouchableOpacity>
-        <View className="mt-8">
-          <Text className="text-center text-gray-400 mb-4">
-            hoặc đăng nhập với
-          </Text>
-          <View className="flex-row justify-center space-x-6">
-            <TouchableOpacity>
-              <View className="bg-blue-600 p-3 rounded-full">
-                <Ionicons name="logo-facebook" size={24} color="white" />
-              </View>
-            </TouchableOpacity>
-            <TouchableOpacity>
-              <View className="bg-gray-600 p-3 rounded-full">
-                <Ionicons name="logo-instagram" size={24} color="white" />
-              </View>
-            </TouchableOpacity>
-            <TouchableOpacity>
-              <View className="bg-red-500 p-3 rounded-full">
-                <Ionicons name="logo-pinterest" size={24} color="white" />
-              </View>
-            </TouchableOpacity>
-            <TouchableOpacity>
-              <View className="bg-blue-700 p-3 rounded-full">
-                <Ionicons name="logo-linkedin" size={24} color="white" />
-              </View>
-            </TouchableOpacity>
-          </View>
-        </View>
       </View>
     </SafeAreaView>
   );

@@ -6,6 +6,7 @@ import {
   ScrollView,
   Modal,
   StyleSheet,
+  Alert,
 } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -34,6 +35,8 @@ export default function BookingDetail() {
   const [loading, setLoading] = useState(true);
   const [approveModalVisible, setApproveModalVisible] = useState(false);
   const [rejectModalVisible, setRejectModalVisible] = useState(false);
+  const [confirmRejectModalVisible, setConfirmRejectModalVisible] =
+    useState(false);
 
   useEffect(() => {
     const fetchBookingDetail = async () => {
@@ -63,13 +66,12 @@ export default function BookingDetail() {
         const data = await response.json();
         console.log("Dữ liệu từ API:", data);
 
-        // Map API response to Booking interface
         setBooking({
           id: data.bookingId,
           field: data.fieldName,
           time: `${data.startHour}:00`,
           date: data.date.split("T")[0],
-          status: "Chờ duyệt", // Assume pending status for detail page (adjust based on API if needed)
+          status: "Chờ duyệt",
           userName: data.userName,
           phoneNumber: data.phoneNumber,
           email: data.email,
@@ -110,8 +112,41 @@ export default function BookingDetail() {
   };
 
   const handleReject = () => {
-    console.log(`Từ chối booking ${booking.id}`);
-    setRejectModalVisible(true);
+    console.log(`Mở modal xác nhận từ chối booking ${booking.id}`);
+    setConfirmRejectModalVisible(true);
+  };
+
+  const confirmReject = async () => {
+    try {
+      const token = await AsyncStorage.getItem("authToken");
+      if (!token) {
+        Alert.alert("Lỗi", "Không tìm thấy token, vui lòng đăng nhập lại!");
+        router.replace("/login");
+        return;
+      }
+
+      const response = await fetch(
+        `https://gopitch.onrender.com/bookings/${booking.id}`,
+        {
+          method: "DELETE",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`Lỗi khi xóa booking: ${response.statusText}`);
+      }
+
+      console.log(`Xóa booking ${booking.id} thành công`);
+      setConfirmRejectModalVisible(false);
+      setRejectModalVisible(true);
+    } catch (error) {
+      console.error("Lỗi khi xóa booking:", error);
+      Alert.alert("Lỗi", "Không thể xóa booking. Vui lòng thử lại!");
+    }
   };
 
   const closeApproveModal = () => {
@@ -128,6 +163,10 @@ export default function BookingDetail() {
       pathname: "/ownerBookingManagement",
       params: { filter: "Chờ duyệt" },
     });
+  };
+
+  const closeConfirmRejectModal = () => {
+    setConfirmRejectModalVisible(false);
   };
 
   return (
@@ -296,19 +335,46 @@ export default function BookingDetail() {
         onRequestClose={closeRejectModal}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContainer}>
+          <View style={styles.modalRejectContainer}>
             <TouchableOpacity
               style={styles.closeButton}
               onPress={closeRejectModal}
             >
               <Ionicons name="close" size={18} color="#FFFFFF" />
             </TouchableOpacity>
-            <View style={styles.checkmarkContainer}>
+            <View style={styles.iconContainer}>
               <Ionicons name="close-circle-outline" size={60} color="#FF0000" />
             </View>
-            <Text style={[styles.successText, { left: 95, width: 195 }]}>
-              Từ chối thành công
+            <Text style={styles.rejectSuccessText}>Từ chối thành công</Text>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={confirmRejectModalVisible}
+        onRequestClose={closeConfirmRejectModal}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalRejectContainer}>
+            <Text style={styles.confirmText}>
+              Bạn có chắc chắn muốn từ chối booking này?
             </Text>
+            <View style={styles.buttonContainer}>
+              <TouchableOpacity
+                style={styles.cancelButton}
+                onPress={closeConfirmRejectModal}
+              >
+                <Text style={styles.buttonText}>Hủy</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.confirmButton}
+                onPress={confirmReject}
+              >
+                <Text style={styles.buttonText}>Xác nhận</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </Modal>
@@ -334,10 +400,24 @@ const styles = StyleSheet.create({
     shadowRadius: 10,
     elevation: 5,
   },
+  modalRejectContainer: {
+    width: 384,
+    height: 252,
+    backgroundColor: "#FFE2E2", // Màu đỏ nhạt cho cả hai modal từ chối
+    borderRadius: 20,
+    shadowColor: "#000",
+    shadowOffset: { width: 5, height: 5 },
+    shadowOpacity: 0.25,
+    shadowRadius: 10,
+    elevation: 5,
+    padding: 20,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   closeButton: {
     position: "absolute",
     top: 18,
-    left: 332,
+    right: 18,
     width: 38,
     height: 38,
     backgroundColor: "#808080",
@@ -352,6 +432,9 @@ const styles = StyleSheet.create({
     width: 60,
     height: 60,
   },
+  iconContainer: {
+    marginBottom: 20,
+  },
   successText: {
     position: "absolute",
     top: 153,
@@ -365,5 +448,46 @@ const styles = StyleSheet.create({
     textAlign: "center",
     letterSpacing: -1,
     color: "#119916",
+  },
+  rejectSuccessText: {
+    fontFamily: "Exo",
+    fontWeight: "700",
+    fontSize: 24,
+    lineHeight: 28,
+    textAlign: "center",
+    letterSpacing: -1,
+    color: "#FF0000", // Màu đỏ đậm cho văn bản
+  },
+  confirmText: {
+    fontSize: 18,
+    fontWeight: "bold",
+    textAlign: "center",
+    marginBottom: 30,
+    color: "#1E232C",
+  },
+  buttonContainer: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+    width: "100%",
+  },
+  cancelButton: {
+    backgroundColor: "#808080",
+    paddingVertical: 12,
+    paddingHorizontal: 30,
+    borderRadius: 10,
+    elevation: 3,
+  },
+  confirmButton: {
+    backgroundColor: "#FF0000",
+    paddingVertical: 12,
+    paddingHorizontal: 30,
+    borderRadius: 10,
+    elevation: 3,
+  },
+  buttonText: {
+    color: "#FFFFFF",
+    fontSize: 16,
+    fontWeight: "bold",
+    textAlign: "center",
   },
 });

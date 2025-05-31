@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -6,116 +6,188 @@ import {
   TouchableOpacity,
   Modal,
   Image,
+  StyleSheet,
 } from "react-native";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import HeaderUser from "@/component/HeaderUser";
 import FooterUser from "@/component/FooterUser";
-import { useState } from "react";
-import { Ionicons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { Ionicons } from "@expo/vector-icons"; // Sử dụng Ionicons từ Expo
+
+// Định nghĩa kiểu dữ liệu cho booking
+interface Booking {
+  userName: string;
+  phoneNumber: string;
+  email: string;
+  bookingId: string;
+  clusterName: string;
+  fieldName: string;
+  date: string;
+  startHour: number;
+  address: string;
+  slot: number;
+  services: { name: string; price: number }[];
+  price: number;
+  status: string;
+}
 
 const Payment = () => {
-  const userData = {
-    id: 1,
-    name: "Nguyễn Văn A",
-    email: "huydt04@gmail.com",
-    phone: "0123456789",
-    username: "huydt04",
-    bookingHistory: [
-      {
-        id: 1,
-        date: "2023-10-01",
-        time: "08:00",
-        stadium: "Cụm sân 1",
-        address: "Tân Bình",
-        mini_stadium: "Sân A",
-        type: "Đặt nửa sân",
-        services: [
-          "Nuớc uống",
-          "Găng tay thủ môn",
-          "Áo bib",
-          "Quay lại trận đấu",
-        ],
-        price: 200000,
-        status: "Đã thanh toán",
-      },
-      {
-        id: 2,
-        date: "2023-10-01",
-        time: "08:00",
-        stadium: "Cụm sân 1",
-        address: "Bình Thạnh",
-        mini_stadium: "Sân A",
-        type: "Đặt nửa sân",
-        services: [
-          "Nước uống",
-          "Găng tay thủ môn",
-          "Áo bib",
-          "Quay lại trận đấu",
-        ],
-        price: 200000,
-        status: "Đã thanh toán",
-      },
-    ],
+  const { bookingId } = useLocalSearchParams();
+  const [successModalVisible, setSuccessModalVisible] = useState(false); // Thay showQRModal
+  const [error, setError] = useState<string | null>(null);
+  const [bookingDetails, setBookingDetails] = useState<Booking | null>(null);
+
+  useEffect(() => {
+    const fetchBookingDetails = async () => {
+      try {
+        if (!bookingId || typeof bookingId !== "string") {
+          setError("Bạn không có đơn đặt sân nào cần thanh toán");
+          return;
+        }
+
+        const token = await AsyncStorage.getItem("authToken");
+        if (!token) {
+          router.replace("/login");
+          return;
+        }
+
+        const response = await fetch(
+          `https://gopitch.onrender.com/bookings/${bookingId}`,
+          {
+            method: "GET",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+
+        if (!response.ok) {
+          throw new Error(
+            `Lỗi khi lấy thông tin booking: ${response.statusText}`
+          );
+        }
+
+        const data: Booking = await response.json();
+        setBookingDetails(data);
+      } catch (error: unknown) {
+        console.error("Lỗi khi lấy thông tin đặt sân:", error);
+        const errorMsg = error instanceof Error ? error.message : String(error);
+        setError(`Không thể lấy thông tin đặt sân: ${errorMsg}`);
+      }
+    };
+
+    fetchBookingDetails();
+  }, [bookingId]);
+
+  const handlePayment = async () => {
+    try {
+      if (!bookingId || typeof bookingId !== "string") {
+        setError("Bạn không có đơn đặt sân nào cần thanh toán");
+        return;
+      }
+
+      const token = await AsyncStorage.getItem("authToken");
+      if (!token) {
+        router.replace("/login");
+        return;
+      }
+
+      const response = await fetch(
+        `https://gopitch.onrender.com/bookings/${bookingId}/payment`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ status: "completed" }),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`Lỗi khi thanh toán: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      console.log("Thanh toán thành công:", data);
+      setSuccessModalVisible(true);
+    } catch (error: unknown) {
+      console.error("Lỗi khi thanh toán:", error);
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      setError(`Không thể thanh toán: ${errorMsg}`);
+    }
   };
 
-  // Create bookingData from the first item in bookingHistory
-  const bookingData = {
-    id: userData.bookingHistory[0].id,
-    cluster: userData.bookingHistory[0].stadium,
-    field: userData.bookingHistory[0].mini_stadium,
-    date: userData.bookingHistory[0].date,
-    time: userData.bookingHistory[0].time,
-    address: userData.bookingHistory[0].address,
-    type: userData.bookingHistory[0].type,
-    referee: "Không",
-    services: userData.bookingHistory[0].services,
-    total: userData.bookingHistory[0].price.toLocaleString() + " VND",
+  const closeSuccessModal = () => {
+    setSuccessModalVisible(false);
+    router.push("/(tabs)/home");
   };
-  const [showQRModal, setShowQRModal] = useState(false);
+
+  if (!bookingDetails) {
+    return (
+      <SafeAreaView className="flex-1 bg-white">
+        <HeaderUser location="Tài khoản" time="" />
+        <View className="flex-1 justify-center items-center">
+          {error ? (
+            <Text className="text-red-500 text-lg">{error}</Text>
+          ) : (
+            <Text className="text-lg">Đang tải thông tin...</Text>
+          )}
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView className="flex-1 bg-white">
       <View className="flex-1">
-        <HeaderUser location="Tài khoản" time={userData.name} />
+        <HeaderUser
+          location="Tài khoản"
+          time={bookingDetails.userName || "Người dùng"}
+        />
         <View className="px-6 space-y-4">
           {/* Mã đặt sân */}
           <View className="border-b border-gray-300 pb-2 pt-20">
             <Text className="text-xl font-semibold text-gray-800">
-              Thông tin đặt sân #{bookingData.id}
+              Thông tin đặt sân
             </Text>
           </View>
 
           {/* Cụm sân */}
           <View className="flex-row justify-between mt-2">
             <Text className="text-gray-600 font-semibold">Cụm sân :</Text>
-            <Text className="text-gray-800">{bookingData.cluster}</Text>
+            <Text className="text-gray-800">{bookingDetails.clusterName}</Text>
           </View>
           <View className="flex-row justify-between">
             <Text className="text-gray-600 font-semibold">Sân :</Text>
-            <Text className="text-gray-800">{bookingData.field}</Text>
+            <Text className="text-gray-800">{bookingDetails.fieldName}</Text>
           </View>
 
           {/* Ngày giờ */}
           <View className="flex-row justify-between">
             <Text className="text-gray-600 font-semibold">Ngày :</Text>
-            <Text className="text-gray-800">{bookingData.date}</Text>
+            <Text className="text-gray-800">{bookingDetails.date}</Text>
           </View>
 
           {/* Thời gian */}
           <View className="flex-row justify-between">
             <Text className="text-gray-600 font-semibold">Thời gian :</Text>
-            <Text className="text-gray-800">{bookingData.time}</Text>
+            <Text className="text-gray-800">{bookingDetails.startHour}:00</Text>
           </View>
 
           {/* Địa chỉ */}
           <View className="flex-row justify-between">
             <Text className="text-gray-600 font-semibold">Địa chỉ :</Text>
-            <Text className="text-gray-800">{bookingData.address}</Text>
+            <Text className="text-gray-800">{bookingDetails.address}</Text>
           </View>
 
           {/* Loại hình */}
           <View className="flex-row justify-between">
             <Text className="text-gray-600 font-semibold">Loại hình :</Text>
-            <Text className="text-gray-800">{bookingData.type}</Text>
+            <Text className="text-gray-800">
+              {bookingDetails.slot === 1 ? "Đặt nửa sân" : "Đặt toàn sân"}
+            </Text>
           </View>
 
           {/* Thuê trọng tài */}
@@ -123,29 +195,39 @@ const Payment = () => {
             <Text className="text-gray-600 font-semibold">
               Thuê trọng tài :
             </Text>
-            <Text className="text-gray-800">{bookingData.referee}</Text>
+            <Text className="text-gray-800">
+              {bookingDetails.services.some((s) => s.name === "Thuê trọng tài")
+                ? "Có"
+                : "Không"}
+            </Text>
           </View>
 
-          {/* Dịch vụ khách */}
+          {/* Dịch vụ khác */}
           <View className="mb-2">
             <Text className="text-gray-600 font-semibold">Dịch vụ khác :</Text>
-            {bookingData.services.map((service, index) => (
-              <Text key={index} className="text-gray-800 ml-4">
-                • {service}
-              </Text>
-            ))}
+            {bookingDetails.services
+              .filter((s) => s.name !== "Thuê trọng tài")
+              .map((service, index) => (
+                <Text key={index} className="text-gray-800 ml-4">
+                  • {service.name}
+                </Text>
+              ))}
           </View>
 
           {/* Tổng cộng */}
           <View className="flex-row justify-between border-t border-gray-300 pt-4">
             <Text className="text-gray-600 font-semibold">Tổng cộng :</Text>
             <Text className="text-gray-800 font-semibold">
-              {bookingData.total}
+              {bookingDetails.price.toLocaleString()} VND
             </Text>
           </View>
 
+          {error && (
+            <Text className="text-red-500 text-center mt-2">{error}</Text>
+          )}
+
           <TouchableOpacity
-            onPress={() => setShowQRModal(true)}
+            onPress={handlePayment}
             className="border border-black mt-4 px-4 py-3 rounded-lg"
           >
             <View className="flex-row items-center">
@@ -161,7 +243,7 @@ const Payment = () => {
           </TouchableOpacity>
 
           <TouchableOpacity
-            onPress={() => setShowQRModal(true)}
+            onPress={handlePayment}
             className="border border-black mt-4 px-4 py-3 rounded-lg"
           >
             <View className="flex-row items-center">
@@ -177,7 +259,7 @@ const Payment = () => {
           </TouchableOpacity>
 
           <TouchableOpacity
-            onPress={() => setShowQRModal(true)}
+            onPress={handlePayment}
             className="border border-black mt-4 px-4 py-3 rounded-lg"
           >
             <View className="flex-row items-center">
@@ -193,28 +275,88 @@ const Payment = () => {
           </TouchableOpacity>
         </View>
       </View>
+
+      {/* Modal Thanh toán thành công */}
       <Modal
-        visible={showQRModal}
-        transparent={true}
         animationType="fade"
-        onRequestClose={() => setShowQRModal(false)}
+        transparent={true}
+        visible={successModalVisible}
+        onRequestClose={closeSuccessModal}
       >
-        <View className="flex-1 justify-center items-center bg-black/50">
-          <View className="bg-white p-6 rounded-xl shadow-lg items-center">
-            <Text className="text-2xl font-bold text-green-600 mb-2">
-              Thanh toán thành công!
-            </Text>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
             <TouchableOpacity
-              onPress={() => setShowQRModal(false)}
-              className="mt-4 bg-green-500 px-6 py-2 rounded-full"
+              style={styles.closeButton}
+              onPress={closeSuccessModal}
             >
-              <Text className="text-white font-semibold text-lg">Đóng</Text>
+              <Ionicons name="close" size={18} color="#FFFFFF" />
             </TouchableOpacity>
+            <View style={styles.checkmarkContainer}>
+              <Ionicons
+                name="checkmark-circle-outline"
+                size={60}
+                color="#119916"
+              />
+            </View>
+            <Text style={styles.successText}>Thanh toán thành công</Text>
           </View>
         </View>
       </Modal>
     </SafeAreaView>
   );
 };
+
+// Styles cho Modal
+const styles = StyleSheet.create({
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  modalContainer: {
+    width: 300,
+    height: 180,
+    backgroundColor: "#E3FFE2",
+    borderRadius: 20,
+    shadowColor: "#000",
+    shadowOffset: { width: 5, height: 5 },
+    shadowOpacity: 0.25,
+    shadowRadius: 10,
+    elevation: 5,
+  },
+  closeButton: {
+    position: "absolute",
+    top: 18,
+    left: 250,
+    width: 38,
+    height: 38,
+    backgroundColor: "#808080",
+    borderRadius: 30,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  checkmarkContainer: {
+    position: "absolute",
+    top: 50,
+    left: 120,
+    width: 60,
+    height: 60,
+  },
+  successText: {
+    position: "absolute",
+    top: 123,
+    left: 10,
+    width: 300,
+    height: 28,
+    fontFamily: "Exo",
+    fontWeight: "700",
+    fontSize: 24,
+    lineHeight: 28,
+    textAlign: "center",
+    letterSpacing: -1,
+    color: "#119916",
+  },
+});
 
 export default Payment;

@@ -44,6 +44,7 @@ const ChangePassword = () => {
       }
       const userData = JSON.parse(userDataString);
       const userId = userData._id;
+      console.log("userId:", userId);
       if (!userId) {
         Alert.alert("Lỗi", "Không tìm thấy userId, vui lòng đăng nhập lại!");
         router.replace("/login");
@@ -59,7 +60,7 @@ const ChangePassword = () => {
 
       // Gọi API
       const response = await fetch(
-        `https://gopitch.onrender.com/users/${userId}/password`,
+        `https://gopitch.onrender.com/owners/${userId}/password`,
         {
           method: "PATCH",
           headers: {
@@ -133,9 +134,9 @@ const ChangePassword = () => {
         </View>
       </View>
       {/* FooterUser cố định ở dưới đáy */}
-      <View className="pb-14">
+      {/* <View className="pb-14">
         <FooterUser />
-      </View>
+      </View> */}
     </SafeAreaView>
   );
 };
