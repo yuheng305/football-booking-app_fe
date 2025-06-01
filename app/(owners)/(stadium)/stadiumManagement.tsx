@@ -310,7 +310,7 @@ export default function StadiumManagement() {
 
   return (
     <SafeAreaView className="flex-1 bg-white">
-      <View className="w-full h-11 bg-black" />
+      {/* <View className="w-full h-11 bg-black" /> */}
 
       <View className="flex-row items-center px-4 pt-4">
         <TouchableOpacity

@@ -24,13 +24,15 @@ export default function editField() {
   const [closeMinute, setCloseMinute] = useState(10);
   const [closePeriod, setClosePeriod] = useState("PM");
   const [isOpenTimePickerVisible, setIsOpenTimePickerVisible] = useState(false);
-  const [isCloseTimePickerVisible, setIsCloseTimePickerVisible] = useState(false);
-  const [isStartDatePickerVisible, setIsStartDatePickerVisible] = useState(false);
+  const [isCloseTimePickerVisible, setIsCloseTimePickerVisible] =
+    useState(false);
+  const [isStartDatePickerVisible, setIsStartDatePickerVisible] =
+    useState(false);
   const [isEndDatePickerVisible, setIsEndDatePickerVisible] = useState(false);
   const [selectedDay, setSelectedDay] = useState(20);
-  const [selectedMonth, setSelectedMonth] = useState(4); 
+  const [selectedMonth, setSelectedMonth] = useState(4);
   const [selectedYear, setSelectedYear] = useState(2025);
-  const [successModalVisible, setSuccessModalVisible] = useState(false); 
+  const [successModalVisible, setSuccessModalVisible] = useState(false);
 
   const months = [
     "Jan",
@@ -87,12 +89,12 @@ export default function editField() {
     console.log(
       `Lưu thông tin thời gian cho ${stadiumName}: Từ ${startDate} đến ${endDate}, Mở ${openHour}:${openMinute} ${openPeriod} - Đóng ${closeHour}:${closeMinute} ${closePeriod}`
     );
-    setSuccessModalVisible(true); 
+    setSuccessModalVisible(true);
   };
 
   const closeSuccessModal = () => {
     setSuccessModalVisible(false);
-    router.push("/stadiumManagement"); 
+    router.push("/stadiumManagement");
   };
 
   const getDaysInMonth = (month: number, year: number) => {
@@ -124,7 +126,11 @@ export default function editField() {
         >
           <Text
             className={`text-center font-poppins text-[14px] ${
-              isSelected ? "text-white" : day > daysInMonth ? "text-[#CACACA]" : "text-[#222222]"
+              isSelected
+                ? "text-white"
+                : day > daysInMonth
+                ? "text-[#CACACA]"
+                : "text-[#222222]"
             }`}
             style={{ fontFamily: "Poppins" }}
           >
@@ -139,7 +145,7 @@ export default function editField() {
 
   return (
     <SafeAreaView className="flex-1 bg-white">
-      <View className="w-full h-11 bg-black" />
+      {/* <View className="w-full h-11 bg-black" /> */}
       <View className="flex-row items-center px-4 pt-4">
         <TouchableOpacity
           className="w-10 h-10 bg-white border border-gray-200 rounded-xl items-center justify-center"
@@ -173,7 +179,9 @@ export default function editField() {
             </Text>
             <TouchableOpacity
               className="p-2"
-              onPress={() => setIsOpenTimePickerVisible(!isOpenTimePickerVisible)}
+              onPress={() =>
+                setIsOpenTimePickerVisible(!isOpenTimePickerVisible)
+              }
             >
               <Ionicons name="time-outline" size={20} color="#4B72D2" />
             </TouchableOpacity>
@@ -182,7 +190,9 @@ export default function editField() {
             <View className="bg-white border border-gray-300 rounded-lg p-4 mt-2 flex-row items-center justify-between">
               <TouchableOpacity
                 className="p-2"
-                onPress={() => handleHourChange("open", Math.max(1, openHour - 1))}
+                onPress={() =>
+                  handleHourChange("open", Math.max(1, openHour - 1))
+                }
               >
                 <Text className="text-[#4B72D2] font-bold">↑</Text>
               </TouchableOpacity>
@@ -194,16 +204,23 @@ export default function editField() {
               </Text>
               <TouchableOpacity
                 className="p-2"
-                onPress={() => handleHourChange("open", Math.min(12, openHour + 1))}
+                onPress={() =>
+                  handleHourChange("open", Math.min(12, openHour + 1))
+                }
               >
                 <Text className="text-[#4B72D2] font-bold">↓</Text>
               </TouchableOpacity>
-              <Text className="text-[#A6A6A6] text-[10.67px] mx-1" style={{ fontFamily: "Pretendard" }}>
+              <Text
+                className="text-[#A6A6A6] text-[10.67px] mx-1"
+                style={{ fontFamily: "Pretendard" }}
+              >
                 :
               </Text>
               <TouchableOpacity
                 className="p-2"
-                onPress={() => handleMinuteChange("open", Math.max(0, openMinute - 1))}
+                onPress={() =>
+                  handleMinuteChange("open", Math.max(0, openMinute - 1))
+                }
               >
                 <Text className="text-[#4B72D2] font-bold">↑</Text>
               </TouchableOpacity>
@@ -215,7 +232,9 @@ export default function editField() {
               </Text>
               <TouchableOpacity
                 className="p-2"
-                onPress={() => handleMinuteChange("open", Math.min(59, openMinute + 1))}
+                onPress={() =>
+                  handleMinuteChange("open", Math.min(59, openMinute + 1))
+                }
               >
                 <Text className="text-[#4B72D2] font-bold">↓</Text>
               </TouchableOpacity>
@@ -248,7 +267,9 @@ export default function editField() {
             </Text>
             <TouchableOpacity
               className="p-2"
-              onPress={() => setIsCloseTimePickerVisible(!isCloseTimePickerVisible)}
+              onPress={() =>
+                setIsCloseTimePickerVisible(!isCloseTimePickerVisible)
+              }
             >
               <Ionicons name="time-outline" size={20} color="#4B72D2" />
             </TouchableOpacity>
@@ -257,7 +278,9 @@ export default function editField() {
             <View className="bg-white border border-gray-300 rounded-lg p-4 mt-2 flex-row items-center justify-between">
               <TouchableOpacity
                 className="p-2"
-                onPress={() => handleHourChange("close", Math.max(1, closeHour - 1))}
+                onPress={() =>
+                  handleHourChange("close", Math.max(1, closeHour - 1))
+                }
               >
                 <Text className="text-[#4B72D2] font-bold">↑</Text>
               </TouchableOpacity>
@@ -269,16 +292,23 @@ export default function editField() {
               </Text>
               <TouchableOpacity
                 className="p-2"
-                onPress={() => handleHourChange("close", Math.min(12, closeHour + 1))}
+                onPress={() =>
+                  handleHourChange("close", Math.min(12, closeHour + 1))
+                }
               >
                 <Text className="text-[#4B72D2] font-bold">↓</Text>
               </TouchableOpacity>
-              <Text className="text-[#A6A6A6] text-[10.67px] mx-1" style={{ fontFamily: "Pretendard" }}>
+              <Text
+                className="text-[#A6A6A6] text-[10.67px] mx-1"
+                style={{ fontFamily: "Pretendard" }}
+              >
                 :
               </Text>
               <TouchableOpacity
                 className="p-2"
-                onPress={() => handleMinuteChange("close", Math.max(0, closeMinute - 1))}
+                onPress={() =>
+                  handleMinuteChange("close", Math.max(0, closeMinute - 1))
+                }
               >
                 <Text className="text-[#4B72D2] font-bold">↑</Text>
               </TouchableOpacity>
@@ -290,7 +320,9 @@ export default function editField() {
               </Text>
               <TouchableOpacity
                 className="p-2"
-                onPress={() => handleMinuteChange("close", Math.min(59, closeMinute + 1))}
+                onPress={() =>
+                  handleMinuteChange("close", Math.min(59, closeMinute + 1))
+                }
               >
                 <Text className="text-[#4B72D2] font-bold">↓</Text>
               </TouchableOpacity>
@@ -315,7 +347,9 @@ export default function editField() {
           </Text>
           <View className="flex-row items-center">
             <View className="flex-1 mr-2">
-              <Text className="text-black text-[15px] font-medium mb-1">Từ:</Text>
+              <Text className="text-black text-[15px] font-medium mb-1">
+                Từ:
+              </Text>
               <TouchableOpacity
                 className="bg-gray-100 border border-gray-300 rounded-lg p-4 flex-row items-center justify-between"
                 onPress={() => setIsStartDatePickerVisible(true)}
@@ -330,7 +364,9 @@ export default function editField() {
               </TouchableOpacity>
             </View>
             <View className="flex-1 ml-2">
-              <Text className="text-black text-[15px] font-medium mb-1">Đến:</Text>
+              <Text className="text-black text-[15px] font-medium mb-1">
+                Đến:
+              </Text>
               <TouchableOpacity
                 className="bg-gray-100 border border-gray-300 rounded-lg p-4 flex-row items-center justify-between"
                 onPress={() => setIsEndDatePickerVisible(true)}
@@ -351,7 +387,10 @@ export default function editField() {
           className="bg-[#0B8FAC] py-4 px-20 rounded-lg items-center mt-8 self-center"
           onPress={handleSave}
         >
-          <Text className="text-white text-xl font-semibold" style={{ fontFamily: "Urbanist" }}>
+          <Text
+            className="text-white text-xl font-semibold"
+            style={{ fontFamily: "Urbanist" }}
+          >
             Áp dụng
           </Text>
         </TouchableOpacity>
@@ -563,11 +602,18 @@ export default function editField() {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContainer}>
-            <TouchableOpacity style={styles.closeButton} onPress={closeSuccessModal}>
+            <TouchableOpacity
+              style={styles.closeButton}
+              onPress={closeSuccessModal}
+            >
               <Ionicons name="close" size={18} color="#FFFFFF" />
             </TouchableOpacity>
             <View style={styles.checkmarkContainer}>
-              <Ionicons name="checkmark-circle-outline" size={60} color="#119916" />
+              <Ionicons
+                name="checkmark-circle-outline"
+                size={60}
+                color="#119916"
+              />
             </View>
             <Text style={styles.successText}>Điều chỉnh thành công</Text>
           </View>
@@ -616,8 +662,8 @@ const styles = StyleSheet.create({
   successText: {
     position: "absolute",
     top: 153,
-    left: 60, 
-    width: 264, 
+    left: 60,
+    width: 264,
     height: 28,
     fontFamily: "Exo",
     fontWeight: "700",

@@ -23,7 +23,6 @@ const HeaderOne: React.FC<HeaderProps> = ({ title }) => {
     <SafeAreaView
       style={{
         backgroundColor: "black",
-        paddingTop: Platform.OS === "android" ? StatusBar.currentHeight : 0,
       }}
     >
       <View className="h-20 w-full bg-black flex-row justify-end items-center px-4">

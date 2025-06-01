@@ -5,8 +5,9 @@ import {
   Image,
   TouchableOpacity,
   ScrollView,
+  StyleSheet,
 } from "react-native";
-import RNPickerSelect from "react-native-picker-select";
+import { Picker } from "@react-native-picker/picker";
 import { useState, useEffect } from "react";
 import { router, useLocalSearchParams } from "expo-router";
 import Header from "@/component/Header";
@@ -112,7 +113,7 @@ const Location = () => {
   const handleViewPress = (clusterId: string) => {
     router.push({
       pathname: "/(tabs)/(stadiums)/locationTime",
-      params: { clusterId, selectedDate }, // Truyền ngày đã chọn
+      params: { clusterId, selectedDate },
     });
   };
 
@@ -132,16 +133,19 @@ const Location = () => {
         </TouchableOpacity>
       </View>
 
-      <RNPickerSelect
-        onValueChange={handleValueChange}
-        items={[
-          { label: "Thành phố Hồ Chí Minh", value: "option1" },
-          { label: "Thành phố Đà Nẵng", value: "option2" },
-          { label: "Thành phố Huế", value: "option3" },
-          { label: "Thành phố Hải Phòng", value: "option4" },
-        ]}
-        placeholder={{ label: "Chọn một thành phố...", value: null }}
-      />
+      <View style={styles.pickerContainer}>
+        <Picker
+          selectedValue={selectedValue}
+          onValueChange={handleValueChange}
+          style={styles.picker}
+        >
+          <Picker.Item label="Chọn một thành phố..." value={null} />
+          <Picker.Item label="Thành phố Hồ Chí Minh" value="option1" />
+          <Picker.Item label="Thành phố Đà Nẵng" value="option2" />
+          <Picker.Item label="Thành phố Huế" value="option3" />
+          <Picker.Item label="Thành phố Hải Phòng" value="option4" />
+        </Picker>
+      </View>
 
       {loading && <Text className="text-center text-lg mt-4">Đang tải...</Text>}
 
@@ -192,5 +196,20 @@ const Location = () => {
     </SafeAreaView>
   );
 };
+
+const styles = StyleSheet.create({
+  pickerContainer: {
+    marginHorizontal: 16,
+    marginVertical: 8,
+    borderWidth: 1,
+    borderColor: "#ccc",
+    borderRadius: 8,
+    backgroundColor: "#fff",
+  },
+  picker: {
+    height: 50,
+    width: "100%",
+  },
+});
 
 export default Location;

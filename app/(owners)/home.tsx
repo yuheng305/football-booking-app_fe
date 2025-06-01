@@ -16,7 +16,7 @@ export default function Home() {
 
   return (
     <SafeAreaView className="flex-1 bg-[#060b28]">
-      <View className="w-full h-11 bg-black" />
+      {/* <View className="w-full h-11 bg-black" /> */}
 
       <View className="items-end mt-8 mr-4">
         <Text className="text-[#ff4d4d] text-5xl font-bold">GoPitch</Text>
@@ -59,7 +59,9 @@ export default function Home() {
           {/* Card: Quản lý đặt sân */}
           <TouchableOpacity
             className="w-40 h-40 bg-white rounded-2xl items-center justify-center p-4 border-2 border-[#3b82f6] mr-4"
-            onPress={() => router.push("/(owners)/(booking)/ownerBookingManagement")}
+            onPress={() =>
+              router.push("/(owners)/(booking)/ownerBookingManagement")
+            }
           >
             <Image
               source={require("../../assets/images/bookinghistory.png")}

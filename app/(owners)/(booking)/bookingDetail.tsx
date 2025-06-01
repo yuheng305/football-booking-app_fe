@@ -171,7 +171,7 @@ export default function BookingDetail() {
 
   return (
     <SafeAreaView className="flex-1 bg-white">
-      <View className="w-full h-[44px] bg-black" />
+      {/* <View className="w-full h-[44px] bg-black" /> */}
       <View className="flex-row items-center px-4 pt-4">
         <TouchableOpacity
           className="w-10 h-10 bg-white border border-gray-200 rounded-xl items-center justify-center"

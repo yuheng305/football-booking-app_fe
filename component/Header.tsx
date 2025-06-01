@@ -24,7 +24,6 @@ const HeaderUser: React.FC<HeaderProps> = ({ location, time }) => {
     <SafeAreaView
       style={{
         backgroundColor: "black",
-        paddingTop: Platform.OS === "android" ? StatusBar.currentHeight : 0,
       }}
     >
       <View className="h-24 w-full bg-black flex-row justify-end items-center px-4">
