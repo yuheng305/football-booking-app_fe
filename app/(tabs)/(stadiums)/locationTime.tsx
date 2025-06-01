@@ -10,7 +10,6 @@ import {
 import { router, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import Header from "@/component/Header";
-import FooterStadium from "@/component/FooterStadium";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 interface Field {
@@ -220,10 +219,6 @@ const LocationTime = () => {
       >
         <Text className="text-red-600 font-semibold text-lg">Quay lại</Text>
       </TouchableOpacity>
-
-      <View className="pb-14">
-        <FooterStadium />
-      </View>
     </SafeAreaView>
   );
 };

@@ -9,7 +9,6 @@ import {
 } from "react-native";
 import { router } from "expo-router";
 import HeaderOne from "@/component/HeaderOne";
-import FooterUser from "@/component/FooterUser";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const ChangePassword = () => {
@@ -133,10 +132,6 @@ const ChangePassword = () => {
           </TouchableOpacity>
         </View>
       </View>
-      {/* FooterUser cố định ở dưới đáy */}
-      {/* <View className="pb-14">
-        <FooterUser />
-      </View> */}
     </SafeAreaView>
   );
 };

@@ -10,7 +10,6 @@ import RNPickerSelect from "react-native-picker-select";
 import { useState, useEffect } from "react";
 import { router } from "expo-router";
 import Header from "@/component/Header";
-import FooterStadium from "@/component/FooterStadium";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 interface Stadium {
@@ -189,11 +188,6 @@ const Stadium = () => {
           Không có sân nào tại thành phố này.
         </Text>
       )}
-
-      {/* Footer */}
-      {/* <View className="pb-14">
-        <FooterStadium />
-      </View> */}
     </SafeAreaView>
   );
 };

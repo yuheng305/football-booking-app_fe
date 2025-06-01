@@ -9,7 +9,6 @@ import {
   Alert,
 } from "react-native";
 import HeaderUser from "@/component/HeaderUser";
-import FooterUser from "@/component/FooterUser";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 // Định nghĩa kiểu dữ liệu cho booking
@@ -157,9 +156,6 @@ const History = () => {
           <Text className="text-red-600 font-semibold text-lg">Quay lại</Text>
         </View>
       </TouchableOpacity>
-      <View className="pb-14">
-        <FooterUser />
-      </View>
     </SafeAreaView>
   );
 };

@@ -10,7 +10,6 @@ import {
 } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import HeaderUser from "@/component/HeaderUser";
-import FooterUser from "@/component/FooterUser";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Ionicons } from "@expo/vector-icons"; // Sử dụng Ionicons từ Expo
 

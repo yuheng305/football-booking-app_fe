@@ -9,7 +9,6 @@ import {
 } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import HeaderUser from "@/component/HeaderUser";
-import FooterUser from "@/component/FooterUser";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 // Định nghĩa kiểu dữ liệu cho booking
@@ -228,11 +227,6 @@ const HistoryDetail = () => {
           </TouchableOpacity>
         </View>
       </View>
-      {/* Đảm bảo FooterUser không bị che */}
-      <View className="pb-14">
-        <FooterUser />
-      </View>
-      {/* Modal hiển thị QR Code */}
       <Modal
         animationType="slide"
         transparent={true}
