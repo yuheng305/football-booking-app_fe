@@ -59,7 +59,7 @@ export default function Home() {
           {/* Card: Lịch sử đặt */}
           <TouchableOpacity
             className="w-40 h-40 bg-white rounded-2xl items-center justify-center p-4 border-2 border-blue-500 mr-4"
-            onPress={() => router.push("/(users)/history")}
+            onPress={() => router.push("/(tabs)/(users)/history")}
           >
             <Image
               source={require("../../assets/images/bookinghistory.png")}

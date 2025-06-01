@@ -166,7 +166,7 @@ export default function StadiumManagement() {
       }
 
       const response = await fetch(
-        `https://gopitch.onrender.com/fields/${stadiumId}`,
+        `https://gopitch.onrender.com/fields/${stadiumId}/status`,
         {
           method: "PATCH",
           headers: {
@@ -207,7 +207,7 @@ export default function StadiumManagement() {
       }
 
       const response = await fetch(
-        `https://gopitch.onrender.com/fields/${stadiumId}`,
+        `https://gopitch.onrender.com/fields/${stadiumId}/status`,
         {
           method: "PATCH",
           headers: {

@@ -2,6 +2,15 @@ import { Tabs } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 
 export default function TabLayout() {
+  const hiddenScreens = [
+    "(users)/change-password",
+    "(users)/historyDetails",
+    "(users)/history",
+    "(stadiums)/location",
+    "(stadiums)/locationTime",
+    "(stadiums)/service",
+  ];
+
   return (
     <Tabs
       screenOptions={({ route }) => ({
@@ -29,6 +38,14 @@ export default function TabLayout() {
       <Tabs.Screen name="account" options={{ title: "Tài khoản" }} />
       <Tabs.Screen name="payment" options={{ title: "Thanh toán" }} />
       <Tabs.Screen name="home" options={{ title: "Trang chủ" }} />
+
+      {hiddenScreens.map((screenName) => (
+        <Tabs.Screen
+          key={screenName}
+          name={screenName}
+          options={{ href: null }}
+        />
+      ))}
     </Tabs>
   );
 }

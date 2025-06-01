@@ -42,10 +42,10 @@ interface Stadium {
 }
 
 const cityMapping: { [key: string]: string } = {
-  option1: "HCM", // Thành phố Hồ Chí Minh
-  option2: "DaNang", // Thành phố Đà Nẵng
-  option3: "Hue", // Thành phố Huế
-  option4: "HaiPhong", // Thành phố Hải Phòng
+  option1: "HCM",
+  option2: "DaNang",
+  option3: "Hue",
+  option4: "HaiPhong",
 };
 
 const Stadium = () => {
@@ -54,7 +54,6 @@ const Stadium = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Hàm gọi API để lấy danh sách cụm sân theo thành phố
   const fetchStadiums = async (city: string) => {
     try {
       setLoading(true);
@@ -94,7 +93,6 @@ const Stadium = () => {
     }
   };
 
-  // Gọi API khi selectedValue thay đổi
   useEffect(() => {
     if (selectedValue && cityMapping[selectedValue]) {
       fetchStadiums(cityMapping[selectedValue]);
@@ -103,7 +101,6 @@ const Stadium = () => {
     }
   }, [selectedValue]);
 
-  // Sửa lỗi TypeScript bằng cách khai báo kiểu cho value
   const handleValueChange = (value: string | null) => {
     setSelectedValue(value);
   };
@@ -112,26 +109,23 @@ const Stadium = () => {
     router.push("/(tabs)/home");
   };
 
-  // Hàm xử lý khi nhấn "Xem"
   const handleViewPress = (clusterId: string) => {
     router.push({
-      pathname: "/(stadiums)/locationTime",
+      pathname: "/(tabs)/(stadiums)/locationTime", // Đường dẫn đã sửa
       params: { clusterId },
     });
   };
 
   return (
     <SafeAreaView className="flex-1 bg-gray-100">
-      {/* Header */}
       <Header />
 
-      {/* Content */}
       <View className="w-full px-4 py-2 flex-row justify-between items-center">
         <Text className="text-2xl font-semibold mt-4 mb-2">
           Chọn địa điểm đặt sân
         </Text>
         <TouchableOpacity
-          className="border border-red-500  bg-white px-8 py-2 rounded-full"
+          className="border border-red-500 bg-white px-8 py-2 rounded-full"
           onPress={() => router.back()}
         >
           <Text className="text-red-600 font-semibold text-lg">Quay lại</Text>
@@ -165,7 +159,7 @@ const Stadium = () => {
               className="flex-row w-full h-40 border-1 border-black items-center p-4 border-b-2"
             >
               <Image
-                source={require("../../assets/images/player.png")}
+                source={require("../../../assets/images/player.png")}
                 resizeMode="contain"
                 className="w-32 h-full"
               />

@@ -242,7 +242,7 @@ const HistoryDetail = () => {
         <View className="flex-1 justify-center items-center bg-black/50">
           <View className="bg-white p-6 rounded-lg">
             <Image
-              source={require("../../assets/images/qr.png")}
+              source={require("../../../assets/images/qr.png")}
               className="w-64 h-64"
               resizeMode="contain"
             />

@@ -66,7 +66,7 @@ const Stadium = () => {
             </Text>
             <Button
               title="Chọn địa điểm"
-              onPress={() => router.push("/(stadiums)/location")}
+              onPress={() => router.push("/(tabs)/(stadiums)/location")}
             />
           </View>
         )}
