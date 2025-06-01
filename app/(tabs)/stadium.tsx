@@ -3,6 +3,7 @@ import { Calendar } from "react-native-calendars";
 import { useState } from "react";
 import { router } from "expo-router";
 import Header from "@/component/Header";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const Stadium = () => {
   const [selectedDate, setSelectedDate] = useState("");
@@ -14,30 +15,39 @@ const Stadium = () => {
     return `${day}/${month}/${year}`;
   };
 
+  const handleSelectLocation = async () => {
+    if (selectedDate) {
+      try {
+        // Lưu selectedDate vào AsyncStorage (tùy chọn, nếu vẫn muốn giữ)
+        await AsyncStorage.setItem("selectedDate", selectedDate);
+
+        // Điều hướng và truyền selectedDate qua params
+        router.push({
+          pathname: "/(tabs)/(stadiums)/location",
+          params: { selectedDate }, // Truyền selectedDate
+        });
+      } catch (error) {
+        console.error("Lỗi khi lưu ngày:", error);
+        alert("Đã xảy ra lỗi khi lưu ngày. Vui lòng thử lại.");
+      }
+    } else {
+      alert("Vui lòng chọn ngày trước khi tiếp tục!");
+    }
+  };
+
   return (
     <SafeAreaView className="flex-1 bg-gray-100">
-      {/* Header */}
-      {/* <View className="h-20 w-full bg-black flex-row justify-end items-center px-4">
-        <Image
-          source={require("../../assets/images/logo.png")}
-          className="w-32 h-20"
-          resizeMode="contain"
-        />
-      </View> */}
       <Header />
 
-      {/* Content */}
       <View className="w-full px-4">
         <Text className="text-2xl font-semibold mt-4 mb-2">
           Chọn ngày đặt sân
         </Text>
 
-        {/* Calendar */}
         <View className="bg-white rounded-lg p-2 shadow mt-6">
           <Calendar
             style={{ height: 350 }}
             onDayPress={(day) => {
-              console.log("selected day", day);
               setSelectedDate(day.dateString);
             }}
             markedDates={{
@@ -58,16 +68,12 @@ const Stadium = () => {
           />
         </View>
 
-        {/* Selected Date Display */}
         {selectedDate && (
           <View className="mt-4 p-4 bg-white rounded-lg shadow">
             <Text className="text-base font-semibold mb-2">
               Ngày đã chọn: {formatDate(selectedDate)}
             </Text>
-            <Button
-              title="Chọn địa điểm"
-              onPress={() => router.push("/(tabs)/(stadiums)/location")}
-            />
+            <Button title="Chọn địa điểm" onPress={handleSelectLocation} />
           </View>
         )}
       </View>

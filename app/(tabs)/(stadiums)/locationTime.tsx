@@ -47,7 +47,7 @@ const availableTime = [
 ];
 
 const LocationTime = () => {
-  const { clusterId } = useLocalSearchParams();
+  const { clusterId, selectedDate } = useLocalSearchParams();
   const [bookingTime, setBookingTime] = useState("");
   const [fields, setFields] = useState<FieldResponse[]>([]);
   const [loading, setLoading] = useState(false);
@@ -56,6 +56,11 @@ const LocationTime = () => {
   const fetchFields = async (hour: string) => {
     if (!clusterId) {
       setError("Không tìm thấy clusterId");
+      return;
+    }
+
+    if (!selectedDate) {
+      setError("Không tìm thấy ngày đã chọn");
       return;
     }
 
@@ -70,11 +75,12 @@ const LocationTime = () => {
         return;
       }
 
-      const currentDate = new Date().toISOString().split("T")[0];
       const hourNumber = parseInt(hour.split(":")[0], 10);
-
+      console.log(
+        `Gọi API với clusterId: ${clusterId}, selectedDate: ${selectedDate}, hourNumber: ${hourNumber}`
+      );
       const response = await fetch(
-        `https://gopitch.onrender.com/fields/${clusterId}?date=${currentDate}&hour=${hourNumber}`,
+        `https://gopitch.onrender.com/fields/${clusterId}?date=${selectedDate}&hour=${hourNumber}`,
         {
           method: "GET",
           headers: {
@@ -106,7 +112,7 @@ const LocationTime = () => {
     } else {
       setFields([]);
     }
-  }, [bookingTime, clusterId]);
+  }, [bookingTime, clusterId, selectedDate]);
 
   const handleLogoPress = () => {
     router.push("/(tabs)/home");
@@ -116,7 +122,7 @@ const LocationTime = () => {
     console.log(`Chọn sân ${fieldId}`);
     router.push({
       pathname: "/(tabs)/(stadiums)/service",
-      params: { fieldId, clusterId, bookingTime },
+      params: { fieldId, clusterId, bookingTime, selectedDate }, // Truyền tiếp ngày
     });
   };
 

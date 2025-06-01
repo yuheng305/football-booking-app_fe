@@ -8,7 +8,7 @@ import {
 } from "react-native";
 import RNPickerSelect from "react-native-picker-select";
 import { useState, useEffect } from "react";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import Header from "@/component/Header";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
@@ -47,11 +47,12 @@ const cityMapping: { [key: string]: string } = {
   option4: "HaiPhong",
 };
 
-const Stadium = () => {
+const Location = () => {
   const [selectedValue, setSelectedValue] = useState<string | null>(null);
   const [stadiums, setStadiums] = useState<Stadium[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { selectedDate } = useLocalSearchParams();
 
   const fetchStadiums = async (city: string) => {
     try {
@@ -96,7 +97,7 @@ const Stadium = () => {
     if (selectedValue && cityMapping[selectedValue]) {
       fetchStadiums(cityMapping[selectedValue]);
     } else {
-      setStadiums([]); // Reset danh sách khi không chọn thành phố
+      setStadiums([]);
     }
   }, [selectedValue]);
 
@@ -110,8 +111,8 @@ const Stadium = () => {
 
   const handleViewPress = (clusterId: string) => {
     router.push({
-      pathname: "/(tabs)/(stadiums)/locationTime", // Đường dẫn đã sửa
-      params: { clusterId },
+      pathname: "/(tabs)/(stadiums)/locationTime",
+      params: { clusterId, selectedDate }, // Truyền ngày đã chọn
     });
   };
 
@@ -192,4 +193,4 @@ const Stadium = () => {
   );
 };
 
-export default Stadium;
+export default Location;
