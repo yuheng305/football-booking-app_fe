@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import {
   Text,
   View,
@@ -7,7 +7,7 @@ import {
   Modal,
   Pressable,
 } from "react-native";
-import { router, useLocalSearchParams } from "expo-router";
+import { router, useLocalSearchParams, useNavigation } from "expo-router";
 import Header from "@/component/Header";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
@@ -15,24 +15,39 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 const CountdownTimer = ({
   initialSeconds,
   onTimeUp,
+  isActive,
 }: {
   initialSeconds: number;
   onTimeUp: () => void;
+  isActive: boolean; // Thêm prop để kiểm soát trạng thái hoạt động
 }) => {
   const [secondsLeft, setSecondsLeft] = useState(initialSeconds);
+  const intervalRef = useRef<number | null>(null); // Thay đổi kiểu thành number | null
 
   useEffect(() => {
+    if (!isActive) {
+      // Nếu không active, dừng đồng hồ
+      if (intervalRef.current !== null) {
+        clearInterval(intervalRef.current);
+      }
+      return;
+    }
+
     if (secondsLeft <= 0) {
       onTimeUp();
       return;
     }
 
-    const interval = setInterval(() => {
+    intervalRef.current = setInterval(() => {
       setSecondsLeft((prev) => prev - 1);
     }, 1000);
 
-    return () => clearInterval(interval);
-  }, [secondsLeft, onTimeUp]);
+    return () => {
+      if (intervalRef.current !== null) {
+        clearInterval(intervalRef.current);
+      }
+    };
+  }, [secondsLeft, onTimeUp, isActive]);
 
   const formatTime = (secs: number) => {
     const minutes = Math.floor(secs / 60);
@@ -62,6 +77,8 @@ const Service = () => {
   const [noticeModalVisible, setNoticeModalVisible] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [isTimerActive, setIsTimerActive] = useState(true); // Trạng thái hoạt động của đồng hồ
+  const navigation = useNavigation();
 
   // Lấy dữ liệu static và dynamic services từ API
   const fetchServices = async () => {
@@ -81,7 +98,6 @@ const Service = () => {
         return;
       }
 
-      // Gọi API static services
       const staticResponse = await fetch(
         `https://gopitch.onrender.com/clusters/${clusterId}/static-services`,
         {
@@ -102,7 +118,6 @@ const Service = () => {
       const staticData = await staticResponse.json();
       setStaticServices(staticData);
 
-      // Gọi API dynamic services
       const dynamicResponse = await fetch(
         `https://gopitch.onrender.com/clusters/${clusterId}/dynamic-services`,
         {
@@ -123,7 +138,6 @@ const Service = () => {
       const dynamicData = await dynamicResponse.json();
       setDynamicServices(dynamicData);
 
-      // Tự động chọn static services
       const staticServiceNames = staticData.map((item: any) => item.name);
       setSelectedServices(staticServiceNames);
     } catch (error: unknown) {
@@ -139,8 +153,23 @@ const Service = () => {
     fetchServices();
   }, [clusterId]);
 
+  // Theo dõi sự kiện điều hướng để tạm dừng/tiếp tục đồng hồ
+  useEffect(() => {
+    const unsubscribeFocus = navigation.addListener("focus", () => {
+      setIsTimerActive(true); // Tiếp tục đồng hồ khi quay lại trang
+    });
+
+    const unsubscribeBlur = navigation.addListener("blur", () => {
+      setIsTimerActive(false); // Tạm dừng đồng hồ khi rời trang
+    });
+
+    return () => {
+      unsubscribeFocus();
+      unsubscribeBlur();
+    };
+  }, [navigation]);
+
   const handleToggleService = (service: string) => {
-    // Không cho phép bỏ chọn static services
     if (staticServices.some((item) => item.name === service)) {
       return;
     }
@@ -245,6 +274,7 @@ const Service = () => {
     if (action === "pay") {
       const bookingId = await AsyncStorage.getItem("currentBookingId");
       if (bookingId) {
+        setIsTimerActive(false); // Dừng đồng hồ khi thanh toán
         router.push({
           pathname: "/payment",
           params: { bookingId },
@@ -256,12 +286,15 @@ const Service = () => {
   };
 
   const handleTimeUp = () => {
-    setTimeUpModalVisible(true);
+    if (isTimerActive) {
+      setTimeUpModalVisible(true);
+    }
   };
 
   const handleTimeUpModalClose = () => {
     setTimeUpModalVisible(false);
-    //router.replace("/(tabs)/home");
+    setIsTimerActive(false); // Dừng đồng hồ khi đóng modal
+    router.replace("/(tabs)/home");
   };
 
   return (
@@ -282,7 +315,11 @@ const Service = () => {
           <Text className="font-semibold text-center text-sm">
             Thời gian đặt:
           </Text>
-          <CountdownTimer initialSeconds={300} onTimeUp={handleTimeUp} />
+          <CountdownTimer
+            initialSeconds={300}
+            onTimeUp={handleTimeUp}
+            isActive={isTimerActive}
+          />
         </View>
       </View>
 
@@ -290,7 +327,6 @@ const Service = () => {
 
       {error && <Text className="text-center text-red-500 mb-4">{error}</Text>}
 
-      {/* Hiển thị static services (bắt buộc) */}
       <Text className="text-lg font-semibold text-gray-800 px-4 mb-2">
         Dịch vụ mặc định
       </Text>
@@ -303,7 +339,7 @@ const Service = () => {
             flexDirection: "row",
             alignItems: "center",
             marginBottom: 10,
-            backgroundColor: "#46d73f", // Xanh đậm hơn
+            backgroundColor: "#46d73f",
             padding: 10,
             marginHorizontal: 10,
             borderRadius: 8,
@@ -324,7 +360,6 @@ const Service = () => {
         </TouchableOpacity>
       ))}
 
-      {/* Hiển thị dynamic services (tùy chọn) */}
       <Text className="text-lg font-semibold text-gray-800 px-4 mb-2">
         Dịch vụ tùy chọn
       </Text>
@@ -367,7 +402,10 @@ const Service = () => {
       <View className="flex-row justify-center items-center mt-4">
         <TouchableOpacity
           className="border border-red-500 bg-white px-8 py-2 rounded-full"
-          onPress={() => router.back()}
+          onPress={() => {
+            setIsTimerActive(false); // Dừng đồng hồ khi quay lại
+            router.back();
+          }}
         >
           <Text className="text-red-600 font-semibold text-lg">Quay lại</Text>
         </TouchableOpacity>
@@ -380,7 +418,6 @@ const Service = () => {
         </TouchableOpacity>
       </View>
 
-      {/* Modal cảnh báo đặt sân */}
       <Modal
         visible={modalVisible}
         transparent
@@ -417,7 +454,6 @@ const Service = () => {
         </View>
       </Modal>
 
-      {/* Modal thông báo hết thời gian */}
       <Modal
         visible={timeUpModalVisible}
         transparent
@@ -447,7 +483,6 @@ const Service = () => {
         </View>
       </Modal>
 
-      {/* Modal thông báo lưu ý */}
       <Modal
         visible={noticeModalVisible}
         transparent

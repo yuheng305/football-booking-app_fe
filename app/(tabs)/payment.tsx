@@ -32,7 +32,8 @@ interface Booking {
 
 const Payment = () => {
   const { bookingId } = useLocalSearchParams();
-  const [successModalVisible, setSuccessModalVisible] = useState(false); // Thay showQRModal
+  const [successModalVisible, setSuccessModalVisible] = useState(false);
+  const [infoModalVisible, setInfoModalVisible] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [bookingDetails, setBookingDetails] = useState<Booking | null>(null);
 
@@ -123,6 +124,10 @@ const Payment = () => {
     router.push("/(tabs)/home");
   };
 
+  const closeInfoModal = () => {
+    setInfoModalVisible(false);
+  };
+
   if (!bookingDetails) {
     return (
       <SafeAreaView className="flex-1 bg-white">
@@ -146,14 +151,21 @@ const Payment = () => {
           time={bookingDetails.userName || "Người dùng"}
         />
         <View className="px-6 space-y-4">
-          {/* Mã đặt sân */}
-          <View className="border-b border-gray-300 pb-2 pt-20">
+          {/* Dòng chữ thông báo và icon thông tin */}
+          <View className="flex-row justify-between items-center pt-20 border-b border-gray-300 pb-2">
             <Text className="text-xl font-semibold text-gray-800">
               Thông tin đặt sân
             </Text>
+            <TouchableOpacity onPress={() => setInfoModalVisible(true)}>
+              <Ionicons name="information-circle" size={24} color="#FF0000" />
+            </TouchableOpacity>
           </View>
 
-          {/* Cụm sân */}
+          <View className="flex-row justify-between mt-2">
+            <Text className="text-red-500 text-base">
+              Bạn nên đọc kỹ thông tin ở trước khi thanh toán
+            </Text>
+          </View>
           <View className="flex-row justify-between mt-2">
             <Text className="text-gray-600 font-semibold">Cụm sân :</Text>
             <Text className="text-gray-800">{bookingDetails.clusterName}</Text>
@@ -283,14 +295,14 @@ const Payment = () => {
         onRequestClose={closeSuccessModal}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContainer}>
+          <View style={styles.successModalContainer}>
             <TouchableOpacity
-              style={styles.closeButton}
+              style={styles.successCloseButton}
               onPress={closeSuccessModal}
             >
               <Ionicons name="close" size={18} color="#FFFFFF" />
             </TouchableOpacity>
-            <View style={styles.checkmarkContainer}>
+            <View style={styles.successCheckmarkContainer}>
               <Ionicons
                 name="checkmark-circle-outline"
                 size={60}
@@ -298,6 +310,37 @@ const Payment = () => {
               />
             </View>
             <Text style={styles.successText}>Thanh toán thành công</Text>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Modal Thông tin */}
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={infoModalVisible}
+        onRequestClose={closeInfoModal}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.infoModalContainer}>
+            <TouchableOpacity
+              style={styles.infoCloseButton}
+              onPress={closeInfoModal}
+            >
+              <Ionicons name="close" size={18} color="#FFFFFF" />
+            </TouchableOpacity>
+            <View style={styles.infoCheckmarkContainer}>
+              <Ionicons
+                name="information-circle-outline"
+                size={60}
+                color="#119916"
+              />
+            </View>
+            <Text style={styles.infoText}>
+              Sau khi thanh toán thành công, để được xác nhận sử dụng sân và các
+              dịch vụ đã đặt. Bạn cần đưa mã QR cho nhân viên. Vị trí mã QR:
+              “Tài khoản” → “Lịch sử đặt sân” → “QR Code”
+            </Text>
           </View>
         </View>
       </Modal>
@@ -313,9 +356,10 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  modalContainer: {
-    width: 300,
-    height: 180,
+  // Styles cho modal Thanh toán thành công
+  successModalContainer: {
+    width: 300, // Nhỏ hơn
+    height: 180, // Nhỏ hơn
     backgroundColor: "#E3FFE2",
     borderRadius: 20,
     shadowColor: "#000",
@@ -324,10 +368,10 @@ const styles = StyleSheet.create({
     shadowRadius: 10,
     elevation: 5,
   },
-  closeButton: {
+  successCloseButton: {
     position: "absolute",
     top: 18,
-    left: 250,
+    left: 240, // Điều chỉnh để căn chỉnh với kích thước nhỏ hơn
     width: 38,
     height: 38,
     backgroundColor: "#808080",
@@ -335,10 +379,10 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  checkmarkContainer: {
+  successCheckmarkContainer: {
     position: "absolute",
     top: 50,
-    left: 120,
+    left: 110, // Điều chỉnh để căn giữa với modal nhỏ hơn
     width: 60,
     height: 60,
   },
@@ -346,12 +390,56 @@ const styles = StyleSheet.create({
     position: "absolute",
     top: 123,
     left: 10,
-    width: 300,
+    width: 280,
     height: 28,
     fontFamily: "Exo",
     fontWeight: "700",
     fontSize: 24,
     lineHeight: 28,
+    textAlign: "center",
+    letterSpacing: -1,
+    color: "#119916",
+  },
+  // Styles cho modal Thông tin
+  infoModalContainer: {
+    width: 310, // Lớn hơn
+    height: 250, // Lớn hơn
+    backgroundColor: "#E3FFE2",
+    borderRadius: 20,
+    shadowColor: "#000",
+    shadowOffset: { width: 5, height: 5 },
+    shadowOpacity: 0.25,
+    shadowRadius: 10,
+    elevation: 5,
+  },
+  infoCloseButton: {
+    position: "absolute",
+    top: 18,
+    left: 250, // Vị trí phù hợp với modal lớn hơn
+    width: 38,
+    height: 38,
+    backgroundColor: "#808080",
+    borderRadius: 30,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  infoCheckmarkContainer: {
+    position: "absolute",
+    top: 50,
+    left: 120, // Căn giữa với modal lớn hơn
+    width: 60,
+    height: 60,
+  },
+  infoText: {
+    position: "absolute",
+    top: 123,
+    left: 10,
+    width: 290,
+    height: 100,
+    fontFamily: "Exo",
+    fontWeight: "700",
+    fontSize: 16,
+    lineHeight: 20,
     textAlign: "center",
     letterSpacing: -1,
     color: "#119916",
