@@ -147,8 +147,8 @@ const Payment = () => {
     <SafeAreaView className="flex-1 bg-white">
       <View className="flex-1">
         <HeaderUser
-          location="Tài khoản"
-          time={bookingDetails.userName || "Người dùng"}
+          location="Thanh toán"
+          //time={bookingDetails.userName || "Người dùng"}
         />
         <View className="px-6 space-y-4">
           {/* Dòng chữ thông báo và icon thông tin */}

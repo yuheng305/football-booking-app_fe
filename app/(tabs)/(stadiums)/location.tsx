@@ -7,10 +7,9 @@ import {
   ScrollView,
   StyleSheet,
 } from "react-native";
-import { Picker } from "@react-native-picker/picker";
 import { useState, useEffect } from "react";
-import { router, useLocalSearchParams } from "expo-router";
-import Header from "@/component/Header";
+import { router } from "expo-router";
+import HeaderUser from "@/component/HeaderUser";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 interface Stadium {
@@ -43,17 +42,19 @@ interface Stadium {
 
 const cityMapping: { [key: string]: string } = {
   option1: "HCM",
-  option2: "DaNang",
-  option3: "Hue",
-  option4: "HaiPhong",
+  option2: "Hue",
 };
+
+const cities = [
+  { label: "Thành phố Hồ Chí Minh", value: "option1" },
+  { label: "Thành phố Huế", value: "option3" },
+];
 
 const Location = () => {
   const [selectedValue, setSelectedValue] = useState<string | null>(null);
   const [stadiums, setStadiums] = useState<Stadium[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { selectedDate } = useLocalSearchParams();
 
   const fetchStadiums = async (city: string) => {
     try {
@@ -67,24 +68,32 @@ const Location = () => {
         return;
       }
 
-      const response = await fetch(
-        `https://gopitch.onrender.com/clusters/city/${city}`,
-        {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+      try {
+        const response = await fetch(
+          `https://gopitch.onrender.com/clusters/city/${city}`,
+          {
+            method: "GET",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            signal: controller.signal,
+          }
+        );
+
+        if (!response.ok) {
+          throw new Error(`Lỗi khi gọi API: ${response.statusText}`);
         }
-      );
 
-      if (!response.ok) {
-        throw new Error(`Lỗi khi gọi API: ${response.statusText}`);
+        const data: Stadium[] = await response.json();
+        console.log("Dữ liệu từ API:", data);
+        setStadiums(data);
+      } finally {
+        clearTimeout(timeoutId);
       }
-
-      const data: Stadium[] = await response.json();
-      console.log("Dữ liệu từ API:", data);
-      setStadiums(data);
     } catch (error: unknown) {
       console.error("Lỗi khi lấy danh sách sân:", error);
       const errorMsg = error instanceof Error ? error.message : String(error);
@@ -102,24 +111,28 @@ const Location = () => {
     }
   }, [selectedValue]);
 
-  const handleValueChange = (value: string | null) => {
+  const handleCityPress = (value: string) => {
     setSelectedValue(value);
   };
 
-  const handleLogoPress = () => {
-    router.push("/(tabs)/home");
-  };
-
-  const handleViewPress = (clusterId: string) => {
-    router.push({
-      pathname: "/(tabs)/(stadiums)/locationTime",
-      params: { clusterId, selectedDate },
-    });
+  const handleViewPress = async (clusterId: string, clusterName: string) => {
+    try {
+      // Lưu clusterName vào AsyncStorage để sử dụng trong LocationTime
+      await AsyncStorage.setItem("clusterName", clusterName);
+      console.log("Lưu clusterName vào AsyncStorage:", clusterName);
+      router.push({
+        pathname: "/(tabs)/(stadiums)/locationTime",
+        params: { clusterId },
+      });
+    } catch (error) {
+      console.error("Lỗi khi lưu clusterName:", error);
+      alert("Đã xảy ra lỗi. Vui lòng thử lại.");
+    }
   };
 
   return (
     <SafeAreaView className="flex-1 bg-gray-100">
-      <Header />
+      <HeaderUser />
 
       <View className="w-full px-4 py-2 flex-row justify-between items-center">
         <Text className="text-2xl font-semibold mt-4 mb-2">
@@ -133,18 +146,26 @@ const Location = () => {
         </TouchableOpacity>
       </View>
 
-      <View style={styles.pickerContainer}>
-        <Picker
-          selectedValue={selectedValue}
-          onValueChange={handleValueChange}
-          style={styles.picker}
-        >
-          <Picker.Item label="Chọn một thành phố..." value={null} />
-          <Picker.Item label="Thành phố Hồ Chí Minh" value="option1" />
-          <Picker.Item label="Thành phố Đà Nẵng" value="option2" />
-          <Picker.Item label="Thành phố Huế" value="option3" />
-          <Picker.Item label="Thành phố Hải Phòng" value="option4" />
-        </Picker>
+      <View style={styles.cityContainer}>
+        {cities.map((city) => (
+          <TouchableOpacity
+            key={city.value}
+            style={[
+              styles.cityButton,
+              selectedValue === city.value && styles.cityButtonSelected,
+            ]}
+            onPress={() => handleCityPress(city.value)}
+          >
+            <Text
+              style={[
+                styles.cityButtonText,
+                selectedValue === city.value && styles.cityButtonTextSelected,
+              ]}
+            >
+              {city.label}
+            </Text>
+          </TouchableOpacity>
+        ))}
       </View>
 
       {loading && <Text className="text-center text-lg mt-4">Đang tải...</Text>}
@@ -177,7 +198,7 @@ const Location = () => {
               </View>
               <TouchableOpacity
                 className="bg-white rounded-2xl w-1/5 h-1/8 p-2 m-2 border-2 border-gray-500"
-                onPress={() => handleViewPress(stadium._id)}
+                onPress={() => handleViewPress(stadium._id, stadium.name)}
               >
                 <Text className="text-gray-500 font-semibold text-center">
                   Xem
@@ -198,17 +219,38 @@ const Location = () => {
 };
 
 const styles = StyleSheet.create({
-  pickerContainer: {
+  cityContainer: {
     marginHorizontal: 16,
     marginVertical: 8,
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
+  },
+  cityButton: {
+    backgroundColor: "#fff",
     borderWidth: 1,
     borderColor: "#ccc",
     borderRadius: 8,
-    backgroundColor: "#fff",
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    marginBottom: 8,
+    width: "48%",
+    alignItems: "center",
+    justifyContent: "center",
   },
-  picker: {
-    height: 50,
-    width: "100%",
+  cityButtonSelected: {
+    backgroundColor: "#007bff",
+    borderColor: "#007bff",
+  },
+  cityButtonText: {
+    fontSize: 16,
+    color: "#333",
+    fontWeight: "500",
+    textAlign: "center",
+  },
+  cityButtonTextSelected: {
+    color: "#fff",
+    fontWeight: "600",
   },
 });
 

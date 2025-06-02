@@ -9,7 +9,7 @@ import {
 } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import Header from "@/component/Header";
+import HeaderUser from "@/component/HeaderUser";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 interface Field {
@@ -47,11 +47,32 @@ const availableTime = [
 ];
 
 const LocationTime = () => {
-  const { clusterId, selectedDate } = useLocalSearchParams();
+  const { clusterId } = useLocalSearchParams();
   const [bookingTime, setBookingTime] = useState("");
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [clusterName, setClusterName] = useState<string | null>(null); // State để lưu tên cụm sân
   const [fields, setFields] = useState<FieldResponse[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Lấy selectedDate và clusterName từ AsyncStorage khi component mount
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        const date = await AsyncStorage.getItem("selectedDate");
+        console.log("Selected Date từ AsyncStorage:", date);
+        setSelectedDate(date);
+
+        const name = await AsyncStorage.getItem("clusterName");
+        console.log("Cluster Name từ AsyncStorage:", name);
+        setClusterName(name);
+      } catch (error) {
+        console.error("Lỗi khi lấy dữ liệu từ AsyncStorage:", error);
+        setError("Không thể lấy dữ liệu. Vui lòng quay lại.");
+      }
+    };
+    loadData();
+  }, []);
 
   const fetchFields = async (hour: string) => {
     if (!clusterId) {
@@ -107,36 +128,38 @@ const LocationTime = () => {
   };
 
   useEffect(() => {
-    if (bookingTime) {
+    if (bookingTime && selectedDate) {
       fetchFields(bookingTime);
     } else {
       setFields([]);
     }
   }, [bookingTime, clusterId, selectedDate]);
 
-  const handleLogoPress = () => {
-    router.push("/(tabs)/home");
-  };
-
   const handleFieldPress = (fieldId: string) => {
     console.log(`Chọn sân ${fieldId}`);
     router.push({
       pathname: "/(tabs)/(stadiums)/service",
-      params: { fieldId, clusterId, bookingTime, selectedDate }, // Truyền tiếp ngày
+      params: { fieldId, clusterId, bookingTime },
     });
+  };
+
+  const formatDate = (dateString: string | null) => {
+    if (!dateString) return "Chưa chọn ngày";
+    const [year, month, day] = dateString.split("-");
+    return `${day}/${month}/${year}`;
   };
 
   return (
     <SafeAreaView className="flex-1 bg-gray-100">
-      {/* Header */}
-      <Header location="Cụm sân A" time={bookingTime} />
+      <HeaderUser
+        location={clusterName || "Đang tải..."} // Sử dụng clusterName từ AsyncStorage
+        time={bookingTime}
+      />
 
-      {/* Main scrollable content */}
       <ScrollView
         className="flex-1"
         contentContainerStyle={{ paddingBottom: 24 }}
       >
-        {/* Time Picker */}
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -168,7 +191,6 @@ const LocationTime = () => {
           })}
         </ScrollView>
 
-        {/* Stadium List */}
         {loading && (
           <Text className="text-center text-lg mt-4">Đang tải...</Text>
         )}
@@ -218,7 +240,6 @@ const LocationTime = () => {
         )}
       </ScrollView>
 
-      {/* Nút Quay lại được căn giữa */}
       <TouchableOpacity
         className="border border-red-500 bg-white px-8 py-2 rounded-full mx-auto mb-4"
         onPress={() => router.back()}

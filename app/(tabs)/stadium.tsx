@@ -18,14 +18,12 @@ const Stadium = () => {
   const handleSelectLocation = async () => {
     if (selectedDate) {
       try {
-        // Lưu selectedDate vào AsyncStorage (tùy chọn, nếu vẫn muốn giữ)
+        // Lưu selectedDate vào AsyncStorage
         await AsyncStorage.setItem("selectedDate", selectedDate);
+        console.log("Lưu selectedDate vào AsyncStorage:", selectedDate);
 
-        // Điều hướng và truyền selectedDate qua params
-        router.push({
-          pathname: "/(tabs)/(stadiums)/location",
-          params: { selectedDate }, // Truyền selectedDate
-        });
+        // Điều hướng đến Location, không cần truyền selectedDate
+        router.push("/(tabs)/(stadiums)/location");
       } catch (error) {
         console.error("Lỗi khi lưu ngày:", error);
         alert("Đã xảy ra lỗi khi lưu ngày. Vui lòng thử lại.");
@@ -48,6 +46,7 @@ const Stadium = () => {
           <Calendar
             style={{ height: 350 }}
             onDayPress={(day) => {
+              console.log("Ngày được chọn:", day.dateString);
               setSelectedDate(day.dateString);
             }}
             markedDates={{

@@ -19,14 +19,13 @@ const CountdownTimer = ({
 }: {
   initialSeconds: number;
   onTimeUp: () => void;
-  isActive: boolean; // Thêm prop để kiểm soát trạng thái hoạt động
+  isActive: boolean;
 }) => {
   const [secondsLeft, setSecondsLeft] = useState(initialSeconds);
-  const intervalRef = useRef<number | null>(null); // Thay đổi kiểu thành number | null
+  const intervalRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (!isActive) {
-      // Nếu không active, dừng đồng hồ
       if (intervalRef.current !== null) {
         clearInterval(intervalRef.current);
       }
@@ -77,8 +76,24 @@ const Service = () => {
   const [noticeModalVisible, setNoticeModalVisible] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [isTimerActive, setIsTimerActive] = useState(true); // Trạng thái hoạt động của đồng hồ
+  const [isTimerActive, setIsTimerActive] = useState(true);
+  const [selectedDate, setSelectedDate] = useState<string | null>(null); // Thêm state cho selectedDate
   const navigation = useNavigation();
+
+  // Lấy selectedDate từ AsyncStorage khi component mount
+  useEffect(() => {
+    const loadSelectedDate = async () => {
+      try {
+        const date = await AsyncStorage.getItem("selectedDate");
+        console.log("Selected Date từ AsyncStorage trong Service:", date);
+        setSelectedDate(date);
+      } catch (error) {
+        console.error("Lỗi khi lấy ngày từ AsyncStorage:", error);
+        setError("Không thể lấy ngày đã chọn. Vui lòng quay lại.");
+      }
+    };
+    loadSelectedDate();
+  }, []);
 
   // Lấy dữ liệu static và dynamic services từ API
   const fetchServices = async () => {
@@ -156,11 +171,11 @@ const Service = () => {
   // Theo dõi sự kiện điều hướng để tạm dừng/tiếp tục đồng hồ
   useEffect(() => {
     const unsubscribeFocus = navigation.addListener("focus", () => {
-      setIsTimerActive(true); // Tiếp tục đồng hồ khi quay lại trang
+      setIsTimerActive(true);
     });
 
     const unsubscribeBlur = navigation.addListener("blur", () => {
-      setIsTimerActive(false); // Tạm dừng đồng hồ khi rời trang
+      setIsTimerActive(false);
     });
 
     return () => {
@@ -214,13 +229,12 @@ const Service = () => {
         return;
       }
 
-      if (!fieldId || !clusterId || !bookingTime) {
+      if (!fieldId || !clusterId || !bookingTime || !selectedDate) {
         setError("Thiếu thông tin cần thiết để đặt sân");
         setModalVisible(false);
         return;
       }
 
-      const currentDate = new Date().toISOString().split("T")[0];
       const startHour = parseInt(bookingTime.toString().split(":")[0], 10);
 
       const selectedServicesData = [...dynamicServices]
@@ -234,7 +248,7 @@ const Service = () => {
         userId,
         clusterId,
         fieldId,
-        date: currentDate,
+        date: selectedDate, // Sử dụng selectedDate thay vì currentDate
         startHour,
         status: "pending",
         services: selectedServicesData,
@@ -274,7 +288,7 @@ const Service = () => {
     if (action === "pay") {
       const bookingId = await AsyncStorage.getItem("currentBookingId");
       if (bookingId) {
-        setIsTimerActive(false); // Dừng đồng hồ khi thanh toán
+        setIsTimerActive(false);
         router.push({
           pathname: "/payment",
           params: { bookingId },
@@ -293,8 +307,15 @@ const Service = () => {
 
   const handleTimeUpModalClose = () => {
     setTimeUpModalVisible(false);
-    setIsTimerActive(false); // Dừng đồng hồ khi đóng modal
+    setIsTimerActive(false);
     router.replace("/(tabs)/home");
+  };
+
+  // Format date để hiển thị trong Header
+  const formatDate = (dateString: string | null) => {
+    if (!dateString) return "Chưa chọn ngày";
+    const [year, month, day] = dateString.split("-");
+    return `${day}/${month}/${year}`;
   };
 
   return (
@@ -403,7 +424,7 @@ const Service = () => {
         <TouchableOpacity
           className="border border-red-500 bg-white px-8 py-2 rounded-full"
           onPress={() => {
-            setIsTimerActive(false); // Dừng đồng hồ khi quay lại
+            setIsTimerActive(false);
             router.back();
           }}
         >
