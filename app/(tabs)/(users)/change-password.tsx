@@ -2,132 +2,158 @@ import React, { useState } from "react";
 import {
   View,
   Text,
-  SafeAreaView,
   TextInput,
   TouchableOpacity,
   Alert,
+  ActivityIndicator,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import HeaderOne from "@/component/HeaderOne";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import authService from "../../../src/services/auth.service";
 
 const ChangePassword = () => {
   const [oldPassword, setOldPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
 
   const handleChange = async () => {
-    // Kiểm tra mật khẩu mới và xác nhận mật khẩu có khớp không
-    if (newPassword !== confirmPassword) {
-      Alert.alert("Lỗi", "Mật khẩu mới không khớp!");
+    // Validate inputs
+    if (!oldPassword || !newPassword || !confirmPassword) {
+      Alert.alert("Lỗi", "Vui lòng điền đầy đủ tất cả các trường!");
       return;
     }
 
-    try {
-      // Lấy token và userId từ AsyncStorage
-      const token = await AsyncStorage.getItem("authToken");
-      if (!token) {
-        Alert.alert("Lỗi", "Không tìm thấy token, vui lòng đăng nhập lại!");
-        router.replace("/login");
-        return;
-      }
+    // Check if new password matches confirmation
+    if (newPassword !== confirmPassword) {
+      Alert.alert("Lỗi", "Mật khẩu mới không khớp với xác nhận mật khẩu!");
+      return;
+    }
 
-      const userDataString = await AsyncStorage.getItem("userData");
-      if (!userDataString) {
+    // Validate password length
+    if (newPassword.length < 6) {
+      Alert.alert("Lỗi", "Mật khẩu mới phải có ít nhất 6 ký tự!");
+      return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      // Check if user is authenticated
+      const isAuth = await authService.isAuthenticated();
+      if (!isAuth) {
         Alert.alert(
           "Lỗi",
-          "Không tìm thấy thông tin người dùng, vui lòng đăng nhập lại!"
+          "Không tìm thấy phiên đăng nhập, vui lòng đăng nhập lại!"
         );
         router.replace("/login");
         return;
       }
-      const userData = JSON.parse(userDataString);
-      const userId = userData._id;
-      if (!userId) {
-        Alert.alert("Lỗi", "Không tìm thấy userId, vui lòng đăng nhập lại!");
-        router.replace("/login");
-        return;
+
+      // Call change password service
+      const result = await authService.changePassword({
+        old_password: oldPassword,
+        new_password: newPassword,
+        confirmation_password: confirmPassword,
+      });
+
+      if (result) {
+        Alert.alert("Thành công", "Đổi mật khẩu thành công!");
+        // Reset form
+        setOldPassword("");
+        setNewPassword("");
+        setConfirmPassword("");
+        // Go back
+        router.back();
       }
-
-      // Chuẩn bị request body
-      const requestBody = {
-        oldPassword,
-        newPassword,
-        confirmNewPassword: confirmPassword,
-      };
-
-      // Gọi API
-      const response = await fetch(
-        `https://gopitch.onrender.com/users/${userId}/password`,
-        {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify(requestBody),
-        }
-      );
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(
-          errorData.message || `Lỗi khi đổi mật khẩu: ${response.statusText}`
-        );
-      }
-
-      Alert.alert("Thành công", "Đổi mật khẩu thành công!");
-      router.back();
     } catch (error: unknown) {
-      console.error("Lỗi khi đổi mật khẩu:", error);
-      const errorMsg = error instanceof Error ? error.message : String(error);
+      console.error("Error changing password:", error);
+
+      let errorMsg = "Đã có lỗi xảy ra khi đổi mật khẩu!";
+      if (error instanceof Error) {
+        if (
+          error.message.includes("401") ||
+          error.message.includes("Unauthorized")
+        ) {
+          errorMsg = "Mật khẩu cũ không đúng!";
+        } else {
+          errorMsg = error.message;
+        }
+      }
+
       Alert.alert("Lỗi", errorMsg);
+    } finally {
+      setIsLoading(false);
     }
   };
 
   return (
     <SafeAreaView className="flex-1 bg-white">
-      {/* Nội dung chính chiếm không gian còn lại */}
       <View className="flex-1">
         <HeaderOne title="Đổi mật khẩu" />
         <View className="px-6 mt-6 space-y-4">
+          {/* Old Password */}
           <View>
-            <Text className="mb-1 text-gray-600">Mật khẩu cũ</Text>
+            <Text className="mb-2 text-gray-600 font-semibold">
+              Mật khẩu cũ
+            </Text>
             <TextInput
               secureTextEntry
               value={oldPassword}
               onChangeText={setOldPassword}
-              className="border border-black px-4 py-2 rounded"
+              placeholder="Nhập mật khẩu cũ"
+              placeholderTextColor="gray"
+              className="border border-gray-300 px-4 py-3 rounded bg-gray-50"
+              editable={!isLoading}
             />
           </View>
 
+          {/* New Password */}
           <View>
-            <Text className="mb-1 text-gray-600">Mật khẩu mới</Text>
+            <Text className="mb-2 text-gray-600 font-semibold">
+              Mật khẩu mới
+            </Text>
             <TextInput
               secureTextEntry
               value={newPassword}
               onChangeText={setNewPassword}
-              className="border border-black px-4 py-2 rounded"
+              placeholder="Nhập mật khẩu mới"
+              placeholderTextColor="gray"
+              className="border border-gray-300 px-4 py-3 rounded bg-gray-50"
+              editable={!isLoading}
             />
           </View>
 
+          {/* Confirm Password */}
           <View>
-            <Text className="mb-1 text-gray-600">Xác nhận mật khẩu mới</Text>
+            <Text className="mb-2 text-gray-600 font-semibold">
+              Xác nhận mật khẩu mới
+            </Text>
             <TextInput
               secureTextEntry
               value={confirmPassword}
               onChangeText={setConfirmPassword}
-              className="border border-black px-4 py-2 rounded"
+              placeholder="Nhập lại mật khẩu mới"
+              placeholderTextColor="gray"
+              className="border border-gray-300 px-4 py-3 rounded bg-gray-50"
+              editable={!isLoading}
             />
           </View>
 
+          {/* Submit Button */}
           <TouchableOpacity
             onPress={handleChange}
-            className="bg-green-600 p-3 rounded mt-6"
+            className="bg-blue-600 p-4 rounded mt-8"
+            disabled={isLoading}
           >
-            <Text className="text-center text-white font-semibold text-lg">
-              Xác nhận
-            </Text>
+            {isLoading ? (
+              <ActivityIndicator size="small" color="#ffffff" />
+            ) : (
+              <Text className="text-center text-white font-semibold text-lg">
+                Xác nhận
+              </Text>
+            )}
           </TouchableOpacity>
         </View>
       </View>

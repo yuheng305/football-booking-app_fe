@@ -212,7 +212,7 @@ const User = () => {
               <Text className="text-2xl font-bold text-gray-800">********</Text>
             </View>
             <TouchableOpacity
-              onPress={() => router.push("/change-password")}
+              onPress={() => router.push("/(tabs)/(users)/change-password")}
               className="bg-blue-500 px-3 py-1 rounded"
             >
               <Text className="text-white font-semibold text-xl">Đổi</Text>
@@ -245,6 +245,16 @@ const User = () => {
           >
             <Text className="text-white text-center text-lg font-semibold">
               Cập nhật tài khoản
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            className="border-2 border-blue-500 rounded-xl p-3 mt-4 flex-row items-center justify-center"
+            onPress={() => router.push("/(tabs)/(users)/club-management")}
+          >
+            <Ionicons name="shield-outline" size={24} color="#3b82f6" />
+            <Text className="text-blue-500 font-semibold text-xl text-center ml-2">
+              Câu lạc bộ của tôi
             </Text>
           </TouchableOpacity>
 

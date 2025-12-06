@@ -1,6 +1,5 @@
 import React, { useState } from "react";
 import {
-  SafeAreaView,
   View,
   Text,
   TextInput,
@@ -9,18 +8,11 @@ import {
   Alert,
   ActivityIndicator,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-
-// Define the expected shape of the API response
-interface LoginResponse {
-  token?: string;
-  user?: {
-    username?: string;
-  };
-  message?: string;
-}
+import authService from "../src/services/auth.service";
+import { ROLE_ROUTES } from "../src/constants/roles";
 
 const Login: React.FC = () => {
   const [emailOrUsername, setEmailOrUsername] = useState<string>("");
@@ -38,69 +30,37 @@ const Login: React.FC = () => {
     setIsLoading(true);
 
     try {
-      const response = await fetch("https://gopitch.onrender.com/auth/login", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          email: emailOrUsername.trim(),
-          username: emailOrUsername.trim(),
-          password,
-        }),
+      const { user } = await authService.login({
+        user_email: emailOrUsername.trim(),
+        password,
       });
 
-      const contentType = response.headers.get("content-type");
-      if (!contentType || !contentType.includes("application/json")) {
-        throw new Error("Server returned non-JSON response");
-      }
-
-      const data: LoginResponse = await response.json();
-      console.log("Server response:", data);
-
-      if (response.ok && data.token) {
-        const token = data.token;
-
-        await AsyncStorage.setItem("authToken", token);
-        await AsyncStorage.setItem("userData", JSON.stringify(data.user));
-        const isOwner =
-          data.user &&
-          data.user.username &&
-          data.user.username.startsWith("owner");
-        const destination = isOwner ? "/(owners)/home" : "/(tabs)/home";
-
-        console.log("Navigating to:", destination);
+      if (user) {
+        // Navigate based on role
+        const destination = ROLE_ROUTES[user.role] || ("/(tabs)/home" as const);
+        console.log(`Logged in as ${user.role}, navigating to: ${destination}`);
         router.replace(destination);
-      } else {
-        let errorMessage = "Tên người dùng hoặc mật khẩu không đúng!";
-        if (typeof data.message === "string") {
-          if (data.message.includes("Tên người dùng không tồn tại")) {
-            errorMessage = "Tên người dùng không tồn tại!";
-          } else if (data.message.includes("Mật khẩu")) {
-            errorMessage = "Mật khẩu không đúng!";
-          } else {
-            errorMessage = data.message;
-          }
-        }
-        Alert.alert("Lỗi đăng nhập", errorMessage);
       }
     } catch (error: unknown) {
       console.error("Login error:", error);
+
+      let errorMessage = "Đã có lỗi xảy ra. Vui lòng thử lại!";
+
       if (error instanceof Error) {
         if (error.message.includes("Network request failed")) {
-          Alert.alert(
-            "Lỗi",
-            "Không thể kết nối đến server. Vui lòng kiểm tra kết nối internet!"
-          );
+          errorMessage =
+            "Không thể kết nối đến server. Vui lòng kiểm tra kết nối internet!";
+        } else if (
+          error.message.includes("401") ||
+          error.message.includes("Unauthorized")
+        ) {
+          errorMessage = "Email hoặc mật khẩu không đúng!";
         } else {
-          Alert.alert("Lỗi", "Đã có lỗi xảy ra. Vui lòng thử lại!");
+          errorMessage = error.message;
         }
-      } else {
-        Alert.alert(
-          "Lỗi",
-          "Đã có lỗi không xác định xảy ra. Vui lòng thử lại!"
-        );
       }
+
+      Alert.alert("Lỗi đăng nhập", errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -109,12 +69,12 @@ const Login: React.FC = () => {
   return (
     <SafeAreaView className="flex-1 bg-[#1A2A44]">
       <View className="flex-1 justify-center px-6">
-        <View className="flex-row justify-center mb-8">
-          <Text className="text-white text-xl font-semibold mr-8 border-b-2 border-blue-500 pb-2">
+        <View className="flex-row justify-center gap-4 mb-8">
+          <Text className="text-white text-lg font-semibold border-b-2 border-blue-500 pb-1 px-2">
             Đăng nhập
           </Text>
           <TouchableOpacity onPress={() => router.push("/signup")}>
-            <Text className="text-white text-xl">Đăng ký</Text>
+            <Text className="text-white text-lg">Đăng ký</Text>
           </TouchableOpacity>
         </View>
         <View className="mb-6">
@@ -128,11 +88,12 @@ const Login: React.FC = () => {
             <TextInput
               value={emailOrUsername}
               onChangeText={setEmailOrUsername}
-              placeholder="Email hoặc Tài khoản"
+              placeholder="Email"
               placeholderTextColor="gray"
               className="flex-1 text-white"
-              keyboardType="default"
+              keyboardType="email-address"
               autoCapitalize="none"
+              editable={!isLoading}
             />
           </View>
         </View>
@@ -152,6 +113,7 @@ const Login: React.FC = () => {
               className="flex-1 text-white"
               secureTextEntry={!showPassword}
               autoCapitalize="none"
+              editable={!isLoading}
             />
             <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
               <Ionicons
@@ -169,13 +131,14 @@ const Login: React.FC = () => {
               onValueChange={setRememberMe}
               trackColor={{ false: "gray", true: "#6366F1" }}
               thumbColor="white"
+              disabled={isLoading}
             />
             <Text className="text-gray-400 ml-2">Ghi nhớ mật khẩu</Text>
           </View>
         </View>
         <TouchableOpacity
           onPress={handleLogin}
-          className="bg-blue-500 p-4 rounded-lg"
+          className="bg-blue-500 p-4 rounded-lg mb-4"
           disabled={isLoading}
         >
           {isLoading ? (
@@ -185,6 +148,16 @@ const Login: React.FC = () => {
               Đăng nhập
             </Text>
           )}
+        </TouchableOpacity>
+
+        {/* Forgot Password Link */}
+        <TouchableOpacity
+          onPress={() => router.push("/forgot-password")}
+          className="mb-4"
+        >
+          <Text className="text-center text-blue-400 text-sm">
+            Quên mật khẩu?
+          </Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>
