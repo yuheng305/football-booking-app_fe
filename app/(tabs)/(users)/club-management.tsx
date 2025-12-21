@@ -10,7 +10,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import { SafeAreaView } from "react-native-safe-area-context";
+import HeaderClub from "@/component/HeaderClub";
 import clubService from "@/src/services/club.service";
 import authService from "@/src/services/auth.service";
 import { Club } from "@/src/types/club.types";
@@ -88,21 +88,7 @@ const ClubManagement = () => {
 
   return (
     <View className="flex-1 bg-gray-50">
-      <SafeAreaView edges={["top"]} className="bg-blue-600">
-        <View className="px-6 py-4">
-          <View className="flex-row items-center">
-            <TouchableOpacity onPress={() => router.back()} className="mr-3">
-              <Ionicons name="arrow-back" size={28} color="white" />
-            </TouchableOpacity>
-            <View className="flex-1">
-              <Text className="text-white text-2xl font-bold">Câu lạc bộ</Text>
-              <Text className="text-blue-100 text-sm mt-1">
-                {clubs.length} câu lạc bộ
-              </Text>
-            </View>
-          </View>
-        </View>
-      </SafeAreaView>
+      <HeaderClub title="Câu lạc bộ" subtitle={`${clubs.length} câu lạc bộ`} />
 
       <ScrollView
         className="flex-1"

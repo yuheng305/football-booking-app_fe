@@ -1,12 +1,6 @@
 import React, { useEffect, useState } from "react";
-import {
-  View,
-  Text,
-  SafeAreaView,
-  TouchableOpacity,
-  Modal,
-  Image,
-} from "react-native";
+import { View, Text, TouchableOpacity, Modal, Image } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { router, useLocalSearchParams } from "expo-router";
 import HeaderUser from "@/component/HeaderUser";
 import AsyncStorage from "@react-native-async-storage/async-storage";

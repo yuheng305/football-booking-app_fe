@@ -32,8 +32,8 @@ const Onboarding = () => {
     },
     {
       id: "3",
-      title: "Dịch vụ đa dạng",
-      subtitle: "Mang lại trải nghiệm đá bóng trọn vẹn!",
+      title: "Viết nên lịch sử của bạn",
+      subtitle: "Mỗi trận đấu là một bước đến chức vô địch",
       image: require("../assets/images/onboarding3.png"),
       isLastSlide: true,
     },
@@ -52,24 +52,28 @@ const Onboarding = () => {
     >
       <Image
         source={item.image}
-        className={`w-full ${index === 2 ? "h-2/5 mt-28" : "h-1/2 mt-10"}`}
+        className="w-full h-1/2 mt-20"
         resizeMode="contain"
+        style={index === 0 ? { transform: [{ scaleX: 1.2 }] } : {}}
       />
-      <View className="items-center mt-8">
-        <Text className="text-white font-bold text-3xl mb-4">{item.title}</Text>
+      <View className="items-center mt-8 px-6" style={{ minHeight: 200 }}>
+        <Text className="text-white font-bold text-3xl mb-4 text-center">
+          {item.title}
+        </Text>
         <Text className="text-gray-300 text-xl text-center mb-10">
           {item.subtitle}
         </Text>
-      </View>
 
-      {item.isLastSlide && (
-        <TouchableOpacity
-          onPress={() => router.replace("/login")}
-          className="w-[50%] bg-blue-500 rounded-lg items-center self-center mt-6"
-        >
-          <Text className="text-lg text-white font-bold py-3">Bắt đầu</Text>
-        </TouchableOpacity>
-      )}
+        {item.isLastSlide && (
+          <TouchableOpacity
+            onPress={() => router.replace("/login")}
+            className="bg-blue-500 rounded-lg items-center mt-6"
+            style={{ paddingHorizontal: 80, paddingVertical: 14 }}
+          >
+            <Text className="text-xl text-white font-bold">Bắt đầu</Text>
+          </TouchableOpacity>
+        )}
+      </View>
     </SafeAreaView>
   );
 

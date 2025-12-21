@@ -10,7 +10,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
-import { SafeAreaView } from "react-native-safe-area-context";
+import HeaderClub from "@/component/HeaderClub";
 import clubService from "@/src/services/club.service";
 import authService from "@/src/services/auth.service";
 import { ClubMember } from "@/src/types/club.types";
@@ -113,18 +113,7 @@ const ClubDetails = () => {
 
   return (
     <View className="flex-1 bg-white">
-      <SafeAreaView edges={["top"]} className="bg-blue-600">
-        <View className="px-6 py-4">
-          <View className="flex-row items-center">
-            <TouchableOpacity onPress={() => router.back()} className="mr-3">
-              <Ionicons name="arrow-back" size={28} color="white" />
-            </TouchableOpacity>
-            <View className="flex-1">
-              <Text className="text-white text-2xl font-bold">{clubName}</Text>
-            </View>
-          </View>
-        </View>
-      </SafeAreaView>
+      <HeaderClub title={clubName} />
 
       <ScrollView
         className="flex-1"

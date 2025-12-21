@@ -1,5 +1,4 @@
 import {
-  SafeAreaView,
   Text,
   View,
   Image,
@@ -7,6 +6,7 @@ import {
   ScrollView,
   StyleSheet,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useState, useEffect } from "react";
 import { router } from "expo-router";
 import HeaderUser from "@/component/HeaderUser";

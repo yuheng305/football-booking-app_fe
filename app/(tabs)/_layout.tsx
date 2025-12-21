@@ -3,6 +3,7 @@ import { Ionicons } from "@expo/vector-icons";
 
 export default function TabLayout() {
   const hiddenScreens = [
+    "home",
     "(users)/change-password",
     "(users)/historyDetails",
     "(users)/history",
@@ -28,8 +29,8 @@ export default function TabLayout() {
             iconName = focused ? "person" : "person-outline";
           } else if (route.name === "payment") {
             iconName = focused ? "card" : "card-outline";
-          } else if (route.name === "home") {
-            iconName = focused ? "home" : "home-outline";
+          } else if (route.name === "tournament") {
+            iconName = focused ? "trophy" : "trophy-outline";
           }
 
           return <Ionicons name={iconName} size={size} color={color} />;
@@ -39,9 +40,9 @@ export default function TabLayout() {
       })}
     >
       <Tabs.Screen name="stadium" options={{ title: "Đặt sân" }} />
+      <Tabs.Screen name="tournament" options={{ title: "Giải đấu" }} />
       <Tabs.Screen name="account" options={{ title: "Tài khoản" }} />
       <Tabs.Screen name="payment" options={{ title: "Thanh toán" }} />
-      <Tabs.Screen name="home" options={{ title: "Trang chủ" }} />
 
       {hiddenScreens.map((screenName) => (
         <Tabs.Screen

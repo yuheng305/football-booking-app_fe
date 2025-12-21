@@ -3,10 +3,10 @@ import {
   Text,
   Image,
   Dimensions,
-  SafeAreaView,
   TouchableOpacity,
   ScrollView,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 
 const { width } = Dimensions.get("window");

@@ -1,4 +1,5 @@
-import { SafeAreaView, Text, View, Button } from "react-native";
+import { Text, View, Button } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { Calendar } from "react-native-calendars";
 import { useState } from "react";
 import { router } from "expo-router";

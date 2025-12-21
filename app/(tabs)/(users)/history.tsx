@@ -1,13 +1,7 @@
 import { router } from "expo-router";
 import { useState, useEffect } from "react";
-import {
-  SafeAreaView,
-  Text,
-  View,
-  ScrollView,
-  TouchableOpacity,
-  Alert,
-} from "react-native";
+import { Text, View, ScrollView, TouchableOpacity, Alert } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import HeaderUser from "@/component/HeaderUser";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 

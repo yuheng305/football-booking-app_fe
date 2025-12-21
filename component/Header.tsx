@@ -1,13 +1,6 @@
 import React from "react";
-import {
-  View,
-  TouchableOpacity,
-  Image,
-  Text,
-  SafeAreaView,
-  Platform,
-  StatusBar,
-} from "react-native";
+import { View, TouchableOpacity, Image, Text } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 
 type HeaderProps = {

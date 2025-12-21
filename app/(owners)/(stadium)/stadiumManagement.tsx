@@ -2,13 +2,13 @@ import {
   View,
   Text,
   TouchableOpacity,
-  SafeAreaView,
   ScrollView,
   Modal,
   StyleSheet,
   ActivityIndicator,
   Alert,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter, useFocusEffect } from "expo-router"; // Added useFocusEffect
 import { Ionicons } from "@expo/vector-icons";
 import { useState, useEffect, useCallback } from "react"; // Added useCallback

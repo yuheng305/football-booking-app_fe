@@ -3,10 +3,10 @@ import {
   Text,
   Image,
   Dimensions,
-  SafeAreaView,
   TouchableOpacity,
   ScrollView,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 
 const { width } = Dimensions.get("window");
@@ -44,7 +44,7 @@ export default function Home() {
           {/* Card: Đặt sân */}
           <TouchableOpacity
             className="w-40 h-40 bg-white rounded-2xl items-center justify-center p-4 border-2 border-blue-500 mr-4"
-            onPress={() => router.push("/stadium")}
+            onPress={() => router.push("/(tabs)/stadium")}
           >
             <Image
               source={require("../../assets/images/book.png")}
@@ -56,18 +56,18 @@ export default function Home() {
             </Text>
           </TouchableOpacity>
 
-          {/* Card: Lịch sử đặt */}
+          {/* Card: Giải đấu */}
           <TouchableOpacity
             className="w-40 h-40 bg-white rounded-2xl items-center justify-center p-4 border-2 border-blue-500 mr-4"
-            onPress={() => router.push("/(tabs)/(users)/history")}
+            onPress={() => router.push("/(tabs)/tournament")}
           >
             <Image
-              source={require("../../assets/images/bookinghistory.png")}
+              source={require("../../assets/images/tournament.png")}
               className="w-full h-full"
               resizeMode="contain"
             />
             <Text className="text-[#060b28] font-semibold text-center">
-              Lịch sử đặt
+              Giải đấu
             </Text>
           </TouchableOpacity>
 
@@ -98,6 +98,21 @@ export default function Home() {
             />
             <Text className="text-[#060b28] font-semibold text-center">
               Thanh toán
+            </Text>
+          </TouchableOpacity>
+
+          {/* Card: Lịch sử đặt */}
+          <TouchableOpacity
+            className="w-40 h-40 bg-white rounded-2xl items-center justify-center p-4 border-2 border-blue-500 mr-4"
+            onPress={() => router.push("/(tabs)/(users)/history")}
+          >
+            <Image
+              source={require("../../assets/images/bookinghistory.png")}
+              className="w-full h-full"
+              resizeMode="contain"
+            />
+            <Text className="text-[#060b28] font-semibold text-center">
+              Lịch sử đặt
             </Text>
           </TouchableOpacity>
         </ScrollView>

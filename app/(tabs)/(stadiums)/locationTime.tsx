@@ -1,12 +1,6 @@
 import React, { useState, useEffect } from "react";
-import {
-  Text,
-  SafeAreaView,
-  View,
-  TouchableOpacity,
-  Image,
-  ScrollView,
-} from "react-native";
+import { Text, View, TouchableOpacity, Image, ScrollView } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { router, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import HeaderUser from "@/component/HeaderUser";
