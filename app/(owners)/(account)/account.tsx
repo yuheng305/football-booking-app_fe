@@ -14,6 +14,8 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import HeaderOwner from "@/component/HeaderOwner";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import { authService } from "@/src/services/auth.service";
+import { legacyApiService } from "@/src/services/legacy-api.service";
 
 const Owner = () => {
   const [name, setName] = useState("");
@@ -28,32 +30,60 @@ const Owner = () => {
   const [loading, setLoading] = useState(true);
   const [ownerId, setOwnerId] = useState("");
 
-  // Lấy dữ liệu người dùng từ AsyncStorage khi component được mount
+  // Lấy dữ liệu người dùng từ API khi component được mount
   useEffect(() => {
     const fetchUserData = async () => {
       try {
-        const userDataString = await AsyncStorage.getItem("userData");
-        console.log("Dữ liệu từ AsyncStorage:", userDataString); // Debug
-        if (userDataString) {
-          const userData = JSON.parse(userDataString);
-          console.log("Dữ liệu sau khi parse:", userData); // Debug
-          setOwnerId(userData._id || "");
-          setName(userData.fullName || "");
-          setEmail(userData.email || "");
-          setPhone(userData.phone || "");
-          setUsername(userData.username || "");
-          setClustername(userData.clusterName || "");
-          setAddress(userData.address || "");
-        } else {
-          console.log("Không tìm thấy userData");
-          Alert.alert("Lỗi", "Không tìm thấy thông tin người dùng!");
-          router.replace("/login");
-        }
+        // Gọi API để lấy thông tin user mới nhất
+        const userProfile = await authService.getMe();
+        console.log("Dữ liệu từ API getMe:", userProfile);
+        
+        // Cập nhật state với dữ liệu từ API
+        setOwnerId(userProfile.id.toString());
+        setName(`${userProfile.first_name} ${userProfile.last_name}`.trim());
+        setEmail(userProfile.email || "");
+        setPhone(userProfile.phone_number || "");
+        setUsername(userProfile.email?.split("@")[0] || "");
+        
+        // Lưu lại vào AsyncStorage để dùng offline
+        const userDataToStore = {
+          id: userProfile.id,
+          email: userProfile.email,
+          first_name: userProfile.first_name,
+          last_name: userProfile.last_name,
+          phone_number: userProfile.phone_number,
+          role: userProfile.role,
+          age: userProfile.age,
+          status: userProfile.status,
+          is_verified: userProfile.is_verified,
+        };
+        await AsyncStorage.setItem("userProfile", JSON.stringify(userDataToStore));
+        
       } catch (error) {
-        console.error("Lỗi lấy dữ liệu:", error);
-        Alert.alert("Lỗi", "Không thể tải thông tin người dùng!");
+        console.error("Lỗi lấy dữ liệu từ API:", error);
+        // Fallback: Thử lấy từ AsyncStorage nếu API lỗi
+        try {
+          const userDataString = await AsyncStorage.getItem("userData");
+          console.log("Fallback: Dữ liệu từ AsyncStorage:", userDataString);
+          if (userDataString) {
+            const userData = JSON.parse(userDataString);
+            setOwnerId(userData._id || "");
+            setName(userData.fullName || "");
+            setEmail(userData.email || "");
+            setPhone(userData.phone || "");
+            setUsername(userData.username || "");
+            setClustername(userData.clusterName || "");
+            setAddress(userData.address || "");
+          } else {
+            Alert.alert("Lỗi", "Không tìm thấy thông tin người dùng!");
+            router.replace("/login");
+          }
+        } catch (storageError) {
+          console.error("Lỗi lấy dữ liệu từ storage:", storageError);
+          Alert.alert("Lỗi", "Không thể tải thông tin người dùng!");
+        }
       } finally {
-        console.log("Hoàn tất lấy dữ liệu"); // Debug
+        console.log("Hoàn tất lấy dữ liệu");
         setLoading(false);
       }
     };
@@ -97,32 +127,21 @@ const Owner = () => {
       };
 
       console.log("Dữ liệu gửi API:", userData); // Debug
-      const response = await fetch(
-        `https://gopitch.onrender.com/owners/${ownerId}`, // Sửa template literal
-        {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify(userData),
-        }
+      const data = await legacyApiService.updateOwnerProfile(
+        ownerId,
+        userData,
+        token
       );
-
-      const data = await response.json();
       console.log("API response:", data); // Debug
-      if (response.ok) {
-        const updatedUserData = {
-          ...data,
-          _id: ownerId,
-          imageUri: imageUri?.uri || null, // Giữ imageUri cục bộ
-        };
-        await AsyncStorage.setItem("userData", JSON.stringify(updatedUserData));
-        console.log("Dữ liệu đã lưu lại:", updatedUserData); // Debug
-        Alert.alert("Thành công", "Cập nhật tài khoản thành công!");
-      } else {
-        Alert.alert("Lỗi", data.message || "Cập nhật tài khoản thất bại!");
-      }
+
+      const updatedUserData = {
+        ...data,
+        _id: ownerId,
+        imageUri: imageUri?.uri || null,
+      };
+      await AsyncStorage.setItem("userData", JSON.stringify(updatedUserData));
+      console.log("Dữ liệu đã lưu lại:", updatedUserData); // Debug
+      Alert.alert("Thành công", "Cập nhật tài khoản thành công!");
     } catch (error) {
       console.error("Lỗi cập nhật:", error);
       Alert.alert("Lỗi", "Đã có lỗi xảy ra. Vui lòng thử lại!");
@@ -172,12 +191,9 @@ const Owner = () => {
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-white">
-      <HeaderOwner location="Tài khoản" time={name} />
-      <ScrollView
-        className="flex-1"
-        contentContainerStyle={{ paddingBottom: 20 }}
-      >
+    <SafeAreaView className="flex-1 bg-white" edges={['top']}>
+      <HeaderOwner title="Tài khoản" subtitle={name} />
+      <ScrollView className="flex-1" bounces={false}>
         {/* Avatar người dùng */}
         <View className="items-center mt-6">
           <TouchableOpacity onPress={pickImage} className="relative">
@@ -195,7 +211,7 @@ const Owner = () => {
         </View>
 
         {/* Khung thông tin */}
-        <View className="mx-6 mt-4 space-y-4 mb-6">
+        <View className="mx-6 mt-4 space-y-4 mb-0">
           <View className="border border-black px-4 pt-2">
             <Text className="text-xl text-gray-600">Tên</Text>
             <TextInput

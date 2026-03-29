@@ -97,7 +97,7 @@ export default function Tournament() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-white">
+    <SafeAreaView className="flex-1 bg-white" edges={['top']}>
       <HeaderUser />
 
       <View className="flex-1">

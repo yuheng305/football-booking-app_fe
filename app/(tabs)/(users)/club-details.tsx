@@ -7,6 +7,8 @@ import {
   Alert,
   ActivityIndicator,
   RefreshControl,
+  Modal,
+  TextInput,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
@@ -22,6 +24,15 @@ const ClubDetails = () => {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [userId, setUserId] = useState<number | null>(null);
   const [clubName, setClubName] = useState("Chi tiết câu lạc bộ");
+  const [clubAddress, setClubAddress] = useState("");
+  const [clubScore, setClubScore] = useState(0);
+  const [isCaptain, setIsCaptain] = useState(false);
+  
+  // Edit modal states
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editName, setEditName] = useState("");
+  const [editAddress, setEditAddress] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     loadUserAndMembers();
@@ -50,9 +61,17 @@ const ClubDetails = () => {
       const { members: memberList } = await clubService.getClubMembers(id);
       setMembers(memberList);
 
-      // Get club name from first member if available
+      // Get club info from first member if available
       if (memberList.length > 0 && memberList[0].club) {
         setClubName(memberList[0].club.name);
+        setClubAddress(memberList[0].club.address);
+        setClubScore(memberList[0].club.score);
+      }
+      
+      // Check if current user is captain
+      if (userId) {
+        const currentMember = memberList.find((m) => m.player_id === userId);
+        setIsCaptain(currentMember?.role === "captain");
       }
     } catch (error) {
       console.error("Error loading members:", error);
@@ -100,6 +119,51 @@ const ClubDetails = () => {
     ]);
   };
 
+  const handleEditClub = () => {
+    setEditName(clubName);
+    setEditAddress(clubAddress);
+    setShowEditModal(true);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editName.trim()) {
+      Alert.alert("Lỗi", "Vui lòng nhập tên câu lạc bộ!");
+      return;
+    }
+
+    if (!editAddress.trim()) {
+      Alert.alert("Lỗi", "Vui lòng nhập địa chỉ!");
+      return;
+    }
+
+    try {
+      setIsSaving(true);
+      await clubService.updateClub(Number(clubId), {
+        name: editName,
+        address: editAddress,
+      });
+
+      setClubName(editName);
+      setClubAddress(editAddress);
+      setShowEditModal(false);
+      Alert.alert("Thành công", "Đã cập nhật thông tin câu lạc bộ!");
+      
+      // Refresh members to get updated club info
+      if (clubId) {
+        await loadMembers(Number(clubId));
+      }
+    } catch (error: any) {
+      console.error("Update club error:", error);
+      Alert.alert(
+        "Lỗi",
+        error.response?.data?.message ||
+          "Không thể cập nhật câu lạc bộ. Vui lòng thử lại!"
+      );
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <View className="flex-1 bg-white">
@@ -130,11 +194,29 @@ const ClubDetails = () => {
             <Text className="text-white text-2xl font-bold mb-2">
               {clubName}
             </Text>
+            <Text className="text-blue-100 text-base mb-1">
+              {clubAddress}
+            </Text>
             <Text className="text-blue-100 text-base">
-              {members.length} thành viên
+              {members.length} thành viên • {clubScore} điểm
             </Text>
           </View>
         </View>
+
+        {/* Edit Button for Captain */}
+        {isCaptain && (
+          <View className="px-6 pt-4">
+            <TouchableOpacity
+              onPress={handleEditClub}
+              className="bg-blue-600 py-3 rounded-xl flex-row items-center justify-center"
+            >
+              <Ionicons name="pencil" size={20} color="white" />
+              <Text className="text-white font-semibold text-base ml-2">
+                Chỉnh sửa thông tin
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
 
         {/* Members List */}
         <View className="px-6 py-6">
@@ -216,6 +298,77 @@ const ClubDetails = () => {
           </Text>
         </TouchableOpacity>
       </View>
+
+      {/* Edit Club Modal */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={showEditModal}
+        onRequestClose={() => setShowEditModal(false)}
+      >
+        <View className="flex-1 justify-end bg-black/50">
+          <View className="bg-white rounded-t-3xl px-6 py-6">
+            <View className="flex-row justify-between items-center mb-6">
+              <Text className="text-xl font-bold text-gray-900">
+                Chỉnh sửa câu lạc bộ
+              </Text>
+              <TouchableOpacity
+                onPress={() => setShowEditModal(false)}
+                disabled={isSaving}
+              >
+                <Ionicons name="close" size={28} color="#6b7280" />
+              </TouchableOpacity>
+            </View>
+
+            <View className="mb-4">
+              <Text className="text-gray-700 font-semibold mb-2">
+                Tên câu lạc bộ *
+              </Text>
+              <TextInput
+                className="border border-gray-300 rounded-xl px-4 py-3 text-base"
+                placeholder="Nhập tên câu lạc bộ"
+                value={editName}
+                onChangeText={setEditName}
+                editable={!isSaving}
+              />
+            </View>
+
+            <View className="mb-6">
+              <Text className="text-gray-700 font-semibold mb-2">
+                Địa chỉ *
+              </Text>
+              <TextInput
+                className="border border-gray-300 rounded-xl px-4 py-3 text-base"
+                placeholder="Nhập địa chỉ"
+                value={editAddress}
+                onChangeText={setEditAddress}
+                editable={!isSaving}
+                multiline
+                numberOfLines={2}
+              />
+            </View>
+
+            <TouchableOpacity
+              onPress={handleSaveEdit}
+              disabled={isSaving}
+              className={`py-4 rounded-xl flex-row items-center justify-center ${
+                isSaving ? "bg-blue-400" : "bg-blue-600"
+              }`}
+            >
+              {isSaving ? (
+                <ActivityIndicator size="small" color="white" />
+              ) : (
+                <>
+                  <Ionicons name="checkmark" size={20} color="white" />
+                  <Text className="text-white font-semibold text-base ml-2">
+                    Lưu thay đổi
+                  </Text>
+                </>
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };

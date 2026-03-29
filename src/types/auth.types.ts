@@ -8,6 +8,35 @@ export interface User {
   user_id: number;
   email: string;
   role: UserRole;
+  player_id?: number;
+}
+
+export interface UserProfile {
+  id: number;
+  email: string;
+  first_name: string;
+  last_name: string;
+  verified_token: string;
+  is_verified: boolean;
+  phone_number: string;
+  refresh_token: string;
+  refresh_token_expires_at: string;
+  reset_password_token: string | null;
+  reset_password_token_expires_at: string;
+  role: UserRole;
+  age: number;
+  status: "active" | "inactive";
+  created_at: string;
+  updated_at: string;
+}
+
+export interface GetMeResponse {
+  data: UserProfile;
+  api_version: string;
+  errors: {
+    msg: string[];
+    code: null | string;
+  };
 }
 
 export interface LoginRequest {
@@ -22,6 +51,7 @@ export interface LoginResponse {
     user_id: number;
     email: string;
     role: UserRole;
+    player_id?: number;
   };
   api_version: string;
   errors: {

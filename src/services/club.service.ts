@@ -14,6 +14,8 @@ import {
   GetClubMembersResponse,
   JoinClubRequest,
   JoinClubResponse,
+  UpdateClubRequest,
+  UpdateClubResponse,
 } from "../types/club.types";
 
 class ClubService {
@@ -122,6 +124,28 @@ class ClubService {
       ).replace(":playerId", String(playerId));
 
       await apiClient.delete(endpoint);
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  /**
+   * Update a club
+   */
+  async updateClub(clubId: number, data: UpdateClubRequest): Promise<Club> {
+    try {
+      const endpoint = API_CONFIG.CLUB_ENDPOINTS.UPDATE_CLUB.replace(
+        ":clubId",
+        String(clubId)
+      );
+
+      const response = await apiClient.patch<UpdateClubResponse>(endpoint, data);
+
+      if (!response.data?.id) {
+        throw new Error("Failed to update club");
+      }
+
+      return response.data;
     } catch (error) {
       throw error;
     }

@@ -17,7 +17,9 @@ import {
   ForgotPasswordResponse,
   ResendVerificationEmailRequest,
   ResendVerificationEmailResponse,
-  User 
+  User,
+  UserProfile,
+  GetMeResponse
 } from "../types/auth.types";
 
 const STORAGE_KEYS = {
@@ -46,6 +48,7 @@ class AuthService {
         user_id: response.data.user_id,
         email: response.data.email,
         role: response.data.role,
+        player_id: response.data.player_id,
       };
 
       // Save tokens and user data
@@ -53,6 +56,7 @@ class AuthService {
         AsyncStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, response.data.access_token),
         AsyncStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, response.data.refresh_token),
         AsyncStorage.setItem(STORAGE_KEYS.USER_DATA, JSON.stringify(user)),
+        response.data.player_id ? AsyncStorage.setItem("playerId", response.data.player_id.toString()) : Promise.resolve(),
       ]);
 
       // Set token for future requests
@@ -232,6 +236,25 @@ class AuthService {
       }
 
       return response.data.message;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  /**
+   * Get current user profile
+   */
+  async getMe(): Promise<UserProfile> {
+    try {
+      const response = await apiClient.get<GetMeResponse>(
+        API_CONFIG.AUTH_ENDPOINTS.ME
+      );
+
+      if (!response.data) {
+        throw new Error("Failed to get user profile");
+      }
+
+      return response.data;
     } catch (error) {
       throw error;
     }

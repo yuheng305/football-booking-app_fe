@@ -89,7 +89,7 @@ const ChangePassword = () => {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-white">
+    <SafeAreaView className="flex-1 bg-white" edges={['top']}>
       <View className="flex-1">
         <HeaderOne title="Đổi mật khẩu" />
         <View className="px-6 mt-6 space-y-4">

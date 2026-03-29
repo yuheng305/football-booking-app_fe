@@ -1,108 +1,126 @@
-import { View, Text, TouchableOpacity, ScrollView } from "react-native";
+import { View, Text, TouchableOpacity, ScrollView, RefreshControl } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useRouter } from "expo-router";
+import { useRouter, useFocusEffect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { useState, useEffect } from "react";
+import { useState, useCallback } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { bookingService } from "@/src/services/booking.service";
+import type { Booking as BookingType } from "@/src/types/booking.types";
 
-interface Booking {
-  id: string; // Original bookingId from API
-  displayId: string; // Simplified display ID (e.g., #1, #2)
+const TEMP_OWNER_CLUSTER_ID = 3;
+
+interface DisplayBooking {
+  id: number;
+  displayId: string;
   field: string;
   time: string;
   date: string;
   status: string;
+  clubName: string;
 }
 
 export default function BookingManagement() {
   const router = useRouter();
   const [filter, setFilter] = useState("All");
-  const [bookings, setBookings] = useState<Booking[]>([]);
+  const [bookings, setBookings] = useState<DisplayBooking[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
-  useEffect(() => {
-    const fetchBookings = async () => {
-      try {
-        // Fetch ownerId from AsyncStorage
-        const userDataString = await AsyncStorage.getItem("userData");
-        if (!userDataString) {
-          console.log("Không tìm thấy userData");
-          router.replace("/login");
-          return;
-        }
-        const userData = JSON.parse(userDataString);
-        const ownerId = userData._id;
-        if (!ownerId) {
-          console.log("Không tìm thấy ownerId");
-          router.replace("/login");
-          return;
-        }
+  // Map API status to display status
+  const mapStatus = (status: string): string => {
+    switch (status.toLowerCase()) {
+      case "pending":
+        return "Chờ duyệt";
+      case "confirmed":
+        return "Đã xác nhận";
+      case "completed":
+        return "Hoàn thành";
+      case "payment_required":
+        return "Chờ thanh toán";
+      case "canceled":
+        return "Đã hủy";
+      default:
+        return status;
+    }
+  };
 
-        // Fetch token for Authorization
-        const token = await AsyncStorage.getItem("authToken");
-        if (!token) {
-          console.log("Không tìm thấy token");
-          router.replace("/login");
-          return;
-        }
+  const fetchBookings = useCallback(async (isRefreshing = false) => {
+    try {
+      if (!isRefreshing) setLoading(true);
+      console.log("[OWNER BOOKINGS] Starting fetch...");
 
-        // Fetch bookings from all three endpoints
-        const endpoints = [
-          {
-            url: `https://gopitch.onrender.com/bookings/owner/${ownerId}/upcoming`,
-            status: "Sắp tới",
-          },
-          {
-            url: `https://gopitch.onrender.com/bookings/owner/${ownerId}/completed`,
-            status: "Hoàn thành",
-          },
-          {
-            url: `https://gopitch.onrender.com/bookings/owner/${ownerId}/pending`,
-            status: "Chờ duyệt",
-          },
-        ];
-
-        const bookingPromises = endpoints.map(async ({ url, status }) => {
-          const response = await fetch(url, {
-            method: "GET",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${token}`,
-            },
-          });
-
-          if (!response.ok) {
-            throw new Error(`Lỗi khi gọi API ${url}: ${response.statusText}`);
-          }
-
-          const data = await response.json();
-          console.log(`Dữ liệu từ API ${url}:`, data);
-
-          // Map API response to Booking interface with a displayId
-          return data.map((item: any, index: number) => ({
-            id: item.bookingId, // Original ID for API use
-            displayId: `#${index + 1}`, // Simplified sequential ID
-            field: item.fieldName,
-            time: `${item.startHour}:00`, // Format startHour to time string (e.g., "12:00")
-            date: item.date.split("T")[0], // Extract date part (e.g., "2025-08-24")
-            status: status, // Use the status based on the endpoint
-          }));
-        });
-
-        // Wait for all API calls to complete
-        const results = await Promise.all(bookingPromises);
-        // Flatten the results into a single array of bookings
-        const allBookings = results.flat();
-        setBookings(allBookings);
-      } catch (error) {
-        console.error("Lỗi khi lấy dữ liệu đặt sân:", error);
-      } finally {
-        setLoading(false);
+      const token = await AsyncStorage.getItem("authToken");
+      if (!token) {
+        router.replace("/login");
+        return;
       }
-    };
+      
+      // Check cache first for faster loading
+      if (!isRefreshing) {
+        const cached = await AsyncStorage.getItem("ownerBookingsCache");
+        if (cached) {
+          console.log("[OWNER BOOKINGS] Loading from cache...");
+          setBookings(JSON.parse(cached));
+          setLoading(false);
+        }
+      }
 
-    fetchBookings();
+      const clusterId = TEMP_OWNER_CLUSTER_ID;
+
+      console.log("[OWNER BOOKINGS] Fetching from API, cluster:", clusterId);
+
+      const response = await bookingService.getOwnerBookings({
+        clusterId,
+        offset: 0,
+        limit: 100,
+      });
+
+      console.log("[OWNER BOOKINGS] API returned:", response.bookings.length, "bookings");
+
+      // Transform bookings to display format
+      const displayBookings: DisplayBooking[] = response.bookings.map(
+        (booking: BookingType, index: number) => ({
+          id: booking.id,
+          displayId: `#${index + 1}`,
+          field: booking.field.name,
+          time: `${booking.start_time} - ${booking.end_time}`,
+          date: new Date(booking.booking_date).toLocaleDateString("vi-VN"),
+          status: mapStatus(booking.status),
+          clubName: booking.club.name,
+        })
+      );
+
+      setBookings(displayBookings);
+      // Cache the data
+      await AsyncStorage.setItem("ownerBookingsCache", JSON.stringify(displayBookings));
+      console.log("[OWNER BOOKINGS] Cached", displayBookings.length, "bookings");
+    } catch (error) {
+      console.error("[OWNER BOOKINGS] Error:", error);
+      if (error instanceof Error) {
+        console.error("[OWNER BOOKINGS] Error message:", error.message);
+        const message = error.message.toLowerCase();
+        if (message.includes("not authenticated") || message.includes("403")) {
+          router.replace("/login");
+        }
+      }
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
   }, []);
+
+  // Fetch on screen focus
+  useFocusEffect(
+    useCallback(() => {
+      console.log("[OWNER BOOKINGS] Screen focused");
+      fetchBookings(false);
+    }, [fetchBookings])
+  );
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    fetchBookings(true);
+  }, [fetchBookings]);
 
   const filteredBookings = bookings.filter((booking) => {
     if (filter === "All") return true;
@@ -124,7 +142,8 @@ export default function BookingManagement() {
       <View className="flex-row items-center px-4 pt-4">
         <TouchableOpacity
           className="w-10 h-10 bg-white border border-gray-200 rounded-xl items-center justify-center"
-          onPress={() => router.back()}
+          onPress={() => router.push("/(owners)/home")}
+          activeOpacity={1}
         >
           <Ionicons name="arrow-back" size={20} color="#1E232C" />
         </TouchableOpacity>
@@ -133,119 +152,137 @@ export default function BookingManagement() {
           Quản lý đặt sân
         </Text>
 
-        <TouchableOpacity
-          className="ml-2"
-          onPress={() => router.push("/(owners)/(service)/serviceManagement")}
-        >
-          <Text className="text-[#114F99] text-base font-medium">
-            Quản lý dịch vụ
-          </Text>
-        </TouchableOpacity>
       </View>
 
       <View className="flex-row justify-center gap-4 px-4 mt-6">
         <TouchableOpacity
           className={`${
-            filter === "Sắp tới"
-              ? "bg-[#119916]"
-              : "bg-white border-2 border-[#119916]"
-          } px-6 py-2 rounded-full items-center`}
-          onPress={() => setFilter("Sắp tới")}
-        >
-          <Text
-            className={`text-base font-medium ${
-              filter === "Sắp tới" ? "text-white" : "text-[#119916]"
-            }`}
-          >
-            Sắp tới
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          className={`${
-            filter === "Hoàn thành"
+            filter === "All"
               ? "bg-[#114F99]"
               : "bg-white border-2 border-[#114F99]"
           } px-6 py-2 rounded-full items-center`}
-          onPress={() => setFilter("Hoàn thành")}
+          onPress={() => setFilter("All")}
+          activeOpacity={1}
         >
           <Text
             className={`text-base font-medium ${
-              filter === "Hoàn thành" ? "text-white" : "text-[#114F99]"
+              filter === "All" ? "text-white" : "text-[#114F99]"
             }`}
           >
-            Hoàn thành
+            Tất cả
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
           className={`${
             filter === "Chờ duyệt"
-              ? "bg-[#808080]"
-              : "bg-white border-2 border-[#808080]"
+              ? "bg-[#FF9500]"
+              : "bg-white border-2 border-[#FF9500]"
           } px-6 py-2 rounded-full items-center`}
           onPress={() => setFilter("Chờ duyệt")}
+          activeOpacity={1}
         >
           <Text
             className={`text-base font-medium ${
-              filter === "Chờ duyệt" ? "text-white" : "text-[#808080]"
+              filter === "Chờ duyệt" ? "text-white" : "text-[#FF9500]"
             }`}
           >
             Chờ duyệt
           </Text>
         </TouchableOpacity>
-      </View>
-      <ScrollView className="flex-1 px-4 mt-6">
-        {filteredBookings.map((booking) => (
-          <View
-            key={booking.id}
-            className="bg-white border border-[#11993C] rounded-lg mb-4 p-4 flex-row items-center justify-between"
+        <TouchableOpacity
+          className={`${
+            filter === "Hoàn thành"
+              ? "bg-[#119916]"
+              : "bg-white border-2 border-[#119916]"
+          } px-6 py-2 rounded-full items-center`}
+          onPress={() => setFilter("Hoàn thành")}
+          activeOpacity={1}
+        >
+          <Text
+            className={`text-base font-medium ${
+              filter === "Hoàn thành" ? "text-white" : "text-[#119916]"
+            }`}
           >
-            <View>
-              <Text className="text-xl font-semibold text-black">
-                {booking.displayId} {/* Use displayId instead of id */}
-              </Text>
-              <Text className="text-base text-black">Sân: {booking.field}</Text>
-              <View className="flex-row items-center">
-                <Ionicons name="time-outline" size={20} color="#000000" />
-                <Text className="text-base text-black ml-1">
-                  Giờ: {booking.time}
-                </Text>
-              </View>
-              <Text className="text-base text-black">Ngày: {booking.date}</Text>
-              <Text className="text-base text-black">
-                Trạng thái: {booking.status}
-              </Text>
-            </View>
-            <View className="flex-row items-center gap-2">
-              {booking.status === "Chờ duyệt" ? (
+            Hoàn thành
+          </Text>
+        </TouchableOpacity>
+      </View>
+      <ScrollView 
+        className="flex-1 px-4 mt-6"
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
+      >
+        {filteredBookings.length === 0 ? (
+          <View className="items-center justify-center mt-10">
+            <Text className="text-gray-500 text-base">
+              Không có đặt sân nào
+            </Text>
+          </View>
+        ) : (
+          filteredBookings.map((booking) => (
+            <View
+              key={booking.id}
+              className="bg-white border border-[#11993C] rounded-lg mb-4 p-4"
+            >
+              <View className="flex-row justify-between items-start">
+                <View className="flex-1">
+                  <Text className="text-xl font-semibold text-gray-900">
+                    {booking.displayId}
+                  </Text>
+                  <Text className="text-base text-gray-800 mt-1">
+                    CLB: {booking.clubName}
+                  </Text>
+                  <Text className="text-base text-gray-800">
+                    Sân: {booking.field}
+                  </Text>
+                  <View className="flex-row items-center mt-1">
+                    <Ionicons name="time-outline" size={20} color="#374151" />
+                    <Text className="text-base text-gray-800 ml-1">
+                      {booking.time}
+                    </Text>
+                  </View>
+                  <View className="flex-row items-center mt-1">
+                    <Ionicons name="calendar-outline" size={20} color="#374151" />
+                    <Text className="text-base text-gray-800 ml-1">
+                      {booking.date}
+                    </Text>
+                  </View>
+                  <View className="mt-2">
+                    <Text
+                      className={`text-base font-medium ${
+                        booking.status === "Đã xác nhận"
+                          ? "text-[#119916]"
+                          : booking.status === "Hoàn thành"
+                          ? "text-[#114F99]"
+                          : booking.status === "Chờ duyệt"
+                          ? "text-[#FF9500]"
+                        : booking.status === "Chờ thanh toán"
+                          ? "text-[#0B8FAC]"
+                          : "text-gray-500"
+                      }`}
+                    >
+                      {booking.status}
+                    </Text>
+                  </View>
+                </View>
                 <TouchableOpacity
-                  className="bg-[#0B8FAC] rounded-full px-4 py-2"
+                  className="bg-[#0B8FAC] rounded-full px-5 py-2.5 ml-2"
                   onPress={() =>
                     router.push({
-                      pathname: "/bookingDetail",
-                      params: { id: booking.id }, // Use original id for navigation
+                      pathname: "/(owners)/(booking)/bookingDetail",
+                      params: { id: booking.id.toString() },
                     })
                   }
                 >
                   <Text className="text-white text-base font-medium">
-                    Chi tiết
+                    {booking.status === "Chờ duyệt" ? "Chi tiết" : "Xem"}
                   </Text>
                 </TouchableOpacity>
-              ) : (
-                <TouchableOpacity
-                  className="bg-[#0B8FAC] rounded-full px-4 py-2"
-                  onPress={() =>
-                    router.push({
-                      pathname: "/bookingDetail",
-                      params: { id: booking.id }, // Use original id for navigation
-                    })
-                  }
-                >
-                  <Text className="text-white text-base font-medium">Xem</Text>
-                </TouchableOpacity>
-              )}
+              </View>
             </View>
-          </View>
-        ))}
+          ))
+        )}
       </ScrollView>
     </SafeAreaView>
   );

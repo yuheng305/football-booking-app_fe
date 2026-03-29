@@ -11,83 +11,91 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useState, useEffect } from "react";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { bookingService } from "@/src/services/booking.service";
+import type { Booking as BookingType } from "@/src/types/booking.types";
 
-interface Booking {
-  id: string;
+interface DisplayBooking {
+  id: number;
   field: string;
+  fieldSize: string;
   time: string;
   date: string;
   status: string;
-  userName?: string;
-  phoneNumber?: string;
-  email?: string;
-  address?: string;
-  slot?: number;
-  services?: { name: string; price: number }[];
-  price?: number;
+  statusDisplay: string;
+  clubName: string;
+  clubAddress: string;
+  clusterName: string;
+  clusterAddress: string;
+  type: string;
+  price: number;
 }
 
 export default function BookingDetail() {
   const router = useRouter();
   const { id } = useLocalSearchParams();
-  const [booking, setBooking] = useState<Booking | null>(null);
+  const [booking, setBooking] = useState<DisplayBooking | null>(null);
   const [loading, setLoading] = useState(true);
   const [approveModalVisible, setApproveModalVisible] = useState(false);
   const [rejectModalVisible, setRejectModalVisible] = useState(false);
   const [confirmRejectModalVisible, setConfirmRejectModalVisible] =
     useState(false);
+  const [submittingAction, setSubmittingAction] = useState(false);
+
+  // Map API status to display status
+  const mapStatus = (status: string): string => {
+    switch (status) {
+      case "confirmed":
+        return "Đã xác nhận";
+      case "completed":
+        return "Hoàn thành";
+      case "payment_required":
+      case "pending":
+        return "Chờ thanh toán";
+      case "canceled":
+        return "Đã hủy";
+      default:
+        return status;
+    }
+  };
 
   useEffect(() => {
     const fetchBookingDetail = async () => {
       try {
-        const token = await AsyncStorage.getItem("authToken");
-        if (!token) {
-          console.log("Không tìm thấy token");
-          router.replace("/login");
-          return;
-        }
+        console.log("[BOOKING DETAIL] Fetching booking ID:", id);
+        const bookingId = parseInt(id as string);
+        
+        const data: BookingType = await bookingService.getBookingById(bookingId);
+        console.log("[BOOKING DETAIL] API Response:", JSON.stringify(data, null, 2));
 
-        const response = await fetch(
-          `https://gopitch.onrender.com/bookings/${id}`,
-          {
-            method: "GET",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
+        const displayBooking: DisplayBooking = {
+          id: data.id,
+          field: data.field.name,
+          fieldSize: data.field.size,
+          time: `${data.start_time} - ${data.end_time}`,
+          date: new Date(data.booking_date).toLocaleDateString("vi-VN"),
+          status: data.status,
+          statusDisplay: mapStatus(data.status),
+          clubName: data.club.name,
+          clubAddress: data.club.address,
+          clusterName: data.field.cluster.name,
+          clusterAddress: `${data.field.cluster.street}, ${data.field.cluster.district}, ${data.field.cluster.city}`,
+          type: data.type === "half" ? "Nửa sân" : "Toàn sân",
+          price: data.total_price,
+        };
 
-        if (!response.ok) {
-          throw new Error(`Lỗi khi gọi API: ${response.statusText}`);
-        }
-
-        const data = await response.json();
-        console.log("Dữ liệu từ API:", data);
-
-        setBooking({
-          id: data.bookingId,
-          field: data.fieldName,
-          time: `${data.startHour}:00`,
-          date: data.date.split("T")[0],
-          status: "Chờ duyệt",
-          userName: data.userName,
-          phoneNumber: data.phoneNumber,
-          email: data.email,
-          address: data.address,
-          slot: data.slot,
-          services: data.services,
-          price: data.price,
-        });
+        setBooking(displayBooking);
+        console.log("[BOOKING DETAIL] Loaded booking:", displayBooking);
       } catch (error) {
-        console.error("Lỗi khi lấy dữ liệu chi tiết đặt sân:", error);
+        console.error("[BOOKING DETAIL] Error:", error);
+        Alert.alert("Lỗi", "Không thể tải thông tin đặt sân");
       } finally {
         setLoading(false);
       }
     };
 
-    fetchBookingDetail();
+    if (id) {
+      fetchBookingDetail();
+    }
   }, [id]);
 
   if (loading) {
@@ -106,63 +114,69 @@ export default function BookingDetail() {
     );
   }
 
-  const handleApprove = () => {
-    console.log(`Phê duyệt booking ${booking.id}`);
-    setApproveModalVisible(true);
+  const handleApprove = async () => {
+    if (!booking) return;
+    try {
+      setSubmittingAction(true);
+      console.log(`[BOOKING DETAIL] Approve booking ${booking.id}`);
+      await bookingService.ownerConfirmBooking(booking.id, "Owner approved booking");
+      setBooking((prev) =>
+        prev
+          ? {
+              ...prev,
+              status: "confirmed",
+              statusDisplay: mapStatus("confirmed"),
+            }
+          : prev
+      );
+      setApproveModalVisible(true);
+    } catch (error: any) {
+      console.error("[BOOKING DETAIL] Error approving booking:", error);
+      Alert.alert("Lỗi", error?.message || "Không thể phê duyệt booking");
+    } finally {
+      setSubmittingAction(false);
+    }
   };
 
   const handleReject = () => {
-    console.log(`Mở modal xác nhận từ chối booking ${booking.id}`);
+    console.log(`[BOOKING DETAIL] Confirm reject booking ${booking.id}`);
     setConfirmRejectModalVisible(true);
   };
 
   const confirmReject = async () => {
+    if (!booking) return;
     try {
-      const token = await AsyncStorage.getItem("authToken");
-      if (!token) {
-        Alert.alert("Lỗi", "Không tìm thấy token, vui lòng đăng nhập lại!");
-        router.replace("/login");
-        return;
-      }
-
-      const response = await fetch(
-        `https://gopitch.onrender.com/bookings/${booking.id}`,
-        {
-          method: "DELETE",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-        }
+      setSubmittingAction(true);
+      console.log(`[BOOKING DETAIL] Rejecting booking ${booking.id}`);
+      await bookingService.ownerCancelBooking(booking.id, "Owner canceled booking");
+      setBooking((prev) =>
+        prev
+          ? {
+              ...prev,
+              status: "canceled",
+              statusDisplay: mapStatus("canceled"),
+            }
+          : prev
       );
-
-      if (!response.ok) {
-        throw new Error(`Lỗi khi xóa booking: ${response.statusText}`);
-      }
-
-      console.log(`Xóa booking ${booking.id} thành công`);
+      
       setConfirmRejectModalVisible(false);
       setRejectModalVisible(true);
     } catch (error) {
-      console.error("Lỗi khi xóa booking:", error);
-      Alert.alert("Lỗi", "Không thể xóa booking. Vui lòng thử lại!");
+      console.error("[BOOKING DETAIL] Error rejecting booking:", error);
+      Alert.alert("Lỗi", "Không thể từ chối booking. Vui lòng thử lại!");
+    } finally {
+      setSubmittingAction(false);
     }
   };
 
   const closeApproveModal = () => {
     setApproveModalVisible(false);
-    router.push({
-      pathname: "/ownerBookingManagement",
-      params: { filter: "Chờ duyệt" },
-    });
+    router.push("/(owners)/(booking)/ownerBookingManagement");
   };
 
   const closeRejectModal = () => {
     setRejectModalVisible(false);
-    router.push({
-      pathname: "/ownerBookingManagement",
-      params: { filter: "Chờ duyệt" },
-    });
+    router.push("/(owners)/(booking)/ownerBookingManagement");
   };
 
   const closeConfirmRejectModal = () => {
@@ -175,19 +189,11 @@ export default function BookingDetail() {
       <View className="flex-row items-center px-4 pt-4">
         <TouchableOpacity
           className="w-10 h-10 bg-white border border-gray-200 rounded-xl items-center justify-center"
-          onPress={() =>
-            router.push({
-              pathname: "/ownerBookingManagement",
-              params: { filter: "Chờ duyệt" },
-            })
-          }
+          onPress={() => router.push("/(owners)/(booking)/ownerBookingManagement")}
         >
           <Ionicons name="arrow-back" size={20} color="#1E232C" />
         </TouchableOpacity>
-        <Text
-          className="flex-1 font-bold text-[26px] text-[#1E232C] text-center"
-          style={{ fontFamily: "Open Sans" }}
-        >
+        <Text className="flex-1 font-bold text-[26px] text-[#1E232C] text-center">
           Chi tiết đặt sân
         </Text>
         <View className="w-[41px] h-[41px]" />
@@ -195,108 +201,101 @@ export default function BookingDetail() {
 
       <ScrollView className="flex-1 px-4 mt-4">
         <View className="mb-4">
-          <Text className="text-black text-base font-bold">
-            Người đặt sân: {booking.userName}
+          <Text className="text-gray-900 text-lg font-bold">
+            CLB: {booking.clubName}
           </Text>
         </View>
-        <View className="w-full h-[1px] bg-black" />
+        <View className="w-full h-[1px] bg-gray-300" />
 
         <View className="mt-4 mb-4">
-          <Text className="text-black text-base font-bold">
-            Liên hệ: {booking.phoneNumber}
+          <Text className="text-gray-900 text-base font-semibold">
+            Địa chỉ CLB: {booking.clubAddress}
           </Text>
         </View>
-        <View className="w-full h-[1px] bg-black" />
+        <View className="w-full h-[1px] bg-gray-300" />
 
         <View className="mt-4 mb-4">
-          <Text className="text-black text-base font-bold">
-            Email: {booking.email}
+          <Text className="text-gray-900 text-base font-semibold">
+            Cụm sân: {booking.clusterName}
           </Text>
         </View>
-        <View className="w-full h-[1px] bg-black" />
+        <View className="w-full h-[1px] bg-gray-300" />
 
         <View className="mt-4 mb-4">
-          <Text className="text-black text-base font-bold">
-            Sân: {booking.field}
+          <Text className="text-gray-900 text-base font-normal">
+            Địa chỉ: {booking.clusterAddress}
           </Text>
         </View>
-        <View className="w-full h-[1px] bg-black" />
+        <View className="w-full h-[1px] bg-gray-300" />
 
         <View className="mt-4 mb-4">
-          <Text className="text-black text-base font-bold">
+          <Text className="text-gray-900 text-base font-bold">
+            Sân: {booking.field} ({booking.fieldSize})
+          </Text>
+        </View>
+        <View className="w-full h-[1px] bg-gray-300" />
+
+        <View className="mt-4 mb-4">
+          <Text className="text-gray-900 text-base font-bold">
             Ngày: {booking.date}
           </Text>
         </View>
-        <View className="w-full h-[1px] bg-black" />
+        <View className="w-full h-[1px] bg-gray-300" />
 
         <View className="mt-4 mb-4">
-          <Text className="text-black text-base font-bold">
-            Thời gian: {booking.slot} giờ
+          <Text className="text-gray-900 text-base font-bold">
+            Giờ: {booking.time}
           </Text>
         </View>
-        <View className="w-full h-[1px] bg-black" />
+        <View className="w-full h-[1px] bg-gray-300" />
 
         <View className="mt-4 mb-4">
-          <Text className="text-black text-base font-normal">
-            Địa chỉ: {booking.address}
+          <Text className="text-gray-900 text-base font-bold">
+            Loại hình: {booking.type}
           </Text>
         </View>
-        <View className="w-full h-[1px] bg-black" />
+        <View className="w-full h-[1px] bg-gray-300" />
 
         <View className="mt-4 mb-4">
-          <Text className="text-black text-base font-bold">
-            Loại hình: Đặt {booking.slot === 1 ? "nửa sân" : "toàn sân"}
+          <Text className="text-gray-900 text-lg font-bold">
+            Tổng cộng: {booking.price.toLocaleString("vi-VN")} VNĐ
           </Text>
         </View>
-        <View className="w-full h-[1px] bg-black" />
-
-        <View className="mt-4 mb-4">
-          <Text className="text-black text-base font-bold">
-            Thuê trọng tài:{" "}
-            {booking.services?.some((s) => s.name === "Thuê trọng tài")
-              ? "Có"
-              : "Không"}
-          </Text>
-        </View>
-        <View className="w-full h-[1px] bg-black" />
-
-        <View className="mt-4 mb-4">
-          <Text className="text-black text-base font-bold">
-            Dịch vụ khác:{" "}
-            {booking.services
-              ?.filter((s) => s.name !== "Thuê trọng tài")
-              .map((s) => s.name)
-              .join(" | ") || "Không có"}
-          </Text>
-        </View>
-        <View className="w-full h-[1px] bg-black" />
-
-        <View className="mt-4 mb-4">
-          <Text className="text-black text-base font-normal">
-            Tổng cộng: {booking.price} VND
-          </Text>
-        </View>
-        <View className="w-full h-[1px] bg-black" />
+        <View className="w-full h-[1px] bg-gray-300" />
 
         <View className="mt-4 mb-8">
-          <Text className="text-black text-base font-normal">
-            Trạng thái: Chưa thanh toán
+          <Text
+            className={`text-base font-bold ${
+              booking.status === "payment_required"
+                ? "text-[#FF9500]"
+                : booking.status === "confirmed"
+                ? "text-[#119916]"
+                : booking.status === "completed"
+                ? "text-[#114F99]"
+                : "text-gray-500"
+            }`}
+          >
+            Trạng thái: {booking.statusDisplay}
           </Text>
         </View>
 
-        {booking.status === "Chờ duyệt" && (
+        {(booking.status === "payment_required" || booking.status === "pending") && (
           <View className="flex-row justify-between px-4 mb-6">
             <TouchableOpacity
               className="flex-1 h-12 bg-[#119916] rounded-full items-center justify-center mr-2"
               onPress={handleApprove}
+              disabled={submittingAction}
             >
-              <Text className="text-white text-base font-bold">Phê duyệt</Text>
+              <Text className="text-white text-base font-bold">
+                {submittingAction ? "Đang xử lý..." : "Phê duyệt"}
+              </Text>
             </TouchableOpacity>
             <TouchableOpacity
               className="flex-1 h-12 bg-[#FF0000] rounded-full items-center justify-center ml-2"
               onPress={handleReject}
+              disabled={submittingAction}
             >
-              <Text className="text-white text-base font-bold">Từ chối</Text>
+              <Text className="text-white text-base font-bold">Hủy</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -323,7 +322,7 @@ export default function BookingDetail() {
                 color="#119916"
               />
             </View>
-            <Text style={styles.successText}>Phê duyệt thành công</Text>
+            <Text style={styles.successText}>Xác nhận thành công</Text>
           </View>
         </View>
       </Modal>
@@ -371,6 +370,7 @@ export default function BookingDetail() {
               <TouchableOpacity
                 style={styles.confirmButton}
                 onPress={confirmReject}
+                disabled={submittingAction}
               >
                 <Text style={styles.buttonText}>Xác nhận</Text>
               </TouchableOpacity>

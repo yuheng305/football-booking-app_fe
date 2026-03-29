@@ -9,16 +9,22 @@ import {
   Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useRouter, useFocusEffect } from "expo-router"; // Added useFocusEffect
+import { useRouter, useFocusEffect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { useState, useEffect, useCallback } from "react"; // Added useCallback
+import { useState, useEffect, useCallback } from "react";
 import HeaderOwner from "@/component/HeaderOwner";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { fieldService } from "@/src/services/field.service";
+import { legacyApiService } from "@/src/services/legacy-api.service";
+
+const TEMP_OWNER_CLUSTER_ID = 3;
 
 interface Stadium {
-  id: string;
+  id: number;
   name: string;
   status: "Đang hoạt động" | "Bảo trì";
+  size: string;
+  clusterId: number;
 }
 
 interface StadiumManagementState {
@@ -28,7 +34,6 @@ interface StadiumManagementState {
   deleteModalVisible: boolean;
   selectedStadiumName: string;
   stadiums: Stadium[];
-  ownerId: string | null;
   isLoading: boolean;
   error: string | null;
 }
@@ -42,84 +47,39 @@ export default function StadiumManagement() {
     deleteModalVisible: false,
     selectedStadiumName: "",
     stadiums: [],
-    ownerId: null,
     isLoading: false,
     error: null,
   });
 
-  // Fetch ownerId and token from AsyncStorage
-  useEffect(() => {
-    const getUserData = async () => {
-      try {
-        const userDataString = await AsyncStorage.getItem("userData");
-        const authToken = await AsyncStorage.getItem("authToken");
-        if (userDataString && authToken) {
-          const userData = JSON.parse(userDataString);
-          setState((prev) => ({ ...prev, ownerId: userData._id }));
-        } else {
-          setState((prev) => ({
-            ...prev,
-            error:
-              "Không tìm thấy thông tin người dùng hoặc token. Vui lòng đăng nhập lại.",
-          }));
-        }
-      } catch (error) {
-        console.error("Lỗi khi lấy thông tin người dùng:", error);
-        setState((prev) => ({
-          ...prev,
-          error: "Đã có lỗi xảy ra khi lấy thông tin người dùng.",
-        }));
-      }
-    };
-    getUserData();
-  }, []);
-
-  // Fetch stadiums when ownerId is available or screen is focused
+  // Fetch stadiums using temporary cluster endpoint
   const fetchStadiums = useCallback(async () => {
-    if (!state.ownerId) return;
-
     setState((prev) => ({ ...prev, isLoading: true, error: null }));
     try {
-      const authToken = await AsyncStorage.getItem("authToken");
-      if (!authToken) {
-        throw new Error("Token không tồn tại. Vui lòng đăng nhập lại.");
-      }
+      console.log("[STADIUM MGMT] Fetching fields for cluster:", TEMP_OWNER_CLUSTER_ID);
+      
+      const response = await fieldService.getFieldsByCluster(TEMP_OWNER_CLUSTER_ID);
+      console.log("[STADIUM MGMT] API Response:", response);
 
-      const response = await fetch(
-        `https://gopitch.onrender.com/fields/owner/${state.ownerId}`,
-        {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${authToken}`,
-          },
-        }
-      );
+      const stadiums: Stadium[] = response.fields.map((field) => ({
+        id: field.id,
+        name: `Sân ${field.size}`, // Since API doesn't have name, use size
+        status: field.status === "active" ? "Đang hoạt động" : "Bảo trì",
+        size: field.size,
+        clusterId: field.cluster_id,
+      }));
 
-      if (!response.ok) {
-        throw new Error(`Lỗi ${response.status}: ${response.statusText}`);
-      }
-
-      const data = await response.json();
       setState((prev) => ({
         ...prev,
-        stadiums: data.map((field: any) => ({
-          id: field._id,
-          name: field.name,
-          status: field.isMaintain ? "Bảo trì" : "Đang hoạt động",
-        })),
+        stadiums,
         isLoading: false,
       }));
+      console.log("[STADIUM MGMT] Loaded stadiums:", stadiums.length);
     } catch (error: any) {
-      console.error("Lỗi khi lấy danh sách sân:", error);
+      console.error("[STADIUM MGMT] Error fetching fields:", error);
       let errorMessage = "Đã có lỗi xảy ra khi lấy danh sách sân.";
-      if (error.message.includes("Network request failed")) {
-        errorMessage =
-          "Không thể kết nối đến server. Vui lòng kiểm tra kết nối internet.";
-      } else if (
-        error.message.includes("401") ||
-        error.message.includes("Token")
-      ) {
+      if (error.message?.includes("Network request failed")) {
+        errorMessage = "Không thể kết nối đến server. Vui lòng kiểm tra kết nối internet.";
+      } else if (error.message?.includes("401")) {
         errorMessage = "Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại.";
       }
       setState((prev) => ({
@@ -128,7 +88,7 @@ export default function StadiumManagement() {
         isLoading: false,
       }));
     }
-  }, [state.ownerId]);
+  }, []);
 
   // Refetch data when screen comes into focus
   useFocusEffect(
@@ -165,18 +125,8 @@ export default function StadiumManagement() {
         throw new Error("Token không tồn tại. Vui lòng đăng nhập lại.");
       }
 
-      const response = await fetch(
-        `https://gopitch.onrender.com/fields/${stadiumId}/status`,
-        {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${authToken}`,
-          },
-          body: JSON.stringify({ isMaintain: true }),
-        }
-      );
-      if (response.ok) {
+      await legacyApiService.updateFieldMaintainStatus(stadiumId, true, authToken);
+      {
         setState((prev) => ({
           ...prev,
           stadiums: prev.stadiums.map((stadium) =>
@@ -187,8 +137,6 @@ export default function StadiumManagement() {
           selectedStadiumName: stadiumName,
           maintenanceModalVisible: true,
         }));
-      } else {
-        throw new Error(`Lỗi ${response.status}: ${await response.text()}`);
       }
     } catch (error: any) {
       console.error("Lỗi khi chuyển sang bảo trì:", error);
@@ -206,18 +154,8 @@ export default function StadiumManagement() {
         throw new Error("Token không tồn tại. Vui lòng đăng nhập lại.");
       }
 
-      const response = await fetch(
-        `https://gopitch.onrender.com/fields/${stadiumId}/status`,
-        {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${authToken}`,
-          },
-          body: JSON.stringify({ isMaintain: false }),
-        }
-      );
-      if (response.ok) {
+      await legacyApiService.updateFieldMaintainStatus(stadiumId, false, authToken);
+      {
         setState((prev) => ({
           ...prev,
           stadiums: prev.stadiums.map((stadium) =>
@@ -228,8 +166,6 @@ export default function StadiumManagement() {
           selectedStadiumName: stadiumName,
           resumeModalVisible: true,
         }));
-      } else {
-        throw new Error(`Lỗi ${response.status}: ${await response.text()}`);
       }
     } catch (error: any) {
       console.error("Lỗi khi chuyển sang hoạt động lại:", error);
@@ -248,24 +184,14 @@ export default function StadiumManagement() {
         throw new Error("Token không tồn tại. Vui lòng đăng nhập lại.");
       }
 
-      const response = await fetch(
-        `https://gopitch.onrender.com/fields/${stadiumId}`,
-        {
-          method: "DELETE",
-          headers: {
-            Authorization: `Bearer ${authToken}`,
-          },
-        }
-      );
-      if (response.ok) {
+      await legacyApiService.deleteField(stadiumId, authToken);
+      {
         setState((prev) => ({
           ...prev,
           stadiums: prev.stadiums.filter((stadium) => stadium.id !== stadiumId),
           selectedStadiumName: stadiumName,
           deleteModalVisible: true,
         }));
-      } else {
-        throw new Error(`Lỗi ${response.status}: ${await response.text()}`);
       }
     } catch (error: any) {
       console.error("Lỗi khi xóa sân:", error);

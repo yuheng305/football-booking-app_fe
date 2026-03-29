@@ -14,6 +14,8 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import HeaderUser from "@/component/HeaderUser";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import { authService } from "@/src/services/auth.service";
+import { legacyApiService } from "@/src/services/legacy-api.service";
 
 const User = () => {
   const [name, setName] = useState("");
@@ -30,25 +32,53 @@ const User = () => {
   useEffect(() => {
     const fetchUserData = async () => {
       try {
-        const userDataString = await AsyncStorage.getItem("userData");
-        console.log("Dữ liệu từ AsyncStorage:", userDataString);
-        if (userDataString) {
-          const userData = JSON.parse(userDataString);
-          console.log("Dữ liệu sau khi parse:", userData);
-          setName(userData.fullName || "");
-          setEmail(userData.email || "");
-          setPhone(userData.phone || "");
-          setUsername(userData.username || "");
-          setUserId(userData._id || "");
-          setBookingHistory(userData.bookingHistory || []);
-        } else {
-          console.log("Không tìm thấy userData");
-          Alert.alert("Lỗi", "Không tìm thấy thông tin người dùng!");
-          router.replace("/login");
-        }
+        // Gọi API để lấy thông tin user mới nhất
+        const userProfile = await authService.getMe();
+        console.log("Dữ liệu từ API getMe:", userProfile);
+        
+        // Cập nhật state với dữ liệu từ API
+        setName(`${userProfile.first_name} ${userProfile.last_name}`.trim());
+        setEmail(userProfile.email || "");
+        setPhone(userProfile.phone_number || "");
+        setUsername(userProfile.email?.split("@")[0] || "");
+        setUserId(userProfile.id.toString());
+        
+        // Lưu lại vào AsyncStorage để dùng offline
+        const userDataToStore = {
+          id: userProfile.id,
+          email: userProfile.email,
+          first_name: userProfile.first_name,
+          last_name: userProfile.last_name,
+          phone_number: userProfile.phone_number,
+          role: userProfile.role,
+          age: userProfile.age,
+          status: userProfile.status,
+          is_verified: userProfile.is_verified,
+        };
+        await AsyncStorage.setItem("userProfile", JSON.stringify(userDataToStore));
+        
       } catch (error) {
-        console.error("Lỗi lấy dữ liệu:", error);
-        Alert.alert("Lỗi", "Không thể tải thông tin người dùng!");
+        console.error("Lỗi lấy dữ liệu từ API:", error);
+        // Fallback: Thử lấy từ AsyncStorage nếu API lỗi
+        try {
+          const userDataString = await AsyncStorage.getItem("userData");
+          console.log("Fallback: Dữ liệu từ AsyncStorage:", userDataString);
+          if (userDataString) {
+            const userData = JSON.parse(userDataString);
+            setName(userData.fullName || "");
+            setEmail(userData.email || "");
+            setPhone(userData.phone || "");
+            setUsername(userData.username || "");
+            setUserId(userData._id || "");
+            setBookingHistory(userData.bookingHistory || []);
+          } else {
+            Alert.alert("Lỗi", "Không tìm thấy thông tin người dùng!");
+            router.replace("/login");
+          }
+        } catch (storageError) {
+          console.error("Lỗi lấy dữ liệu từ storage:", storageError);
+          Alert.alert("Lỗi", "Không thể tải thông tin người dùng!");
+        }
       } finally {
         console.log("Hoàn tất lấy dữ liệu");
         setLoading(false);
@@ -85,39 +115,29 @@ const User = () => {
         phone,
         username,
       });
-      const response = await fetch(
-        `https://gopitch.onrender.com/users/${userId}`,
+      const data = await legacyApiService.updateUserProfile(
+        userId,
         {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            fullName: name,
-            username,
-            phone,
-            email,
-          }),
-        }
-      );
-
-      const data = await response.json();
-      console.log("API response:", data);
-      if (response.ok) {
-        const updatedUserData = {
           fullName: name,
-          email,
-          phone,
           username,
-          bookingHistory,
-        };
-        await AsyncStorage.setItem("userData", JSON.stringify(updatedUserData));
-        console.log("Dữ liệu đã lưu lại:", updatedUserData);
-        Alert.alert("Thành công", "Cập nhật tài khoản thành công!");
-      } else {
-        Alert.alert("Lỗi", data.message || "Cập nhật tài khoản thất bại!");
-      }
+          phone,
+          email,
+        },
+        token
+      );
+      console.log("API response:", data);
+
+      const updatedUserData = {
+        ...data,
+        fullName: name,
+        email,
+        phone,
+        username,
+        bookingHistory,
+      };
+      await AsyncStorage.setItem("userData", JSON.stringify(updatedUserData));
+      console.log("Dữ liệu đã lưu lại:", updatedUserData);
+      Alert.alert("Thành công", "Cập nhật tài khoản thành công!");
     } catch (error) {
       console.error("Lỗi cập nhật:", error);
       Alert.alert("Lỗi", "Đã có lỗi xảy ra. Vui lòng thử lại!");
@@ -166,12 +186,9 @@ const User = () => {
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-white">
-      <HeaderUser location="Tài khoản" time={name} />
-      <ScrollView
-        className="flex-1"
-        contentContainerStyle={{ paddingBottom: 20 }}
-      >
+    <SafeAreaView className="flex-1 bg-white" edges={['top']}>
+      <HeaderUser title="Tài khoản" />
+      <ScrollView className="flex-1" bounces={false}>
         <View className="items-center mt-6">
           <TouchableOpacity onPress={pickImage} className="relative">
             <View className="w-24 h-24 rounded-full overflow-hidden border-2 border-green-500">
@@ -187,7 +204,7 @@ const User = () => {
           </TouchableOpacity>
         </View>
 
-        <View className="mx-6 mt-4 space-y-4 mb-6">
+        <View className="mx-6 mt-4 space-y-4 mb-0">
           <View className="border border-black px-4 pt-2">
             <Text className="text-xl text-gray-600">Tên</Text>
             <TextInput
@@ -249,28 +266,11 @@ const User = () => {
           </TouchableOpacity>
 
           <TouchableOpacity
-            className="border-2 border-blue-500 rounded-xl p-3 mt-4 flex-row items-center justify-center"
-            onPress={() => router.push("/(tabs)/(users)/club-management")}
+            className="border-2 border-orange-500 rounded-xl p-3 mt-4 flex-row items-center justify-center"
+            onPress={() => router.push("/(tabs)/(users)/history")}
           >
-            <Ionicons name="shield-outline" size={24} color="#3b82f6" />
-            <Text className="text-blue-500 font-semibold text-xl text-center ml-2">
-              Câu lạc bộ của tôi
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            className="border-2 border-red-500 rounded-xl p-3 mt-4"
-            onPress={() => {
-              console.log("Truyền bookingHistory:", bookingHistory);
-              router.push({
-                pathname: "/history",
-                params: {
-                  bookingHistory: JSON.stringify(bookingHistory),
-                },
-              });
-            }}
-          >
-            <Text className="text-red-500 font-semibold text-xl text-center">
+            <Ionicons name="time-outline" size={24} color="#f97316" />
+            <Text className="text-orange-500 font-semibold text-xl text-center ml-2">
               Lịch sử đặt sân
             </Text>
           </TouchableOpacity>

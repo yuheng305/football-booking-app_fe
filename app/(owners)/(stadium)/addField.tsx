@@ -13,6 +13,7 @@ import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useState } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { legacyApiService } from "@/src/services/legacy-api.service";
 
 export default function AddField() {
   const router = useRouter();
@@ -35,27 +36,17 @@ export default function AddField() {
         return;
       }
 
-      const response = await fetch("https://gopitch.onrender.com/fields", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${authToken}`,
-        },
-        body: JSON.stringify({
+      await legacyApiService.createField(
+        {
           name: fieldName,
-          openHour: 7, // Mặc định theo ví dụ
-          closeHour: 22, // Mặc định theo ví dụ
-          isMaintain: false, // Mặc định theo ví dụ
-          clusterId: "6809b04e7456305b0fb34f5b", // Mặc định theo ví dụ
-        }),
-      });
-
-      const data = await response.json();
-      if (response.ok) {
-        setSuccessModalVisible(true);
-      } else {
-        Alert.alert("Lỗi", data.message || "Thêm sân thất bại!");
-      }
+          openHour: 7,
+          closeHour: 22,
+          isMaintain: false,
+          clusterId: "6809b04e7456305b0fb34f5b",
+        },
+        authToken
+      );
+      setSuccessModalVisible(true);
     } catch (error: any) {
       console.error("Lỗi khi thêm sân:", error);
       let errorMessage = "Đã có lỗi xảy ra. Vui lòng thử lại!";

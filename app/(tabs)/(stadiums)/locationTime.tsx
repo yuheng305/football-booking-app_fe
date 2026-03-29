@@ -5,6 +5,7 @@ import { router, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import HeaderUser from "@/component/HeaderUser";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { legacyApiService } from "@/src/services/legacy-api.service";
 
 interface Field {
   _id: string;
@@ -94,22 +95,12 @@ const LocationTime = () => {
       console.log(
         `Gọi API với clusterId: ${clusterId}, selectedDate: ${selectedDate}, hourNumber: ${hourNumber}`
       );
-      const response = await fetch(
-        `https://gopitch.onrender.com/fields/${clusterId}?date=${selectedDate}&hour=${hourNumber}`,
-        {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-        }
+      const data = await legacyApiService.getFieldsByClusterAndTime<FieldResponse[]>(
+        String(clusterId),
+        selectedDate,
+        hourNumber,
+        token
       );
-
-      if (!response.ok) {
-        throw new Error(`Lỗi khi gọi API: ${response.statusText}`);
-      }
-
-      const data: FieldResponse[] = await response.json();
       console.log("Dữ liệu từ API:", data);
       setFields(data);
     } catch (error: unknown) {
@@ -144,16 +135,13 @@ const LocationTime = () => {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-gray-100">
+    <SafeAreaView className="flex-1 bg-gray-100" edges={['top']}>
       <HeaderUser
-        location={clusterName || "Đang tải..."} // Sử dụng clusterName từ AsyncStorage
-        time={bookingTime}
+        title={clusterName || "Đang tải..."}
+        subtitle={bookingTime ? `Thời gian: ${bookingTime}` : "Chọn thời gian"}
       />
 
-      <ScrollView
-        className="flex-1"
-        contentContainerStyle={{ paddingBottom: 24 }}
-      >
+      <ScrollView className="flex-1">
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -232,14 +220,17 @@ const LocationTime = () => {
             Không có sân nào vào thời điểm này.
           </Text>
         )}
-      </ScrollView>
 
-      <TouchableOpacity
-        className="border border-red-500 bg-white px-8 py-2 rounded-full mx-auto mb-4"
-        onPress={() => router.back()}
-      >
-        <Text className="text-red-600 font-semibold text-lg">Quay lại</Text>
-      </TouchableOpacity>
+        <View className="items-center mt-6 mb-4">
+          <TouchableOpacity
+            className="w-10 h-10 rounded-lg border border-red-500 bg-white items-center justify-center"
+            onPress={() => router.back()}
+            activeOpacity={1}
+          >
+            <Ionicons name="arrow-back" size={20} color="#dc2626" />
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
     </SafeAreaView>
   );
 };

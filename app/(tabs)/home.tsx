@@ -14,17 +14,17 @@ const { width } = Dimensions.get("window");
 export default function Home() {
   const router = useRouter();
   return (
-    <SafeAreaView className="flex-1 bg-[#060b28]">
+    <SafeAreaView className="flex-1 bg-[#060b28]" edges={['top']}>
       {/* Header Section */}
       <View className="items-end mt-8 mr-4">
         <Text className="text-[#ff4d4d] text-5xl">GoPitch</Text>
-        <Text className="text-blue-300 text-3xl mt-2">Đặt sân bóng đá</Text>
+        <Text className="text-blue-300 text-3xl mt-2">Đặt sân thể thao</Text>
       </View>
 
       {/* Player Image */}
       <View className="items-center">
         <Image
-          source={require("../../assets/images/player.png")}
+          source={require("../../assets/images/player_badminton.png")}
           style={{
             width: width * 1.2,
             height: width * 1.2,
@@ -44,7 +44,7 @@ export default function Home() {
           {/* Card: Đặt sân */}
           <TouchableOpacity
             className="w-40 h-40 bg-white rounded-2xl items-center justify-center p-4 border-2 border-blue-500 mr-4"
-            onPress={() => router.push("/(tabs)/stadium")}
+            onPress={() => router.push("/(tabs)/(stadiums)/location")}
           >
             <Image
               source={require("../../assets/images/book.png")}

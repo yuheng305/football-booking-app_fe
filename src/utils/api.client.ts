@@ -3,6 +3,7 @@
  */
 
 import API_CONFIG from "../config/api.config";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 interface RequestOptions extends RequestInit {
   params?: Record<string, string | number>;
@@ -57,11 +58,24 @@ class ApiClient {
     const url = this.buildURL(endpoint, options.params);
     console.log(`[API] ${options.method || 'GET'} ${url}`);
 
+    const optionHeaders = (options.headers ?? {}) as Record<string, string>;
+    const hasAuthorizationHeader =
+      !!this.defaultHeaders["Authorization"] ||
+      !!optionHeaders["Authorization"] ||
+      !!optionHeaders["authorization"];
+
+    if (!hasAuthorizationHeader) {
+      const storedToken = await AsyncStorage.getItem("authToken");
+      if (storedToken) {
+        this.setAuthToken(storedToken);
+      }
+    }
+
     const requestOptions: RequestInit = {
       ...options,
       headers: {
         ...this.defaultHeaders,
-        ...options.headers,
+        ...optionHeaders,
       },
     };
 
@@ -73,9 +87,13 @@ class ApiClient {
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         console.error(`[API] Error response:`, errorData);
+        const message =
+          errorData?.errors?.msg?.[0] ||
+          errorData?.detail ||
+          errorData?.message ||
+          `API Error: ${response.status} ${response.statusText}`;
         throw new Error(
-          errorData?.errors?.msg?.[0] || 
-          `API Error: ${response.status} ${response.statusText}`
+          message
         );
       }
 

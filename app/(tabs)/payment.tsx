@@ -1,91 +1,67 @@
-import React, { useState, useEffect } from "react";
+import React, { useCallback, useState } from "react";
 import {
-  View,
+  ActivityIndicator,
+  RefreshControl,
+  ScrollView,
   Text,
   TouchableOpacity,
-  Modal,
-  Image,
-  StyleSheet,
+  View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { router, useLocalSearchParams } from "expo-router";
+import { useFocusEffect, router } from "expo-router";
 import HeaderUser from "@/component/HeaderUser";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { Ionicons } from "@expo/vector-icons"; // Sử dụng Ionicons từ Expo
+import { Ionicons } from "@expo/vector-icons";
+import { paymentService } from "@/src/services/payment.service";
+import type { PaymentItem } from "@/src/types/payment.types";
 
-// Định nghĩa kiểu dữ liệu cho booking
-interface Booking {
-  userName: string;
-  phoneNumber: string;
-  email: string;
-  bookingId: string;
-  clusterName: string;
-  fieldName: string;
-  date: string;
-  startHour: number;
-  address: string;
-  slot: number;
-  services: { name: string; price: number }[];
-  price: number;
-  status: string;
-}
+type PaymentFilter = "all" | "unpaid" | "paid" | "expired";
+
+const normalizeStatus = (status: string) => status.toLowerCase();
+
+const isUnpaidStatus = (status: string) => {
+  const normalized = normalizeStatus(status);
+  return normalized === "pending";
+};
+
+const isPaidStatus = (status: string) => {
+  const normalized = normalizeStatus(status);
+  return normalized === "confirmed" || normalized === "success" || normalized === "completed";
+};
+
+const isExpiredStatus = (status: string) => normalizeStatus(status) === "expired";
 
 const Payment = () => {
-  const { bookingId } = useLocalSearchParams();
-  const [successModalVisible, setSuccessModalVisible] = useState(false);
-  const [infoModalVisible, setInfoModalVisible] = useState(false);
+  const [payments, setPayments] = useState<PaymentItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [bookingDetails, setBookingDetails] = useState<Booking | null>(null);
+  const [activeFilter, setActiveFilter] = useState<PaymentFilter>("all");
 
-  useEffect(() => {
-    const fetchBookingDetails = async () => {
-      try {
-        if (!bookingId || typeof bookingId !== "string") {
-          setError("Bạn không có đơn đặt sân nào cần thanh toán");
-          return;
-        }
+  const getPlayerId = async (): Promise<number> => {
+    const playerIdFromKey = await AsyncStorage.getItem("playerId");
+    if (playerIdFromKey && Number.isFinite(Number(playerIdFromKey))) {
+      return Number(playerIdFromKey);
+    }
 
-        const token = await AsyncStorage.getItem("authToken");
-        if (!token) {
-          router.replace("/login");
-          return;
-        }
-
-        const response = await fetch(
-          `https://gopitch.onrender.com/bookings/${bookingId}`,
-          {
-            method: "GET",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
-
-        if (!response.ok) {
-          throw new Error(
-            `Lỗi khi lấy thông tin booking: ${response.statusText}`
-          );
-        }
-
-        const data: Booking = await response.json();
-        setBookingDetails(data);
-      } catch (error: unknown) {
-        console.error("Lỗi khi lấy thông tin đặt sân:", error);
-        const errorMsg = error instanceof Error ? error.message : String(error);
-        setError(`Không thể lấy thông tin đặt sân: ${errorMsg}`);
+    const userDataRaw = await AsyncStorage.getItem("userData");
+    if (userDataRaw) {
+      const userData = JSON.parse(userDataRaw);
+      const playerId = Number(userData?.player_id ?? userData?.user_id ?? userData?.id ?? userData?._id);
+      if (Number.isFinite(playerId)) {
+        return playerId;
       }
-    };
+    }
 
-    fetchBookingDetails();
-  }, [bookingId]);
+    throw new Error("Không tìm thấy playerId. Vui lòng đăng nhập lại.");
+  };
 
-  const handlePayment = async () => {
+  const fetchPayments = useCallback(async (isRefresh = false) => {
     try {
-      if (!bookingId || typeof bookingId !== "string") {
-        setError("Bạn không có đơn đặt sân nào cần thanh toán");
-        return;
+      if (!isRefresh) {
+        setLoading(true);
       }
+      setError(null);
 
       const token = await AsyncStorage.getItem("authToken");
       if (!token) {
@@ -93,357 +69,211 @@ const Payment = () => {
         return;
       }
 
-      const response = await fetch(
-        `https://gopitch.onrender.com/bookings/${bookingId}/payment`,
-        {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({ status: "completed" }),
-        }
-      );
+      const playerId = await getPlayerId();
+      const response = await paymentService.getPlayerPayments({
+        playerId,
+        offset: 0,
+        limit: 30,
+      });
 
-      if (!response.ok) {
-        throw new Error(`Lỗi khi thanh toán: ${response.statusText}`);
-      }
+      setPayments(response.payments || []);
+    } catch (err: any) {
+      setError(err?.message || "Không thể tải danh sách thanh toán");
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, []);
 
-      const data = await response.json();
-      console.log("Thanh toán thành công:", data);
-      setSuccessModalVisible(true);
-    } catch (error: unknown) {
-      console.error("Lỗi khi thanh toán:", error);
-      const errorMsg = error instanceof Error ? error.message : String(error);
-      setError(`Không thể thanh toán: ${errorMsg}`);
+  useFocusEffect(
+    useCallback(() => {
+      fetchPayments(false);
+    }, [fetchPayments])
+  );
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    fetchPayments(true);
+  };
+
+  const pendingPayments = payments.filter((payment) => isUnpaidStatus(payment.status));
+
+  const getStatusStyle = (status: string) => {
+    switch (normalizeStatus(status)) {
+      case "pending":
+        return "bg-yellow-100 text-yellow-700";
+      case "confirmed":
+      case "success":
+      case "completed":
+        return "bg-green-100 text-green-700";
+      case "expired":
+        return "bg-red-100 text-red-700";
+      default:
+        return "bg-gray-100 text-gray-700";
     }
   };
 
-  const closeSuccessModal = () => {
-    setSuccessModalVisible(false);
-    router.push("/(tabs)/home");
+  const getStatusText = (status: string) => {
+    switch (normalizeStatus(status)) {
+      case "pending":
+        return "Chờ thanh toán";
+      case "confirmed":
+      case "success":
+      case "completed":
+        return "Đã thanh toán";
+      case "expired":
+        return "Hết hạn";
+      default:
+        return status;
+    }
   };
 
-  const closeInfoModal = () => {
-    setInfoModalVisible(false);
+  const getPaymentTypeText = (paymentType: string) => {
+    switch (paymentType.toLowerCase()) {
+      case "deposit":
+        return "Cọc";
+      case "remaining":
+        return "Thanh toán còn lại";
+      default:
+        return paymentType;
+    }
   };
 
-  if (!bookingDetails) {
+  const formatDateTime = (dateString: string | null) => {
+    if (!dateString) return "Không giới hạn";
+    return new Date(dateString).toLocaleString("vi-VN");
+  };
+
+  const handleOpenBookingDetail = async (bookingId: number) => {
+    await AsyncStorage.setItem("currentBookingId", String(bookingId));
+    router.push("/(tabs)/(stadiums)/booking-detail");
+  };
+
+  const filteredPayments = payments.filter((payment) => {
+    if (activeFilter === "all") {
+      return true;
+    }
+
+    if (activeFilter === "unpaid") {
+      return isUnpaidStatus(payment.status);
+    }
+
+    if (activeFilter === "paid") {
+      return isPaidStatus(payment.status);
+    }
+
+    return isExpiredStatus(payment.status);
+  });
+
+  if (loading) {
     return (
-      <SafeAreaView className="flex-1 bg-white">
-        <HeaderUser location="Tài khoản" time="" />
-        <View className="flex-1 justify-center items-center">
-          {error ? (
-            <Text className="text-red-500 text-lg">{error}</Text>
-          ) : (
-            <Text className="text-lg">Đang tải thông tin...</Text>
-          )}
+      <SafeAreaView className="flex-1 bg-white" edges={["top"]}>
+        <HeaderUser location="Thanh toán" time="" />
+        <View className="flex-1 items-center justify-center">
+          <ActivityIndicator size="large" color="#114F99" />
+          <Text className="text-gray-600 mt-2">Đang tải danh sách thanh toán...</Text>
         </View>
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-white">
-      <View className="flex-1">
-        <HeaderUser
-          location="Thanh toán"
-          //time={bookingDetails.userName || "Người dùng"}
-        />
-        <View className="px-6 space-y-4">
-          {/* Dòng chữ thông báo và icon thông tin */}
-          <View className="flex-row justify-between items-center pt-20 border-b border-gray-300 pb-2">
-            <Text className="text-xl font-semibold text-gray-800">
-              Thông tin đặt sân
-            </Text>
-            <TouchableOpacity onPress={() => setInfoModalVisible(true)}>
-              <Ionicons name="information-circle" size={24} color="#FF0000" />
-            </TouchableOpacity>
-          </View>
+    <SafeAreaView className="flex-1 bg-[#F7F9FC]" edges={["top"]}>
+      <HeaderUser location="Thanh toán" time="" />
 
-          <View className="flex-row justify-between mt-2">
-            <Text className="text-red-500 text-base">
-              Bạn nên đọc kỹ thông tin ở trước khi thanh toán
-            </Text>
-          </View>
-          <View className="flex-row justify-between mt-2">
-            <Text className="text-gray-600 font-semibold">Cụm sân :</Text>
-            <Text className="text-gray-800">{bookingDetails.clusterName}</Text>
-          </View>
-          <View className="flex-row justify-between">
-            <Text className="text-gray-600 font-semibold">Sân :</Text>
-            <Text className="text-gray-800">{bookingDetails.fieldName}</Text>
-          </View>
+      <ScrollView
+        className="flex-1 px-4 pt-4"
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+      >
+        <View className="bg-white rounded-xl p-4 mb-4 border border-blue-100">
+          <Text className="text-lg font-bold text-[#1E232C]">Các đơn cần thanh toán</Text>
+          <Text className="text-3xl font-bold text-[#114F99] mt-1">{pendingPayments.length}</Text>
+          <Text className="text-gray-500 mt-1">Tổng đơn thanh toán gần đây: {payments.length}</Text>
+        </View>
 
-          {/* Ngày giờ */}
-          <View className="flex-row justify-between">
-            <Text className="text-gray-600 font-semibold">Ngày :</Text>
-            <Text className="text-gray-800">{bookingDetails.date}</Text>
-          </View>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mb-4">
+          {[
+            { key: "all", label: "Tất cả" },
+            { key: "unpaid", label: "Chưa thanh toán" },
+            { key: "paid", label: "Đã thanh toán" },
+            { key: "expired", label: "Hết hạn" },
+          ].map((filter) => {
+            const isActive = activeFilter === filter.key;
 
-          {/* Thời gian */}
-          <View className="flex-row justify-between">
-            <Text className="text-gray-600 font-semibold">Thời gian :</Text>
-            <Text className="text-gray-800">{bookingDetails.startHour}:00</Text>
-          </View>
-
-          {/* Địa chỉ */}
-          <View className="flex-row justify-between">
-            <Text className="text-gray-600 font-semibold">Địa chỉ :</Text>
-            <Text className="text-gray-800">{bookingDetails.address}</Text>
-          </View>
-
-          {/* Loại hình */}
-          <View className="flex-row justify-between">
-            <Text className="text-gray-600 font-semibold">Loại hình :</Text>
-            <Text className="text-gray-800">
-              {bookingDetails.slot === 1 ? "Đặt nửa sân" : "Đặt toàn sân"}
-            </Text>
-          </View>
-
-          {/* Thuê trọng tài */}
-          <View className="flex-row justify-between">
-            <Text className="text-gray-600 font-semibold">
-              Thuê trọng tài :
-            </Text>
-            <Text className="text-gray-800">
-              {bookingDetails.services.some((s) => s.name === "Thuê trọng tài")
-                ? "Có"
-                : "Không"}
-            </Text>
-          </View>
-
-          {/* Dịch vụ khác */}
-          <View className="mb-2">
-            <Text className="text-gray-600 font-semibold">Dịch vụ khác :</Text>
-            {bookingDetails.services
-              .filter((s) => s.name !== "Thuê trọng tài")
-              .map((service, index) => (
-                <Text key={index} className="text-gray-800 ml-4">
-                  • {service.name}
+            return (
+              <TouchableOpacity
+                key={filter.key}
+                onPress={() => setActiveFilter(filter.key as PaymentFilter)}
+                className={`mr-2 px-4 py-2 rounded-full border ${
+                  isActive ? "bg-[#114F99] border-[#114F99]" : "bg-white border-gray-300"
+                }`}
+              >
+                <Text className={`${isActive ? "text-white" : "text-gray-700"} font-semibold`}>
+                  {filter.label}
                 </Text>
-              ))}
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+
+        {error && (
+          <View className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
+            <Text className="text-red-600">{error}</Text>
           </View>
+        )}
 
-          {/* Tổng cộng */}
-          <View className="flex-row justify-between border-t border-gray-300 pt-4">
-            <Text className="text-gray-600 font-semibold">Tổng cộng :</Text>
-            <Text className="text-gray-800 font-semibold">
-              {bookingDetails.price.toLocaleString()} VND
-            </Text>
+        {filteredPayments.length === 0 ? (
+          <View className="bg-white rounded-xl p-6 items-center">
+            <Ionicons name="receipt-outline" size={40} color="#9ca3af" />
+            <Text className="text-gray-500 mt-2 text-center">Không có đơn nào phù hợp bộ lọc hiện tại.</Text>
           </View>
+        ) : (
+          filteredPayments.map((payment) => (
+            <View key={payment.id} className="bg-white rounded-xl p-4 mb-3 border border-gray-100">
+              <View className="flex-row justify-between items-center mb-3">
+                <Text className="text-base font-bold text-[#1E232C]">Đơn #{payment.id}</Text>
+                <View className={`px-3 py-1 rounded-full ${getStatusStyle(payment.status).split(" ")[0]}`}>
+                  <Text className={`font-semibold ${getStatusStyle(payment.status).split(" ")[1]}`}>
+                    {getStatusText(payment.status)}
+                  </Text>
+                </View>
+              </View>
 
-          {error && (
-            <Text className="text-red-500 text-center mt-2">{error}</Text>
-          )}
+              <View className="flex-row justify-between mb-1">
+                <Text className="text-gray-500">Booking ID</Text>
+                <Text className="text-gray-800 font-semibold">#{payment.booking_id}</Text>
+              </View>
+              <View className="flex-row justify-between mb-1">
+                <Text className="text-gray-500">Loại thanh toán</Text>
+                <Text className="text-gray-800 font-semibold">{getPaymentTypeText(payment.payment_type)}</Text>
+              </View>
+              <View className="flex-row justify-between mb-1">
+                <Text className="text-gray-500">Số tiền</Text>
+                <Text className="text-[#114F99] font-bold">{payment.amount.toLocaleString()}đ</Text>
+              </View>
+              <View className="flex-row justify-between mb-1">
+                <Text className="text-gray-500">Hạn thanh toán</Text>
+                <Text className="text-gray-800 font-semibold">{formatDateTime(payment.expires_at)}</Text>
+              </View>
+              <View className="flex-row justify-between">
+                <Text className="text-gray-500">Tạo lúc</Text>
+                <Text className="text-gray-800 font-semibold">{formatDateTime(payment.created_at)}</Text>
+              </View>
 
-          <TouchableOpacity
-            onPress={handlePayment}
-            className="border border-black mt-4 px-4 py-3 rounded-lg"
-          >
-            <View className="flex-row items-center">
-              <Image
-                source={require("../../assets/images/momo.png")}
-                className="w-12 h-12 mr-3"
-                resizeMode="contain"
-              />
-              <Text className="text-xl font-bold text-black">
-                Thanh toán qua Momo
-              </Text>
+              {isUnpaidStatus(payment.status) && (
+                <TouchableOpacity
+                  className="bg-[#0068FF] mt-3 py-3 rounded-lg"
+                  onPress={() => handleOpenBookingDetail(payment.booking_id)}
+                >
+                  <Text className="text-white text-center font-semibold">Đi đến đơn đặt sân để thanh toán</Text>
+                </TouchableOpacity>
+              )}
             </View>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            onPress={handlePayment}
-            className="border border-black mt-4 px-4 py-3 rounded-lg"
-          >
-            <View className="flex-row items-center">
-              <Image
-                source={require("../../assets/images/card.jpg")}
-                className="w-12 h-12 mr-3"
-                resizeMode="contain"
-              />
-              <Text className="text-xl font-bold text-black space-x-40">
-                Thanh toán qua Thẻ nội địa
-              </Text>
-            </View>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            onPress={handlePayment}
-            className="border border-black mt-4 px-4 py-3 rounded-lg"
-          >
-            <View className="flex-row items-center">
-              <Image
-                source={require("../../assets/images/Mastercard-logo.png")}
-                className="w-12 h-12 mr-3"
-                resizeMode="contain"
-              />
-              <Text className="text-xl font-bold text-black">
-                Thanh toán qua Thẻ quốc tế
-              </Text>
-            </View>
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      {/* Modal Thanh toán thành công */}
-      <Modal
-        animationType="fade"
-        transparent={true}
-        visible={successModalVisible}
-        onRequestClose={closeSuccessModal}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.successModalContainer}>
-            <TouchableOpacity
-              style={styles.successCloseButton}
-              onPress={closeSuccessModal}
-            >
-              <Ionicons name="close" size={18} color="#FFFFFF" />
-            </TouchableOpacity>
-            <View style={styles.successCheckmarkContainer}>
-              <Ionicons
-                name="checkmark-circle-outline"
-                size={60}
-                color="#119916"
-              />
-            </View>
-            <Text style={styles.successText}>Thanh toán thành công</Text>
-          </View>
-        </View>
-      </Modal>
-
-      {/* Modal Thông tin */}
-      <Modal
-        animationType="fade"
-        transparent={true}
-        visible={infoModalVisible}
-        onRequestClose={closeInfoModal}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.infoModalContainer}>
-            <TouchableOpacity
-              style={styles.infoCloseButton}
-              onPress={closeInfoModal}
-            >
-              <Ionicons name="close" size={18} color="#FFFFFF" />
-            </TouchableOpacity>
-            <View style={styles.infoCheckmarkContainer}>
-              <Ionicons
-                name="information-circle-outline"
-                size={60}
-                color="#119916"
-              />
-            </View>
-            <Text style={styles.infoText}>
-              Sau khi thanh toán thành công, để được xác nhận sử dụng sân và các
-              dịch vụ đã đặt. Bạn cần đưa mã QR cho nhân viên. Vị trí mã QR:
-              “Tài khoản” → “Lịch sử đặt sân” → “QR Code”
-            </Text>
-          </View>
-        </View>
-      </Modal>
+          ))
+        )}
+      </ScrollView>
     </SafeAreaView>
   );
 };
-
-// Styles cho Modal
-const styles = StyleSheet.create({
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  // Styles cho modal Thanh toán thành công
-  successModalContainer: {
-    width: 300, // Nhỏ hơn
-    height: 180, // Nhỏ hơn
-    backgroundColor: "#E3FFE2",
-    borderRadius: 20,
-    shadowColor: "#000",
-    shadowOffset: { width: 5, height: 5 },
-    shadowOpacity: 0.25,
-    shadowRadius: 10,
-    elevation: 5,
-  },
-  successCloseButton: {
-    position: "absolute",
-    top: 18,
-    left: 240, // Điều chỉnh để căn chỉnh với kích thước nhỏ hơn
-    width: 38,
-    height: 38,
-    backgroundColor: "#808080",
-    borderRadius: 30,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  successCheckmarkContainer: {
-    position: "absolute",
-    top: 50,
-    left: 110, // Điều chỉnh để căn giữa với modal nhỏ hơn
-    width: 60,
-    height: 60,
-  },
-  successText: {
-    position: "absolute",
-    top: 123,
-    left: 10,
-    width: 280,
-    height: 28,
-    fontFamily: "Exo",
-    fontWeight: "700",
-    fontSize: 24,
-    lineHeight: 28,
-    textAlign: "center",
-    letterSpacing: -1,
-    color: "#119916",
-  },
-  // Styles cho modal Thông tin
-  infoModalContainer: {
-    width: 310, // Lớn hơn
-    height: 250, // Lớn hơn
-    backgroundColor: "#E3FFE2",
-    borderRadius: 20,
-    shadowColor: "#000",
-    shadowOffset: { width: 5, height: 5 },
-    shadowOpacity: 0.25,
-    shadowRadius: 10,
-    elevation: 5,
-  },
-  infoCloseButton: {
-    position: "absolute",
-    top: 18,
-    left: 250, // Vị trí phù hợp với modal lớn hơn
-    width: 38,
-    height: 38,
-    backgroundColor: "#808080",
-    borderRadius: 30,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  infoCheckmarkContainer: {
-    position: "absolute",
-    top: 50,
-    left: 120, // Căn giữa với modal lớn hơn
-    width: 60,
-    height: 60,
-  },
-  infoText: {
-    position: "absolute",
-    top: 123,
-    left: 10,
-    width: 290,
-    height: 100,
-    fontFamily: "Exo",
-    fontWeight: "700",
-    fontSize: 16,
-    lineHeight: 20,
-    textAlign: "center",
-    letterSpacing: -1,
-    color: "#119916",
-  },
-});
 
 export default Payment;

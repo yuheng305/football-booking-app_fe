@@ -1,39 +1,24 @@
 import React from "react";
-import { View, TouchableOpacity, Image, Text } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { router } from "expo-router";
+import UniversalHeader from "./UniversalHeader";
 
 type HeaderProps = {
   location?: string;
   time?: string;
 };
 
-const HeaderUser: React.FC<HeaderProps> = ({ location, time }) => {
-  const handleLogoPress = () => {
-    router.push("/(tabs)/home");
-  };
-
+/**
+ * Header component - Sử dụng cho màn hình booking/stadium
+ * Refactored để sử dụng UniversalHeader (DRY principle)
+ */
+const Header: React.FC<HeaderProps> = ({ location, time }) => {
   return (
-    <SafeAreaView
-      style={{
-        backgroundColor: "black",
-      }}
-    >
-      <View className="h-24 w-full bg-black flex-row justify-end items-center px-4">
-        <View className="items-start flex-1">
-          <Text className="text-blue-300 text-3xl font-bold">{location}</Text>
-          <Text className="text-blue-300 text-2xl">{time}</Text>
-        </View>
-        <TouchableOpacity onPress={handleLogoPress}>
-          <Image
-            source={require("../assets/images/logo.png")}
-            className="w-32 h-20"
-            resizeMode="contain"
-          />
-        </TouchableOpacity>
-      </View>
-    </SafeAreaView>
+    <UniversalHeader
+      title={location}
+      subtitle={time}
+      showLogo={true}
+      variant="default"
+    />
   );
 };
 
-export default HeaderUser;
+export default Header;

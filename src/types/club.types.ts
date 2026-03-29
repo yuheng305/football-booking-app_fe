@@ -92,3 +92,19 @@ export interface JoinClubResponse {
     code: null | string;
   };
 }
+
+export interface UpdateClubRequest {
+  name?: string;
+  address?: string;
+  status?: "active" | "inactive";
+  score?: number;
+}
+
+export interface UpdateClubResponse {
+  data: Club;
+  api_version: string;
+  errors: {
+    msg: string[];
+    code: null | string;
+  };
+}

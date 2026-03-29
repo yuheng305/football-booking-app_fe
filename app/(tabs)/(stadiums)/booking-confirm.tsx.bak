@@ -1,0 +1,384 @@
+import React, { useState, useEffect } from "react";
+import {
+  Text,
+  View,
+  TouchableOpacity,
+  ScrollView,
+  ActivityIndicator,
+  Alert,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { router, useLocalSearchParams } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
+import HeaderUser from "@/component/HeaderUser";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+
+interface BookingDetails {
+  clubId: string;
+  clubName: string;
+  clusterId: string;
+  clusterName: string;
+  fieldId: string;
+  fieldName: string;
+  date: string;
+  time: string;
+  services: { _id: string; name: string; price: number }[];
+  totalPrice: number;
+}
+
+const BookingConfirm = () => {
+  const { fieldId } = useLocalSearchParams();
+  const [bookingDetails, setBookingDetails] = useState<BookingDetails | null>(
+    null
+  );
+  const [loading, setLoading] = useState(true);
+  const [bookingMode, setBookingMode] = useState<"full" | "half" | null>(null);
+  const [rating, setRating] = useState<string>("");
+  const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    loadBookingDetails();
+  }, []);
+
+  const loadBookingDetails = async () => {
+    try {
+      setLoading(true);
+
+      // Lấy thông tin từ AsyncStorage
+      const clubId = await AsyncStorage.getItem("selectedClubId");
+      const clubName = await AsyncStorage.getItem("selectedClubName");
+      const clusterId = await AsyncStorage.getItem("selectedClusterId");
+      const clusterName = await AsyncStorage.getItem("clusterName");
+      const date = await AsyncStorage.getItem("selectedDate");
+      const time = await AsyncStorage.getItem("selectedTime");
+      const servicesStr = await AsyncStorage.getItem("selectedServices");
+      const totalPrice = await AsyncStorage.getItem("totalServicePrice");
+
+      console.log("[BOOKING CONFIRM] Loaded data:", {
+        clubId,
+        clubName,
+        clusterId,
+        clusterName,
+        date,
+        time,
+        fieldId,
+      });
+
+      if (!clubId || !clubName || !clusterId || !date || !time) {
+        Alert.alert("Lỗi", "Thiếu thông tin đặt sân. Vui lòng thử lại.");
+        router.back();
+        return;
+      }
+
+      const services = servicesStr ? JSON.parse(servicesStr) : [];
+
+      setBookingDetails({
+        clubId: clubId || "",
+        clubName: clubName || "",
+        clusterId: clusterId || "",
+        clusterName: clusterName || "",
+        fieldId: fieldId as string,
+        fieldName: "Sân", // Có thể lấy từ API nếu cần
+        date: date || "",
+        time: time || "",
+        services,
+        totalPrice: parseInt(totalPrice || "0", 10),
+      });
+    } catch (error) {
+      console.error("[BOOKING CONFIRM] Error loading details:", error);
+      Alert.alert("Lỗi", "Không thể tải thông tin đặt sân");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const formatDate = (dateString: string) => {
+    if (!dateString) return "";
+    const [year, month, day] = dateString.split("-");
+    return `${day}/${month}/${year}`;
+  };
+
+  const handleConfirmBooking = async () => {
+    if (!bookingMode) {
+      Alert.alert("Thông báo", "Vui lòng chọn hình thức đặt sân");
+      return;
+    }
+
+    if (!rating) {
+      Alert.alert("Thông báo", "Vui lòng nhập rating cho đội");
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+
+      const token = await AsyncStorage.getItem("authToken");
+      if (!token) {
+        Alert.alert("Lỗi", "Vui lòng đăng nhập lại");
+        router.replace("/login");
+        return;
+      }
+
+      // Chuẩn bị dữ liệu booking
+      const bookingData = {
+        clubId: bookingDetails?.clubId,
+        fieldId: bookingDetails?.fieldId,
+        date: bookingDetails?.date,
+        startTime: bookingDetails?.time,
+        bookingMode: bookingMode,
+        rating: parseFloat(rating),
+        services: bookingDetails?.services.map((s) => s._id),
+      };
+
+      console.log("[BOOKING CONFIRM] Sending booking data:", bookingData);
+
+      // Gọi API đặt sân (cần tạo endpoint này)
+      const response = await fetch("https://gopitch.onrender.com/bookings", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(bookingData),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Đặt sân thất bại");
+      }
+
+      const result = await response.json();
+      console.log("[BOOKING CONFIRM] Booking success:", result);
+
+      // Lưu bookingId để sử dụng ở màn hình tiếp theo
+      await AsyncStorage.setItem("currentBookingId", result.bookingId || result.id);
+
+      // Chuyển đến màn hình booking detail
+      router.push("/(tabs)/(stadiums)/booking-detail");
+    } catch (error: any) {
+      console.error("[BOOKING CONFIRM] Error:", error);
+      Alert.alert("Lỗi", error.message || "Không thể đặt sân. Vui lòng thử lại.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <SafeAreaView className="flex-1 bg-gray-100">
+        <HeaderUser />
+        <View className="flex-1 items-center justify-center">
+          <ActivityIndicator size="large" color="#1e40af" />
+          <Text className="text-gray-600 mt-2">Đang tải...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (!bookingDetails) {
+    return (
+      <SafeAreaView className="flex-1 bg-gray-100">
+        <HeaderUser />
+        <View className="flex-1 items-center justify-center">
+          <Text className="text-red-500">Không tìm thấy thông tin đặt sân</Text>
+          <TouchableOpacity
+            onPress={() => router.back()}
+            className="mt-4 bg-blue-500 py-2 px-6 rounded-lg"
+          >
+            <Text className="text-white font-semibold">Quay lại</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  return (
+    <SafeAreaView className="flex-1 bg-gray-100">
+      <HeaderUser />
+
+      <ScrollView
+        className="flex-1"
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: 24 }}
+      >
+        <View className="p-4">
+          {/* Header */}
+          <View className="flex-row items-center mb-4">
+            <TouchableOpacity
+              onPress={() => router.back()}
+              className="mr-3 p-2 bg-white rounded-full"
+            >
+              <Ionicons name="arrow-back" size={24} color="#1e40af" />
+            </TouchableOpacity>
+            <Text className="text-2xl font-bold text-gray-800">
+              Xác nhận đặt sân
+            </Text>
+          </View>
+
+          {/* Booking Information */}
+          <View className="bg-white rounded-lg p-4 mb-4 shadow">
+            <Text className="text-lg font-bold text-gray-800 mb-3">
+              Thông tin đặt sân
+            </Text>
+
+            <View className="mb-2">
+              <Text className="text-gray-600">Câu lạc bộ:</Text>
+              <Text className="text-gray-800 font-semibold text-base">
+                {bookingDetails.clubName}
+              </Text>
+            </View>
+
+            <View className="mb-2">
+              <Text className="text-gray-600">Cụm sân:</Text>
+              <Text className="text-gray-800 font-semibold text-base">
+                {bookingDetails.clusterName}
+              </Text>
+            </View>
+
+            <View className="mb-2">
+              <Text className="text-gray-600">Ngày:</Text>
+              <Text className="text-gray-800 font-semibold text-base">
+                {formatDate(bookingDetails.date)}
+              </Text>
+            </View>
+
+            <View className="mb-2">
+              <Text className="text-gray-600">Giờ:</Text>
+              <Text className="text-gray-800 font-semibold text-base">
+                {bookingDetails.time}
+              </Text>
+            </View>
+
+            {bookingDetails.services.length > 0 && (
+              <View className="mt-2 pt-2 border-t border-gray-200">
+                <Text className="text-gray-600 mb-1">Dịch vụ:</Text>
+                {bookingDetails.services.map((service, index) => (
+                  <View key={index} className="flex-row justify-between mb-1">
+                    <Text className="text-gray-700">{service.name}</Text>
+                    <Text className="text-gray-700">
+                      {service.price.toLocaleString()}đ
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            )}
+
+            <View className="mt-3 pt-3 border-t border-gray-300">
+              <View className="flex-row justify-between">
+                <Text className="text-lg font-bold text-gray-800">
+                  Tổng tiền:
+                </Text>
+                <Text className="text-lg font-bold text-blue-600">
+                  {bookingDetails.totalPrice.toLocaleString()}đ
+                </Text>
+              </View>
+            </View>
+          </View>
+
+          {/* Booking Mode Selection */}
+          <View className="bg-white rounded-lg p-4 mb-4 shadow">
+            <Text className="text-lg font-bold text-gray-800 mb-3">
+              Hình thức đặt sân
+            </Text>
+            <View className="flex-row justify-around">
+              <TouchableOpacity
+                onPress={() => setBookingMode("full")}
+                className={`flex-1 mr-2 py-3 px-4 rounded-lg border-2 ${
+                  bookingMode === "full"
+                    ? "bg-blue-500 border-blue-700"
+                    : "bg-white border-gray-300"
+                }`}
+              >
+                <Text
+                  className={`text-center font-semibold ${
+                    bookingMode === "full" ? "text-white" : "text-gray-700"
+                  }`}
+                >
+                  Đặt cả sân
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => setBookingMode("half")}
+                className={`flex-1 ml-2 py-3 px-4 rounded-lg border-2 ${
+                  bookingMode === "half"
+                    ? "bg-blue-500 border-blue-700"
+                    : "bg-white border-gray-300"
+                }`}
+              >
+                <Text
+                  className={`text-center font-semibold ${
+                    bookingMode === "half" ? "text-white" : "text-gray-700"
+                  }`}
+                >
+                  Đặt nửa sân
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* Rating Input */}
+          <View className="bg-white rounded-lg p-4 mb-4 shadow">
+            <Text className="text-lg font-bold text-gray-800 mb-3">
+              Rating đội
+            </Text>
+            <View className="flex-row items-center">
+              <TouchableOpacity
+                onPress={() => {
+                  const currentRating = parseFloat(rating) || 0;
+                  if (currentRating > 0) {
+                    setRating((currentRating - 0.5).toFixed(1));
+                  }
+                }}
+                className="bg-gray-200 p-3 rounded-lg"
+              >
+                <Ionicons name="remove" size={24} color="#374151" />
+              </TouchableOpacity>
+
+              <View className="flex-1 mx-4 bg-gray-100 py-3 rounded-lg">
+                <Text className="text-center text-2xl font-bold text-gray-800">
+                  {rating || "0.0"}
+                </Text>
+              </View>
+
+              <TouchableOpacity
+                onPress={() => {
+                  const currentRating = parseFloat(rating) || 0;
+                  if (currentRating < 5) {
+                    setRating((currentRating + 0.5).toFixed(1));
+                  }
+                }}
+                className="bg-gray-200 p-3 rounded-lg"
+              >
+                <Ionicons name="add" size={24} color="#374151" />
+              </TouchableOpacity>
+            </View>
+            <Text className="text-gray-500 text-center mt-2 text-sm">
+              Đánh giá từ 0.0 đến 5.0
+            </Text>
+          </View>
+
+          {/* Confirm Button */}
+          <TouchableOpacity
+            onPress={handleConfirmBooking}
+            disabled={submitting || !bookingMode || !rating}
+            className={`py-4 rounded-lg ${
+              submitting || !bookingMode || !rating
+                ? "bg-gray-400"
+                : "bg-green-500"
+            }`}
+          >
+            {submitting ? (
+              <ActivityIndicator color="white" />
+            ) : (
+              <Text className="text-white text-center font-bold text-lg">
+                Xác nhận đặt sân
+              </Text>
+            )}
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
+    </SafeAreaView>
+  );
+};
+
+export default BookingConfirm;

@@ -1,25 +1,26 @@
-import React, { useEffect, useState } from "react";
-import { View, Text, TouchableOpacity, Modal, Image } from "react-native";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  Modal,
+  Image,
+  Alert,
+  Linking,
+  ActivityIndicator,
+  AppState,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { router, useLocalSearchParams } from "expo-router";
+import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import HeaderUser from "@/component/HeaderUser";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-
-// Định nghĩa kiểu dữ liệu cho booking
-interface Booking {
-  userName: string;
-  phoneNumber: string;
-  email: string;
-  bookingId: string;
-  clusterName: string;
-  fieldName: string;
-  date: string;
-  startHour: number;
-  address: string;
-  slot: number;
-  services: { name: string; price: number }[];
-  price: number;
-}
+import { bookingService } from "@/src/services/booking.service";
+import { Booking } from "@/src/types/booking.types";
+import {
+  getBookingStatusMeta,
+  isBookingPaid,
+  isBookingPayable,
+} from "@/src/utils/booking-status";
 
 // Hàm rút ngắn bookingId
 const shortenBookingId = (id: string) => {
@@ -33,59 +34,109 @@ const HistoryDetail = () => {
   const [userData, setUserData] = useState<any>(null);
   const [showQRModal, setShowQRModal] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [paying, setPaying] = useState(false);
+  const waitingPaymentResultRef = useRef(false);
+  const lastAppStateRef = useRef(AppState.currentState);
 
-  useEffect(() => {
-    const fetchBookingDetails = async () => {
+  const fetchBookingDetails = useCallback(
+    async (options?: { showLoading?: boolean; pollAfterPayment?: boolean }) => {
+      const showLoading = options?.showLoading ?? true;
+      const pollAfterPayment = options?.pollAfterPayment ?? false;
+
       try {
+        if (showLoading) {
+          setLoading(true);
+        }
+
+        console.log("[HISTORY DETAIL] Screen params bookingId:", bookingId);
         // Lấy userData từ AsyncStorage
         const userDataString = await AsyncStorage.getItem("userData");
-        if (!userDataString) {
-          router.replace("/login");
-          return;
+        if (userDataString) {
+          const parsedUserData = JSON.parse(userDataString);
+          setUserData(parsedUserData);
+          console.log("[HISTORY DETAIL] Loaded userData from storage");
+        } else {
+          console.log("[HISTORY DETAIL] userData not found in storage, continue with booking detail");
         }
-        const parsedUserData = JSON.parse(userDataString);
-        setUserData(parsedUserData);
 
         // Kiểm tra bookingId
         if (!bookingId || typeof bookingId !== "string") {
+          console.log("[HISTORY DETAIL] Invalid bookingId param, navigating back");
           router.back();
           return;
         }
 
-        const token = await AsyncStorage.getItem("authToken");
-        if (!token) {
-          router.replace("/login");
+        const bookingIdNumber = Number(bookingId);
+        if (!Number.isFinite(bookingIdNumber)) {
+          router.back();
           return;
         }
 
-        // Gọi API để lấy chi tiết booking
-        const response = await fetch(
-          `https://gopitch.onrender.com/bookings/${bookingId}`,
-          {
-            method: "GET",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
+        // Sử dụng bookingService để lấy chi tiết booking
+        let data = await bookingService.getBookingById(bookingIdNumber);
 
-        if (!response.ok) {
-          throw new Error(`Lỗi khi gọi API: ${response.statusText}`);
+        if (pollAfterPayment && waitingPaymentResultRef.current) {
+          for (let attempt = 1; attempt <= 4; attempt++) {
+            if (isBookingPaid(data.status) || !isBookingPayable(data.status)) {
+              break;
+            }
+
+            await new Promise((resolve) => setTimeout(resolve, 1000));
+            data = await bookingService.getBookingById(bookingIdNumber);
+          }
         }
 
-        const data: Booking = await response.json();
+        console.log("[HISTORY DETAIL] Booking detail loaded:", {
+          id: data.id,
+          status: data.status,
+          total_price: data.total_price,
+        });
         setBookingData(data);
+
+        if (isBookingPaid(data.status)) {
+          waitingPaymentResultRef.current = false;
+        }
       } catch (error) {
         console.error("Lỗi khi lấy chi tiết đặt sân:", error);
-        router.back();
+        if (showLoading) {
+          router.back();
+        }
       } finally {
-        setLoading(false);
+        if (showLoading) {
+          setLoading(false);
+        }
       }
-    };
+    },
+    [bookingId]
+  );
 
-    fetchBookingDetails();
-  }, [bookingId]);
+  useEffect(() => {
+    fetchBookingDetails({ showLoading: true });
+  }, [fetchBookingDetails]);
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchBookingDetails({ showLoading: false, pollAfterPayment: true });
+    }, [fetchBookingDetails])
+  );
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener("change", (nextState) => {
+      const wasBackground =
+        lastAppStateRef.current === "background" || lastAppStateRef.current === "inactive";
+      const isActive = nextState === "active";
+
+      if (wasBackground && isActive) {
+        fetchBookingDetails({ showLoading: false, pollAfterPayment: true });
+      }
+
+      lastAppStateRef.current = nextState;
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, [fetchBookingDetails]);
 
   if (loading) {
     return (
@@ -95,7 +146,7 @@ const HistoryDetail = () => {
     );
   }
 
-  if (!bookingData || !userData) {
+  if (!bookingData) {
     return (
       <SafeAreaView className="flex-1 bg-white items-center justify-center">
         <Text>Không tìm thấy thông tin đặt sân</Text>
@@ -103,30 +154,66 @@ const HistoryDetail = () => {
     );
   }
 
-  // Chuẩn bị dữ liệu để hiển thị
+  // Chuẩn bị dữ liệu để hiển thị từ API response
+  const bookingDate = new Date(bookingData.booking_date);
+  const formattedDate = bookingDate.toLocaleDateString("vi-VN");
+  const startTime = bookingData.start_time.substring(0, 5);
+  const endTime = bookingData.end_time.substring(0, 5);
+  
+  const statusMeta = getBookingStatusMeta(bookingData.status);
+  const canPay = isBookingPayable(bookingData.status);
+
+
   const displayData = {
-    id: bookingData.bookingId,
-    cluster: bookingData.clusterName,
-    field: bookingData.fieldName,
-    date: bookingData.date,
-    time: `${bookingData.startHour}:00`,
-    address: bookingData.address,
-    type: bookingData.slot === 1 ? "Đặt nửa sân" : "Đặt toàn sân",
-    referee: bookingData.services.some((s) => s.name === "Thuê trọng tài")
-      ? "Có"
-      : "Không",
-    services: bookingData.services
-      .filter((s) => s.name !== "Thuê trọng tài")
-      .map((s) => s.name),
-    total: bookingData.price.toLocaleString() + " VND",
+    id: bookingData.id.toString(),
+    cluster: bookingData.field.cluster.name,
+    field: `Sân ${bookingData.field.size}`,
+    date: formattedDate,
+    time: `${startTime} - ${endTime}`,
+    address: `${bookingData.field.cluster.street}, ${bookingData.field.cluster.district}, ${bookingData.field.cluster.city}`,
+    type: bookingData.type === "half" ? "Đặt nửa sân (Tìm đối)" : "Bao toàn sân",
+    status: statusMeta.label,
+    total: new Intl.NumberFormat("vi-VN", {
+      style: "currency",
+      currency: "VND",
+    }).format(bookingData.total_price),
   };
 
+  const handleZaloPayPayment = async () => {
+    try {
+      setPaying(true);
+      console.log("[HISTORY DETAIL] Start ZaloPay payment for booking:", bookingData.id);
+      const orderUrl = await bookingService.getZaloPayOrderUrl(bookingData.id);
+      console.log("[HISTORY DETAIL] ZaloPay order_url:", orderUrl);
+      const canOpen = await Linking.canOpenURL(orderUrl);
+
+      if (!canOpen) {
+        Alert.alert("Không thể mở ZaloPay", "Thiết bị không hỗ trợ mở link thanh toán này.");
+        return;
+      }
+
+      await Linking.openURL(orderUrl);
+      waitingPaymentResultRef.current = true;
+    } catch (error: any) {
+      console.error("[HISTORY DETAIL] ZaloPay error:", error);
+      Alert.alert("Lỗi thanh toán", error?.message || "Không thể tạo link ZaloPay");
+    } finally {
+      setPaying(false);
+    }
+  };
+
+  console.log("[HISTORY DETAIL] Render payment section", {
+    bookingId: bookingData.id,
+    status: bookingData.status,
+    paying,
+  });
+
   return (
-    <SafeAreaView className="flex-1 bg-white">
+    <SafeAreaView className="flex-1 bg-white" edges={['top']}>
       <View className="flex-1">
         <HeaderUser
-          location="Tài khoản"
-          time={userData.fullName || userData.name || "Người dùng"}
+          title="Chi tiết đặt sân"
+          subtitle={userData?.fullName || userData?.name || "Người dùng"}
         />
         <View className="px-6 mt-6 space-y-4">
           {/* Mã đặt sân */}
@@ -170,26 +257,10 @@ const HistoryDetail = () => {
             <Text className="text-gray-800">{displayData.type}</Text>
           </View>
 
-          {/* Thuê trọng tài */}
+          {/* Trạng thái */}
           <View className="flex-row justify-between">
-            <Text className="text-gray-600 font-semibold">
-              Thuê trọng tài :
-            </Text>
-            <Text className="text-gray-800">{displayData.referee}</Text>
-          </View>
-
-          {/* Dịch vụ khác */}
-          <View className="mb-2">
-            <Text className="text-gray-600 font-semibold">Dịch vụ khác :</Text>
-            {displayData.services.length > 0 ? (
-              displayData.services.map((service, index) => (
-                <Text key={index} className="text-gray-800 ml-4">
-                  • {service}
-                </Text>
-              ))
-            ) : (
-              <Text className="text-gray-800 ml-4">• Không có</Text>
-            )}
+            <Text className="text-gray-600 font-semibold">Trạng thái :</Text>
+            <Text className="text-gray-800 font-semibold">{displayData.status}</Text>
           </View>
 
           {/* Tổng cộng */}
@@ -208,6 +279,22 @@ const HistoryDetail = () => {
             <Text className="text-center text-gray-800 font-semibold">
               QR CODE
             </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={handleZaloPayPayment}
+            disabled={paying || !canPay}
+            className={`rounded-full py-3 mt-4 items-center justify-center ${
+              paying || !canPay ? "bg-blue-300" : "bg-[#0068FF]"
+            }`}
+          >
+            {paying ? (
+              <ActivityIndicator color="white" />
+            ) : (
+              <Text className="text-white font-bold">
+                {canPay ? "Thanh toán qua ZaloPay" : "Đơn đã hoàn tất"}
+              </Text>
+            )}
           </TouchableOpacity>
 
           {/* Nút Quay lại */}

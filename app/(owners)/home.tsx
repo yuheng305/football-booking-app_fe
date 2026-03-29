@@ -20,12 +20,12 @@ export default function Home() {
 
       <View className="items-end mt-8 mr-4">
         <Text className="text-[#ff4d4d] text-5xl font-bold">GoPitch</Text>
-        <Text className="text-[#93c5fd] text-3xl mt-2">Đặt sân bóng đá</Text>
+        <Text className="text-[#93c5fd] text-3xl mt-2">Đặt sân thể thao</Text>
       </View>
 
       <View className="items-center">
         <Image
-          source={require("../../assets/images/player.png")}
+          source={require("../../assets/images/player_badminton.png")}
           style={{
             width: width * 1.2,
             height: width * 1.2,
@@ -73,21 +73,6 @@ export default function Home() {
             </Text>
           </TouchableOpacity>
 
-          {/* Card: Quản lý dịch vụ */}
-          <TouchableOpacity
-            className="w-40 h-40 bg-white rounded-2xl items-center justify-center p-4 border-2 border-[#3b82f6] mr-4"
-            onPress={() => router.push("/(owners)/(service)/serviceManagement")}
-          >
-            <Image
-              source={require("../../assets/images/service.png")}
-              className="w-full h-full"
-              resizeMode="contain"
-            />
-            <Text className="text-[#060b28] font-semibold text-center">
-              Quản lý dịch vụ
-            </Text>
-          </TouchableOpacity>
-
           {/* Card: Tài khoản */}
           <TouchableOpacity
             className="w-40 h-40 bg-white rounded-2xl items-center justify-center p-4 border-2 border-[#3b82f6] mr-4"
@@ -100,6 +85,21 @@ export default function Home() {
             />
             <Text className="text-[#060b28] font-semibold text-center">
               Tài khoản
+            </Text>
+          </TouchableOpacity>
+
+          {/* Card: Thông tin cụm sân */}
+          <TouchableOpacity
+            className="w-40 h-40 bg-white rounded-2xl items-center justify-center p-4 border-2 border-[#3b82f6] mr-4"
+            onPress={() => router.push("/(owners)/(stadium)/clusterDetail")}
+          >
+            <Image
+              source={require("../../assets/images/book.png")}
+              className="w-full h-full"
+              resizeMode="contain"
+            />
+            <Text className="text-[#060b28] font-semibold text-center">
+              Chi tiết cụm sân
             </Text>
           </TouchableOpacity>
         </ScrollView>

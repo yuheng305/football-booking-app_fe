@@ -11,9 +11,44 @@ import {
   CreateClusterResponse,
   GetClustersResponse,
   GetClustersQuery,
+  SearchClustersQuery,
 } from "../types/cluster.types";
 
 class ClusterService {
+  /**
+   * Search clusters with pagination
+   */
+  async searchClusters(query: SearchClustersQuery = {}): Promise<{
+    clusters: Cluster[];
+    total: number;
+    offset: number;
+    limit: number;
+  }> {
+    try {
+      const params: Record<string, string | number> = {
+        offset: query.offset ?? 0,
+        limit: query.limit ?? 30,
+      };
+
+      if (query.search) {
+        params.search = query.search;
+      }
+
+      if (query.sport_type_id !== undefined) {
+        params.sport_type_id = query.sport_type_id;
+      }
+
+      const response = await apiClient.get<GetClustersResponse>(
+        API_CONFIG.CLUSTER_ENDPOINTS.SEARCH,
+        { params }
+      );
+
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  }
+
   /**
    * Get list of clusters based on role and filters
    */

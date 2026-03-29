@@ -4,11 +4,9 @@ import { Ionicons } from "@expo/vector-icons";
 export default function OwnerLayout() {
   const hiddenScreens = [
     "(account)/changePassword",
-    "(service)/addService",
-    "(service)/editServicePrice",
-    "(service)/serviceManagement",
     "(stadium)/addField",
     "(stadium)/editField",
+    "(stadium)/clusterDetail",
     "(booking)/bookingDetail",
   ];
 

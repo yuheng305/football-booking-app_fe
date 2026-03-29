@@ -4,6 +4,8 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { router, useLocalSearchParams, useNavigation } from "expo-router";
 import Header from "@/component/Header";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { Ionicons } from "@expo/vector-icons";
+import { legacyApiService } from "@/src/services/legacy-api.service";
 
 // Component đếm ngược
 const CountdownTimer = ({
@@ -107,44 +109,16 @@ const Service = () => {
         return;
       }
 
-      const staticResponse = await fetch(
-        `https://gopitch.onrender.com/clusters/${clusterId}/static-services`,
-        {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-        }
+      const staticData = await legacyApiService.getClusterStaticServices<any[]>(
+        String(clusterId),
+        token
       );
-
-      if (!staticResponse.ok) {
-        throw new Error(
-          `Lỗi khi gọi API static services: ${staticResponse.statusText}`
-        );
-      }
-
-      const staticData = await staticResponse.json();
       setStaticServices(staticData);
 
-      const dynamicResponse = await fetch(
-        `https://gopitch.onrender.com/clusters/${clusterId}/dynamic-services`,
-        {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-        }
+      const dynamicData = await legacyApiService.getClusterDynamicServices<any[]>(
+        String(clusterId),
+        token
       );
-
-      if (!dynamicResponse.ok) {
-        throw new Error(
-          `Lỗi khi gọi API dynamic services: ${dynamicResponse.statusText}`
-        );
-      }
-
-      const dynamicData = await dynamicResponse.json();
       setDynamicServices(dynamicData);
 
       const staticServiceNames = staticData.map((item: any) => item.name);
@@ -202,94 +176,55 @@ const Service = () => {
 
   const handleBooking = async () => {
     try {
-      const token = await AsyncStorage.getItem("authToken");
-      if (!token) {
-        console.log("Không tìm thấy token");
-        router.replace("/login");
-        return;
-      }
-
-      const userDataString = await AsyncStorage.getItem("userData");
-      if (!userDataString) {
-        console.log("Không tìm thấy userData");
-        router.replace("/login");
-        return;
-      }
-      const userData = JSON.parse(userDataString);
-      const userId = userData._id;
-      if (!userId) {
-        console.log("Không tìm thấy userId");
-        router.replace("/login");
-        return;
-      }
-
       if (!fieldId || !clusterId || !bookingTime || !selectedDate) {
         setError("Thiếu thông tin cần thiết để đặt sân");
         setModalVisible(false);
         return;
       }
 
-      const startHour = parseInt(bookingTime.toString().split(":")[0], 10);
-
-      const selectedServicesData = [...dynamicServices]
+      // Lưu thông tin dịch vụ và giá tổng vào AsyncStorage
+      const selectedServicesData = [...staticServices, ...dynamicServices]
         .filter((item) => selectedServices.includes(item.name))
         .map((item) => ({
+          _id: item._id,
           name: item.name,
           price: item.price,
         }));
 
-      const requestBody = {
-        userId,
+      await AsyncStorage.setItem("selectedServices", JSON.stringify(selectedServicesData));
+      await AsyncStorage.setItem("totalServicePrice", sumService.toString());
+      await AsyncStorage.setItem("selectedTime", bookingTime.toString());
+      await AsyncStorage.setItem("selectedClusterId", clusterId.toString());
+
+      console.log("[SERVICE] Saved booking info:", {
+        selectedServices: selectedServicesData,
+        totalPrice: sumService,
+        time: bookingTime,
         clusterId,
         fieldId,
-        date: selectedDate, // Sử dụng selectedDate thay vì currentDate
-        startHour,
-        status: "pending",
-        services: selectedServicesData,
-      };
-
-      console.log("Request body:", requestBody);
-
-      const response = await fetch("https://gopitch.onrender.com/bookings", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(requestBody),
       });
 
-      if (!response.ok) {
-        throw new Error(`Lỗi khi gọi API: ${response.statusText}`);
-      }
-
-      const data = await response.json();
-      console.log("Đặt sân thành công:", data);
-
-      await AsyncStorage.setItem("currentBookingId", data._id);
-
       setModalVisible(false);
+      setIsTimerActive(false);
+
+      // Chuyển đến màn hình booking-confirm
+      router.push({
+        pathname: "/(tabs)/(stadiums)/booking-confirm",
+        params: { fieldId },
+      });
     } catch (error: unknown) {
-      console.error("Lỗi khi đặt sân:", error);
+      console.error("Lỗi khi lưu thông tin:", error);
       const errorMsg = error instanceof Error ? error.message : String(error);
-      setError(`Không thể đặt sân: ${errorMsg}`);
+      setError(`Không thể lưu thông tin: ${errorMsg}`);
       setModalVisible(false);
     }
   };
 
-  const handleModalAction = async (action: "cancel" | "pay") => {
-    await handleBooking();
-    if (action === "pay") {
-      const bookingId = await AsyncStorage.getItem("currentBookingId");
-      if (bookingId) {
-        setIsTimerActive(false);
-        router.push({
-          pathname: "/payment",
-          params: { bookingId },
-        });
-      } else {
-        setError("Không tìm thấy bookingId");
-      }
+  const handleModalAction = async (action: "cancel" | "confirm") => {
+    if (action === "confirm") {
+      await handleBooking();
+    } else {
+      setModalVisible(false);
     }
   };
 
@@ -313,7 +248,7 @@ const Service = () => {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-gray-100">
+    <SafeAreaView className="flex-1 bg-gray-100" edges={['top']}>
       <Header />
 
       <View className="w-full px-4 flex-row justify-between items-center mb-4">
@@ -416,13 +351,14 @@ const Service = () => {
 
       <View className="flex-row justify-center items-center mt-4">
         <TouchableOpacity
-          className="border border-red-500 bg-white px-8 py-2 rounded-full"
+          className="w-10 h-10 rounded-lg border border-red-500 bg-white items-center justify-center"
           onPress={() => {
             setIsTimerActive(false);
             router.back();
           }}
+          activeOpacity={1}
         >
-          <Text className="text-red-600 font-semibold text-lg">Quay lại</Text>
+          <Ionicons name="arrow-back" size={20} color="#dc2626" />
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -442,12 +378,11 @@ const Service = () => {
         <View className="flex-1 justify-center items-center bg-black bg-opacity-50 px-6">
           <View className="bg-white p-6 rounded-xl w-full">
             <Text className="text-lg font-semibold text-center mb-4">
-              Bạn cần thanh toán trước giờ thi đấu ít nhất 1 tiếng.
+              Xác nhận thông tin đặt sân
             </Text>
             <Text className="text-gray-700 mb-4 text-justify">
-              Trong thời gian chờ xác nhận, chúng tôi có thể hủy đơn đặt sân nếu
-              thấy không phù hợp. Bạn có thể thanh toán ngay tại đây hoặc trong
-              mục “Thanh toán” của ứng dụng.
+              Vui lòng kiểm tra kỹ thông tin trước khi tiếp tục. Bạn sẽ được
+              chuyển đến màn hình xác nhận và chọn hình thức đặt sân.
             </Text>
 
             <View className="flex-row justify-end space-x-4">
@@ -459,10 +394,10 @@ const Service = () => {
               </Pressable>
 
               <Pressable
-                onPress={() => handleModalAction("pay")}
+                onPress={() => handleModalAction("confirm")}
                 className="px-4 py-2 rounded-md bg-green-500 ml-4"
               >
-                <Text className="text-white">Thanh toán</Text>
+                <Text className="text-white">Tiếp tục</Text>
               </Pressable>
             </View>
           </View>

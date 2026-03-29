@@ -4,6 +4,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import HeaderOne from "@/component/HeaderOne";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { legacyApiService } from "@/src/services/legacy-api.service";
 
 const ChangePassword = () => {
   const [oldPassword, setOldPassword] = useState("");
@@ -51,25 +52,7 @@ const ChangePassword = () => {
         confirmNewPassword: confirmPassword,
       };
 
-      // Gọi API
-      const response = await fetch(
-        `https://gopitch.onrender.com/owners/${userId}/password`,
-        {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify(requestBody),
-        }
-      );
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(
-          errorData.message || `Lỗi khi đổi mật khẩu: ${response.statusText}`
-        );
-      }
+      await legacyApiService.changeOwnerPassword(userId, requestBody, token);
 
       Alert.alert("Thành công", "Đổi mật khẩu thành công!");
       router.back();
