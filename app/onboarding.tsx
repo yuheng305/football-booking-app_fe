@@ -26,8 +26,8 @@ const Onboarding = () => {
     },
     {
       id: "2",
-      title: "Tìm đối thủ linh hoạt",
-      subtitle: "Ghép trận linh hoạt theo trình độ",
+      title: "Quản lý dễ dàng",
+      subtitle: "Theo dõi đặt sân, giải đấu, doanh thu",
       image: require("../assets/images/onboarding2.png"),
     },
     {

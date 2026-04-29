@@ -6,24 +6,36 @@
 import apiClient from "../utils/api.client";
 import API_CONFIG from "../config/api.config";
 import {
+  ClusterListPayload,
   Cluster,
   CreateClusterRequest,
   CreateClusterResponse,
   GetClustersResponse,
   GetClustersQuery,
   SearchClustersQuery,
+  UpdateClusterRequest,
 } from "../types/cluster.types";
 
 class ClusterService {
+  private unwrapData<T>(response: { data?: T } | T): T {
+    if (
+      response &&
+      typeof response === "object" &&
+      "data" in (response as Record<string, unknown>)
+    ) {
+      const wrapped = response as { data?: T };
+      if (wrapped.data !== undefined) {
+        return wrapped.data;
+      }
+    }
+
+    return response as T;
+  }
+
   /**
    * Search clusters with pagination
    */
-  async searchClusters(query: SearchClustersQuery = {}): Promise<{
-    clusters: Cluster[];
-    total: number;
-    offset: number;
-    limit: number;
-  }> {
+  async searchClusters(query: SearchClustersQuery = {}): Promise<ClusterListPayload> {
     try {
       const params: Record<string, string | number> = {
         offset: query.offset ?? 0,
@@ -43,7 +55,7 @@ class ClusterService {
         { params }
       );
 
-      return response.data;
+      return this.unwrapData<ClusterListPayload>(response);
     } catch (error) {
       throw error;
     }
@@ -52,12 +64,7 @@ class ClusterService {
   /**
    * Get list of clusters based on role and filters
    */
-  async getClusters(query: GetClustersQuery = {}): Promise<{
-    clusters: Cluster[];
-    total: number;
-    offset: number;
-    limit: number;
-  }> {
+  async getClusters(query: GetClustersQuery = {}): Promise<ClusterListPayload> {
     try {
       const params: Record<string, string | number> = {};
 
@@ -76,7 +83,7 @@ class ClusterService {
         { params }
       );
 
-      return response.data;
+      return this.unwrapData<ClusterListPayload>(response);
     } catch (error) {
       throw error;
     }
@@ -85,12 +92,7 @@ class ClusterService {
   /**
    * Get clusters that need approval (for admin)
    */
-  async getNotHandledClusters(offset: number = 0, limit: number = 30): Promise<{
-    clusters: Cluster[];
-    total: number;
-    offset: number;
-    limit: number;
-  }> {
+  async getNotHandledClusters(offset: number = 0, limit: number = 30): Promise<ClusterListPayload> {
     try {
       return await this.getClusters({
         is_accepted: "not_handled",
@@ -105,12 +107,7 @@ class ClusterService {
   /**
    * Get accepted clusters
    */
-  async getAcceptedClusters(offset: number = 0, limit: number = 30): Promise<{
-    clusters: Cluster[];
-    total: number;
-    offset: number;
-    limit: number;
-  }> {
+  async getAcceptedClusters(offset: number = 0, limit: number = 30): Promise<ClusterListPayload> {
     try {
       return await this.getClusters({
         is_accepted: "true",
@@ -125,12 +122,7 @@ class ClusterService {
   /**
    * Get rejected clusters
    */
-  async getRejectedClusters(offset: number = 0, limit: number = 30): Promise<{
-    clusters: Cluster[];
-    total: number;
-    offset: number;
-    limit: number;
-  }> {
+  async getRejectedClusters(offset: number = 0, limit: number = 30): Promise<ClusterListPayload> {
     try {
       return await this.getClusters({
         is_accepted: "false",
@@ -152,11 +144,13 @@ class ClusterService {
         data
       );
 
-      if (!response.data?.id) {
+      const created = this.unwrapData<Cluster>(response);
+
+      if (!created?.id) {
         throw new Error("Failed to create cluster");
       }
 
-      return response.data;
+      return created;
     } catch (error) {
       throw error;
     }
@@ -174,11 +168,13 @@ class ClusterService {
 
       const response = await apiClient.get<CreateClusterResponse>(endpoint);
 
-      if (!response.data?.id) {
+      const cluster = this.unwrapData<Cluster>(response);
+
+      if (!cluster?.id) {
         throw new Error("Cluster not found");
       }
 
-      return response.data;
+      return cluster;
     } catch (error) {
       throw error;
     }
@@ -189,7 +185,7 @@ class ClusterService {
    */
   async updateCluster(
     clusterId: number,
-    data: Partial<CreateClusterRequest>
+    data: UpdateClusterRequest
   ): Promise<Cluster> {
     try {
       const endpoint = API_CONFIG.CLUSTER_ENDPOINTS.UPDATE.replace(
@@ -197,16 +193,18 @@ class ClusterService {
         String(clusterId)
       );
 
-      const response = await apiClient.put<CreateClusterResponse>(
+      const response = await apiClient.patch<CreateClusterResponse>(
         endpoint,
         data
       );
 
-      if (!response.data?.id) {
+      const cluster = this.unwrapData<Cluster>(response);
+
+      if (!cluster?.id) {
         throw new Error("Failed to update cluster");
       }
 
-      return response.data;
+      return cluster;
     } catch (error) {
       throw error;
     }

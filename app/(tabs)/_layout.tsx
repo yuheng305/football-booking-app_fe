@@ -1,9 +1,75 @@
 import { Tabs } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { Text } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useEffect, useMemo, useState } from "react";
+
+const resolveUserRole = async (): Promise<string | null> => {
+  try {
+    const [profileRaw, userDataRaw, legacyRole] = await Promise.all([
+      AsyncStorage.getItem("userProfile"),
+      AsyncStorage.getItem("userData"),
+      AsyncStorage.getItem("userRole"),
+    ]);
+
+    const profileRole = profileRaw ? JSON.parse(profileRaw)?.role : null;
+    const userRole = userDataRaw ? JSON.parse(userDataRaw)?.role : null;
+
+    const rawRole = (userRole || profileRole || legacyRole || "")
+      .toString()
+      .trim()
+      .toLowerCase();
+
+    if (rawRole === "user") {
+      return "player";
+    }
+
+    if (rawRole === "organizer") {
+      return "owner";
+    }
+
+    if (rawRole === "player" || rawRole === "owner") {
+      return rawRole;
+    }
+
+    return "player";
+  } catch {
+    return "player";
+  }
+};
 
 export default function TabLayout() {
+  const [userRole, setUserRole] = useState<string | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+
+    const loadRole = async () => {
+      const role = await resolveUserRole();
+      if (mounted) {
+        setUserRole(role);
+      }
+    };
+
+    loadRole();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const isPlayer = useMemo(() => userRole === "player", [userRole]);
+  const isOrganizer = useMemo(() => userRole === "owner", [userRole]);
+
   const hiddenScreens = [
+    "tournament-create",
+    "tournament-venue",
+    "tournament-schedule",
+    "tournament-review",
+    "tournament-detail",
+    "tournament-level2-create",
+    "tournament-level2-rounds",
+    "tournament-level2-slots",
     "(users)/change-password",
     "(users)/historyDetails",
     "(users)/history",
@@ -63,6 +129,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="stadium"
         options={{
+          href: isPlayer ? undefined : null,
           title: "Đặt sân",
           tabBarLabel: ({ focused, color }) => (
             <Text style={{ color, fontSize: 12, fontWeight: focused ? "700" : "500" }}>
@@ -74,6 +141,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="tournament"
         options={{
+          href: isOrganizer ? undefined : null,
           title: "Giải đấu",
           tabBarLabel: ({ focused, color }) => (
             <Text style={{ color, fontSize: 12, fontWeight: focused ? "700" : "500" }}>

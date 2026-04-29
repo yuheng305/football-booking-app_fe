@@ -3,10 +3,14 @@ import {
   Text,
   View,
   Image,
+  ImageSourcePropType,
   TouchableOpacity,
   TextInput,
   Alert,
   ScrollView,
+  Modal,
+  ActivityIndicator,
+  Linking,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import * as ImagePicker from "expo-image-picker";
@@ -16,6 +20,7 @@ import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { authService } from "@/src/services/auth.service";
 import { legacyApiService } from "@/src/services/legacy-api.service";
+import { imageService } from "@/src/services/image.service";
 
 const User = () => {
   const [name, setName] = useState("");
@@ -24,10 +29,26 @@ const User = () => {
   const [username, setUsername] = useState("");
   const [userId, setUserId] = useState("");
   const [bookingHistory, setBookingHistory] = useState([]);
-  const [imageUri, setImageUri] = useState(
+  const [imageUri, setImageUri] = useState<ImageSourcePropType>(
     require("../../assets/images/user_placeholder.jpg")
   );
+  const [qrImageUri, setQrImageUri] = useState<ImageSourcePropType>(
+    require("../../assets/images/qr.png")
+  );
+  const [qrRemoteUrl, setQrRemoteUrl] = useState<string | null>(null);
+  const [showQrManager, setShowQrManager] = useState(false);
+  const [showQrInfo, setShowQrInfo] = useState(false);
+  const [uploadingQr, setUploadingQr] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [role, setRole] = useState("");
+
+  const isOrganizerRole = (rawRole?: string) => {
+    const normalized = String(rawRole || "")
+      .trim()
+      .toLowerCase();
+
+    return normalized === "organizer" || normalized === "owner";
+  };
 
   useEffect(() => {
     const fetchUserData = async () => {
@@ -42,6 +63,26 @@ const User = () => {
         setPhone(userProfile.phone_number || "");
         setUsername(userProfile.email?.split("@")[0] || "");
         setUserId(userProfile.id.toString());
+        setRole(String(userProfile.role || ""));
+
+        try {
+          const avatarUrl = await imageService.getAvatarUrl(userProfile.id);
+          if (avatarUrl) {
+            setImageUri({ uri: avatarUrl });
+          }
+        } catch (avatarError) {
+          console.error("Lỗi lấy avatar:", avatarError);
+        }
+
+        try {
+          const qrUrl = await imageService.getQrCodeUrl(userProfile.id);
+          if (qrUrl) {
+            setQrImageUri({ uri: qrUrl });
+            setQrRemoteUrl(qrUrl);
+          }
+        } catch (qrError) {
+          console.error("Lỗi lấy QR:", qrError);
+        }
         
         // Lưu lại vào AsyncStorage để dùng offline
         const userDataToStore = {
@@ -71,6 +112,19 @@ const User = () => {
             setUsername(userData.username || "");
             setUserId(userData._id || "");
             setBookingHistory(userData.bookingHistory || []);
+            setRole(String(userData.role || ""));
+
+            const fallbackUserId = Number(userData._id || userData.id);
+            if (Number.isFinite(fallbackUserId) && fallbackUserId > 0) {
+              try {
+                const avatarUrl = await imageService.getAvatarUrl(fallbackUserId);
+                if (avatarUrl) {
+                  setImageUri({ uri: avatarUrl });
+                }
+              } catch (avatarError) {
+                console.error("Lỗi lấy avatar fallback:", avatarError);
+              }
+            }
           } else {
             Alert.alert("Lỗi", "Không tìm thấy thông tin người dùng!");
             router.replace("/login");
@@ -96,7 +150,64 @@ const User = () => {
     });
 
     if (!result.canceled) {
-      setImageUri({ uri: result.assets[0].uri });
+      const asset = result.assets[0];
+      setImageUri({ uri: asset.uri });
+
+      try {
+        const uploaded = await imageService.uploadImage(
+          "avatar",
+          asset.uri,
+          asset.fileName || undefined,
+          asset.mimeType || undefined,
+          undefined,
+          asset.fileSize || undefined
+        );
+
+        if (uploaded.url) {
+          setImageUri({ uri: uploaded.url });
+        }
+      } catch (error) {
+        console.error("Lỗi upload avatar:", error);
+        Alert.alert("Lỗi", "Không thể cập nhật ảnh đại diện. Vui lòng thử lại.");
+      }
+    }
+  };
+
+  const pickQrImage = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 1,
+    });
+
+    if (!result.canceled) {
+      const asset = result.assets[0];
+      setQrImageUri({ uri: asset.uri });
+      setUploadingQr(true);
+
+      try {
+        const uploaded = await imageService.uploadImage(
+          "qr_code",
+          asset.uri,
+          asset.fileName || undefined,
+          asset.mimeType || undefined,
+          undefined,
+          asset.fileSize || undefined
+        );
+
+        if (uploaded.url) {
+          setQrImageUri({ uri: uploaded.url });
+          setQrRemoteUrl(uploaded.url);
+        }
+
+        Alert.alert("Thành công", "Đã cập nhật QR nhận tiền");
+      } catch (error) {
+        console.error("Lỗi upload QR:", error);
+        Alert.alert("Lỗi", "Không thể cập nhật QR. Vui lòng thử lại.");
+      } finally {
+        setUploadingQr(false);
+      }
     }
   };
 
@@ -204,6 +315,30 @@ const User = () => {
           </TouchableOpacity>
         </View>
 
+        <View className="mx-6 mt-4 mb-1 border border-blue-300 rounded-xl p-3 bg-blue-50 flex-row items-center justify-between">
+          <TouchableOpacity
+            className="flex-row items-center flex-1"
+            onPress={() => setShowQrManager(true)}
+          >
+            <View className="w-10 h-10 rounded-full bg-white border border-blue-300 items-center justify-center mr-3">
+              <Ionicons name="qr-code-outline" size={20} color="#1d4ed8" />
+            </View>
+            <View className="flex-1">
+              <Text className="text-blue-900 font-semibold">QR nhận tiền</Text>
+              <Text className="text-blue-700 text-xs mt-1">
+                Nhấn để xem, tải lên hoặc cập nhật QR
+              </Text>
+            </View>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            className="w-8 h-8 rounded-full bg-white border border-blue-300 items-center justify-center ml-2"
+            onPress={() => setShowQrInfo(true)}
+          >
+            <Ionicons name="information" size={16} color="#1d4ed8" />
+          </TouchableOpacity>
+        </View>
+
         <View className="mx-6 mt-4 space-y-4 mb-0">
           <View className="border border-black px-4 pt-2">
             <Text className="text-xl text-gray-600">Tên</Text>
@@ -265,15 +400,17 @@ const User = () => {
             </Text>
           </TouchableOpacity>
 
-          <TouchableOpacity
-            className="border-2 border-orange-500 rounded-xl p-3 mt-4 flex-row items-center justify-center"
-            onPress={() => router.push("/(tabs)/(users)/history")}
-          >
-            <Ionicons name="time-outline" size={24} color="#f97316" />
-            <Text className="text-orange-500 font-semibold text-xl text-center ml-2">
-              Lịch sử đặt sân
-            </Text>
-          </TouchableOpacity>
+          {!isOrganizerRole(role) && (
+            <TouchableOpacity
+              className="border-2 border-orange-500 rounded-xl p-3 mt-4 flex-row items-center justify-center"
+              onPress={() => router.push("/(tabs)/(users)/history")}
+            >
+              <Ionicons name="time-outline" size={24} color="#f97316" />
+              <Text className="text-orange-500 font-semibold text-xl text-center ml-2">
+                Lịch sử đặt sân
+              </Text>
+            </TouchableOpacity>
+          )}
 
           <TouchableOpacity
             className="bg-red-500 rounded-lg p-3 mt-4"
@@ -285,6 +422,92 @@ const User = () => {
           </TouchableOpacity>
         </View>
       </ScrollView>
+
+      <Modal
+        visible={showQrInfo}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowQrInfo(false)}
+      >
+        <View className="flex-1 bg-black/40 items-center justify-center px-6">
+          <View className="w-full bg-white rounded-2xl p-4">
+            <Text className="text-lg font-bold text-gray-900 mb-2">QR nhận tiền là gì?</Text>
+            <Text className="text-gray-700 leading-6">
+              Đây là mã QR để nhận chuyển khoản khi có sự cố phát sinh trong booking. Chủ sân chỉ nên dùng để hoàn tiền hoặc xử lý thanh toán bổ sung theo thỏa thuận.
+            </Text>
+            <TouchableOpacity
+              className="mt-4 bg-blue-600 rounded-xl py-3 items-center"
+              onPress={() => setShowQrInfo(false)}
+            >
+              <Text className="text-white font-semibold">Đã hiểu</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={showQrManager}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowQrManager(false)}
+      >
+        <View className="flex-1 bg-black/40 justify-end">
+          <View className="bg-white rounded-t-3xl p-5">
+            <Text className="text-xl font-bold text-gray-900">Quản lý QR nhận tiền</Text>
+            <Text className="text-sm text-gray-600 mt-1">
+              Giữ mã QR luôn chính xác để xử lý sự cố nhanh hơn.
+            </Text>
+
+            <View className="items-center mt-4">
+              <View className="w-56 h-56 rounded-2xl overflow-hidden border-2 border-blue-300 bg-white items-center justify-center">
+                <Image source={qrImageUri} className="w-full h-full" resizeMode="cover" />
+              </View>
+            </View>
+
+            {uploadingQr && (
+              <View className="items-center mt-3">
+                <ActivityIndicator size="small" color="#2563eb" />
+                <Text className="text-blue-700 mt-1">Đang tải QR lên...</Text>
+              </View>
+            )}
+
+            <View className="flex-row mt-5">
+              <TouchableOpacity
+                className="flex-1 bg-blue-600 rounded-xl py-3 items-center mr-2"
+                onPress={pickQrImage}
+                disabled={uploadingQr}
+              >
+                <Text className="text-white font-semibold">
+                  {qrRemoteUrl ? "Cập nhật QR" : "Tải lên QR"}
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                className={`flex-1 rounded-xl py-3 items-center ml-2 ${
+                  qrRemoteUrl ? "bg-white border border-blue-600" : "bg-gray-200"
+                }`}
+                onPress={() => {
+                  if (qrRemoteUrl) {
+                    Linking.openURL(qrRemoteUrl);
+                  }
+                }}
+                disabled={!qrRemoteUrl}
+              >
+                <Text className={`${qrRemoteUrl ? "text-blue-700" : "text-gray-500"} font-semibold`}>
+                  Mở/Tải QR
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            <TouchableOpacity
+              className="mt-3 border border-gray-300 rounded-xl py-3 items-center"
+              onPress={() => setShowQrManager(false)}
+            >
+              <Text className="text-gray-700 font-semibold">Đóng</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };

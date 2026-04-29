@@ -12,12 +12,14 @@ interface RequestOptions extends RequestInit {
 class ApiClient {
   private baseURL: string;
   private defaultHeaders: Record<string, string>;
+  private refreshTokenPromise: Promise<string | null> | null;
 
   constructor() {
     this.baseURL = API_CONFIG.BASE_URL;
     this.defaultHeaders = {
       "Content-Type": "application/json",
     };
+    this.refreshTokenPromise = null;
   }
 
   /**
@@ -32,6 +34,84 @@ class ApiClient {
    */
   clearAuthToken() {
     delete this.defaultHeaders["Authorization"];
+  }
+
+  private async parseJson(response: Response) {
+    return response.json().catch(() => ({}));
+  }
+
+  private async clearStoredTokens() {
+    await Promise.all([
+      AsyncStorage.removeItem("authToken"),
+      AsyncStorage.removeItem("refreshToken"),
+    ]);
+    this.clearAuthToken();
+  }
+
+  private shouldSkipRefresh(endpoint: string): boolean {
+    return (
+      endpoint === API_CONFIG.AUTH_ENDPOINTS.LOGIN ||
+      endpoint === API_CONFIG.AUTH_ENDPOINTS.REFRESH ||
+      endpoint === API_CONFIG.AUTH_ENDPOINTS.SIGNUP ||
+      endpoint === API_CONFIG.AUTH_ENDPOINTS.FORGOT_PASSWORD ||
+      endpoint === API_CONFIG.AUTH_ENDPOINTS.RESEND_VERIFICATION_EMAIL
+    );
+  }
+
+  private async tryRefreshAccessToken(): Promise<string | null> {
+    if (this.refreshTokenPromise) {
+      return this.refreshTokenPromise;
+    }
+
+    this.refreshTokenPromise = (async () => {
+      const refreshToken = await AsyncStorage.getItem("refreshToken");
+      if (!refreshToken) {
+        return null;
+      }
+
+      const refreshUrl = this.buildURL(API_CONFIG.AUTH_ENDPOINTS.REFRESH);
+      const refreshResponse = await fetch(refreshUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          accept: "application/json",
+        },
+        body: JSON.stringify({ refresh_token: refreshToken }),
+      });
+
+      if (!refreshResponse.ok) {
+        await this.clearStoredTokens();
+        return null;
+      }
+
+      const refreshPayload = (await this.parseJson(refreshResponse)) as any;
+      const refreshData = refreshPayload?.data || refreshPayload;
+      const nextAccessToken = refreshData?.access_token;
+      const nextRefreshToken = refreshData?.refresh_token || refreshToken;
+
+      if (!nextAccessToken) {
+        await this.clearStoredTokens();
+        return null;
+      }
+
+      await Promise.all([
+        AsyncStorage.setItem("authToken", nextAccessToken),
+        AsyncStorage.setItem("refreshToken", nextRefreshToken),
+      ]);
+
+      this.setAuthToken(nextAccessToken);
+      return nextAccessToken;
+    })()
+      .catch(async (error) => {
+        console.error("[API] Refresh token failed:", error);
+        await this.clearStoredTokens();
+        return null;
+      })
+      .finally(() => {
+        this.refreshTokenPromise = null;
+      });
+
+    return this.refreshTokenPromise;
   }
 
   /**
@@ -80,21 +160,36 @@ class ApiClient {
     };
 
     try {
-      const response = await fetch(url, requestOptions);
+      let response = await fetch(url, requestOptions);
       console.log(`[API] Response status: ${response.status}`);
+
+      if (response.status === 401 && !this.shouldSkipRefresh(endpoint)) {
+        const refreshedAccessToken = await this.tryRefreshAccessToken();
+
+        if (refreshedAccessToken) {
+          const retryHeaders = {
+            ...(requestOptions.headers as Record<string, string>),
+            Authorization: `Bearer ${refreshedAccessToken}`,
+          };
+
+          response = await fetch(url, {
+            ...requestOptions,
+            headers: retryHeaders,
+          });
+          console.log(`[API] Retry response status: ${response.status}`);
+        }
+      }
 
       // Handle response
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
+        const errorData = await this.parseJson(response);
         console.error(`[API] Error response:`, errorData);
         const message =
           errorData?.errors?.msg?.[0] ||
           errorData?.detail ||
           errorData?.message ||
           `API Error: ${response.status} ${response.statusText}`;
-        throw new Error(
-          message
-        );
+        throw new Error(message);
       }
 
       const data: T = await response.json();

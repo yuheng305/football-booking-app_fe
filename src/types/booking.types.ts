@@ -36,6 +36,12 @@ export interface Cluster {
 // Field from API (without nested cluster)
 export interface FieldBasic {
   id: number;
+  sport_type_id?: number;
+  sport_type?: {
+    id: number;
+    name: string;
+    created_at?: string;
+  };
   size: string;
   description: string;
   status: "active" | "inactive";

@@ -1,8 +1,8 @@
 import React from "react";
-import { View, TouchableOpacity, Image, Text } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { View, TouchableOpacity, Image, Text, StatusBar } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNotifications } from "@/src/context/notifications.context";
 
 interface UniversalHeaderProps {
@@ -22,11 +22,12 @@ interface UniversalHeaderProps {
   variant?: "default" | "compact";
 }
 
-// Theme constants - Single Source of Truth (DRY principle)
 const HEADER_THEME = {
-  backgroundColor: "#1e3a5f", // Xanh đậm thay vì đen
-  textPrimary: "#93c5fd",    // Xanh nhạt
-  textSecondary: "#bfdbfe",  // Xanh rất nhạt
+  backgroundColor: "#17345c",
+  textPrimary: "#bfdbfe",
+  textSecondary: "#dbeafe",
+  notificationBg: "rgba(191, 219, 254, 0.18)",
+  badgeBg: "#ef4444",
 } as const;
 
 const UniversalHeader: React.FC<UniversalHeaderProps> = ({
@@ -40,6 +41,7 @@ const UniversalHeader: React.FC<UniversalHeaderProps> = ({
   onNotificationPress,
   variant = "default",
 }) => {
+  const insets = useSafeAreaInsets();
   const { unreadCount } = useNotifications();
 
   const handleLogoPress = () => {
@@ -66,111 +68,121 @@ const UniversalHeader: React.FC<UniversalHeaderProps> = ({
     }
   };
 
-  // Consistent sizing based on variant (SOLID - Open/Closed Principle)
   const isCompact = variant === "compact";
-  const headerHeight = isCompact ? 44 : 52;
-  const titleSize = isCompact ? "text-2xl" : "text-3xl";   
+  const headerHeight = isCompact ? 56 : 68;
+  const titleSize = isCompact ? "text-xl" : "text-[22px]";
+  const titleWeight = isCompact ? "font-bold" : "font-extrabold";
   const subtitleSize = isCompact ? "text-sm" : "text-base";
   const backIconSize = isCompact ? 24 : 28;
   const logoAspectRatio = 1152 / 768;
-  const logoHeight = isCompact ? 36 : 44;
+  const logoHeight = isCompact ? 40 : 48;
   const logoWidth = logoHeight * logoAspectRatio;
-  const notificationIconSize = isCompact ? 20 : 22;
+  const notificationIconSize = isCompact ? 20 : 21;
 
   return (
-    <SafeAreaView 
-      style={{ backgroundColor: HEADER_THEME.backgroundColor }}
-      edges={['top']}
-    >
+    <>
+      <StatusBar barStyle="light-content" backgroundColor={HEADER_THEME.backgroundColor} />
       <View
-        className="w-full flex-row items-center justify-between px-4"
-        style={{ backgroundColor: HEADER_THEME.backgroundColor, height: headerHeight }}
+        style={{
+          backgroundColor: HEADER_THEME.backgroundColor,
+          paddingTop: insets.top,
+          marginTop: -insets.top,
+        }}
       >
-        {/* Left side: Back Button + Title - Có max width để không đè lên logo */}
-        <View className="flex-row items-center flex-1 mr-3">
-          {showBackButton && (
-            <TouchableOpacity onPress={handleBackPress} className="mr-3">
-              <Ionicons
-                name="arrow-back"
-                size={backIconSize}
-                color={HEADER_THEME.textPrimary}
-              />
-            </TouchableOpacity>
-          )}
-
-          {/* Title & Subtitle */}
-          <View className="justify-center flex-1">
-            {title && (
-              <Text
-                className={`${titleSize} font-semibold leading-tight`}
-                style={{ color: HEADER_THEME.textPrimary, margin: 0.5 }}
-                numberOfLines={1}
-              >
-                {title}
-              </Text>
+        <View
+          className="w-full flex-row items-center justify-between px-4"
+          style={{ backgroundColor: HEADER_THEME.backgroundColor, height: headerHeight }}
+        >
+          <View className="flex-row items-center flex-1 min-w-0 pr-3">
+            {showBackButton && (
+              <TouchableOpacity onPress={handleBackPress} className="mr-3">
+                <Ionicons
+                  name="arrow-back"
+                  size={backIconSize}
+                  color={HEADER_THEME.textPrimary}
+                />
+              </TouchableOpacity>
             )}
-            {subtitle && (
-              <Text
-                className={`${subtitleSize} mt-0.5 leading-tight`}
-                style={{ color: HEADER_THEME.textSecondary }}
-                numberOfLines={1}
+
+            <View className="justify-center flex-1">
+              {title ? (
+                <Text
+                  className={`${titleSize} ${titleWeight} leading-tight`}
+                  style={{ color: HEADER_THEME.textPrimary }}
+                  numberOfLines={1}
+                >
+                  {title}
+                </Text>
+              ) : null}
+              {subtitle ? (
+                <Text
+                  className={`${subtitleSize} mt-0.5 leading-tight`}
+                  style={{ color: HEADER_THEME.textSecondary }}
+                  numberOfLines={1}
+                >
+                  {subtitle}
+                </Text>
+              ) : null}
+            </View>
+          </View>
+
+          <View className="flex-row items-center">
+            {showLogo && (
+              <TouchableOpacity
+                onPress={handleLogoPress}
+                activeOpacity={0.7}
+                className="items-center justify-center mr-2"
+                style={{ width: logoWidth, height: logoHeight }}
               >
-                {subtitle}
-              </Text>
+                <Image
+                  source={require("../assets/images/logo.png")}
+                  style={{ width: logoWidth, height: logoHeight }}
+                  resizeMode="contain"
+                />
+              </TouchableOpacity>
+            )}
+
+            {showLogo && showNotificationButton && (
+              <TouchableOpacity
+                onPress={handleNotificationPress}
+                activeOpacity={0.8}
+                className="w-9 h-9 rounded-full items-center justify-center"
+                style={{ backgroundColor: HEADER_THEME.notificationBg }}
+              >
+                <View className="relative">
+                  <Ionicons
+                    name="notifications-outline"
+                    size={notificationIconSize}
+                    color={HEADER_THEME.textPrimary}
+                  />
+                  {unreadCount > 0 && (
+                    <View
+                      className="absolute -top-2 -right-3 min-w-[22px] h-[20px] rounded-full items-center justify-center px-1"
+                      style={{ backgroundColor: HEADER_THEME.badgeBg }}
+                    >
+                      <Text
+                        className="text-[10px] font-bold text-white"
+                        numberOfLines={1}
+                        adjustsFontSizeToFit
+                        minimumFontScale={0.8}
+                        allowFontScaling={false}
+                        style={{
+                          includeFontPadding: false,
+                          lineHeight: 11,
+                          textAlign: "center",
+                        }}
+                      >
+                        {unreadCount > 99 ? "99+" : unreadCount}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+              </TouchableOpacity>
             )}
           </View>
         </View>
-
-        {/* Right side: Logo + Notification */}
-        <View className="flex-row items-center">
-          {showLogo && (
-            <TouchableOpacity 
-              onPress={handleLogoPress} 
-              activeOpacity={0.7}
-              style={{ width: logoWidth, height: logoHeight }}
-              className="items-center justify-center"
-            >
-              <Image
-                source={require("../assets/images/logo.png")}
-                style={{ width: logoWidth, height: logoHeight }}
-                resizeMode="contain"
-              />
-            </TouchableOpacity>
-          )}
-
-          {showLogo && showNotificationButton && (
-            <TouchableOpacity
-              onPress={handleNotificationPress}
-              activeOpacity={0.7}
-              className="ml-1"
-            >
-              <View className="relative">
-                <Ionicons
-                  name="notifications-outline"
-                  size={notificationIconSize}
-                  color={HEADER_THEME.textPrimary}
-                />
-                {unreadCount > 0 && (
-                  <View
-                    className="absolute -top-2 -right-3 min-w-5 h-5 rounded-full items-center justify-center px-1"
-                    style={{ backgroundColor: HEADER_THEME.textPrimary }}
-                  >
-                    <Text
-                      className="text-[10px] font-bold"
-                      style={{ color: HEADER_THEME.backgroundColor }}
-                    >
-                      {unreadCount > 99
-                        ? "99+"
-                        : unreadCount}
-                    </Text>
-                  </View>
-                )}
-              </View>
-            </TouchableOpacity>
-          )}
-        </View>
       </View>
-    </SafeAreaView>
+    </>
   );
 };
 

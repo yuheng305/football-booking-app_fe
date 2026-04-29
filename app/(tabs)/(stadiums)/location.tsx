@@ -18,6 +18,7 @@ import HeaderUser from "@/component/HeaderUser";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { clusterService } from "@/src/services/cluster.service";
 import { bookingDraftService } from "@/src/services/booking-draft.service";
+import { imageService } from "@/src/services/image.service";
 
 interface Cluster {
   id: number;
@@ -104,6 +105,12 @@ const MAJOR_PROVINCES = [
 
 const Location = () => {
   const [clusters, setClusters] = useState<Cluster[]>([]);
+  const [clusterImageMap, setClusterImageMap] = useState<Record<number, string>>({});
+  const [clusterPreviewVisible, setClusterPreviewVisible] = useState(false);
+  const [clusterPreviewLoading, setClusterPreviewLoading] = useState(false);
+  const [previewCluster, setPreviewCluster] = useState<Cluster | null>(null);
+  const [previewImages, setPreviewImages] = useState<string[]>([]);
+  const [previewImageIndex, setPreviewImageIndex] = useState(0);
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -259,11 +266,39 @@ const Location = () => {
           );
         }
         
-      // Update clusters list
-      if (isRefresh) {
-        setClusters(filteredClusters);
-      } else {
-        setClusters((prev) => [...prev, ...filteredClusters]);
+      const nextClusters = isRefresh
+        ? filteredClusters
+        : [...clusters, ...filteredClusters];
+
+      setClusters(nextClusters);
+
+      const clusterIdsToLoad = nextClusters
+        .map((cluster) => cluster.id)
+        .filter((id) => !clusterImageMap[id]);
+
+      if (clusterIdsToLoad.length > 0) {
+        const imageEntries = await Promise.all(
+          clusterIdsToLoad.map(async (clusterId) => {
+            try {
+              const imageUrl = await imageService.getFirstImageUrl("cluster", clusterId);
+              return imageUrl ? [clusterId, imageUrl] as const : null;
+            } catch {
+              return null;
+            }
+          })
+        );
+
+        const nextImageMap = imageEntries.reduce<Record<number, string>>((acc, entry) => {
+          if (entry) {
+            const [id, url] = entry;
+            acc[id] = url;
+          }
+          return acc;
+        }, {});
+
+        if (Object.keys(nextImageMap).length > 0) {
+          setClusterImageMap((prev) => ({ ...prev, ...nextImageMap }));
+        }
       }
 
       // Check if there are more items
@@ -360,7 +395,7 @@ const Location = () => {
     );
   };
 
-  const handleViewPress = async (clusterId: number, clusterName: string) => {
+  const handleStartBooking = async (clusterId: number, clusterName: string) => {
     try {
       await bookingDraftService.resetDraft();
       await bookingDraftService.patchDraft({
@@ -378,6 +413,30 @@ const Location = () => {
     } catch (error) {
       console.error("Lỗi khi lưu cluster info:", error);
       alert("Đã xảy ra lỗi. Vui lòng thử lại.");
+    }
+  };
+
+  const handleOpenClusterPreview = async (cluster: Cluster) => {
+    setClusterPreviewVisible(true);
+    setClusterPreviewLoading(true);
+    setPreviewCluster(cluster);
+    setPreviewImageIndex(0);
+
+    try {
+      const [clusterDetail, images] = await Promise.all([
+        clusterService.getCluster(cluster.id).catch(() => cluster),
+        imageService.getClusterImages(cluster.id).catch(() => []),
+      ]);
+
+      setPreviewCluster(clusterDetail as Cluster);
+
+      const imageUrls = images.map((item) => item.url).filter(Boolean);
+      const fallbackUrl = clusterImageMap[cluster.id];
+      setPreviewImages(
+        imageUrls.length > 0 ? imageUrls : fallbackUrl ? [fallbackUrl] : []
+      );
+    } finally {
+      setClusterPreviewLoading(false);
     }
   };
 
@@ -804,42 +863,50 @@ const Location = () => {
           {clusters.map((cluster) => (
             (() => {
               const visual = getClusterPlayerVisual(cluster);
+              const clusterImageUrl = clusterImageMap[cluster.id];
 
               return (
             <View
               key={cluster.id}
-              className="flex-row w-full h-40 border-1 border-black items-center p-4 border-b-2 bg-white"
+              className="flex-row w-full items-center px-3 py-4 border-b border-black bg-white"
             >
-              <View className="items-center justify-center" style={{ width: 116, height: 116 }}>
+              <View className="items-center justify-center" style={{ width: 96, height: 96 }}>
                 <Image
-                  source={visual.source}
-                  resizeMode="contain"
+                  source={clusterImageUrl ? { uri: clusterImageUrl } : visual.source}
+                  resizeMode={clusterImageUrl ? "cover" : "contain"}
                   className="w-full h-full"
                   style={{
-                    transform: [
-                      { scale: visual.scale * 1.08 },
-                      { translateX: (visual.translateX ?? 0) - 8 },
-                      { translateY: visual.translateY },
-                    ],
+                    borderRadius: clusterImageUrl ? 12 : 0,
+                    transform: clusterImageUrl
+                      ? []
+                      : [
+                          { scale: visual.scale * 1.08 },
+                          { translateX: (visual.translateX ?? 0) - 8 },
+                          { translateY: visual.translateY },
+                        ],
                   }}
                 />
               </View>
-              <View className="flex-1 justify-center items-center">
-                <Text className="text-[#060b28] font-semibold text-center mt-2">
+              <View className="flex-1 px-3 justify-center">
+                <Text className="text-[#1f2937] text-sm" numberOfLines={2} ellipsizeMode="tail">
                   {cluster.street}, {cluster.district}, {cluster.city}
                 </Text>
-                <Text className="text-[#060b28] font-bold text-2xl text-center mt-2">
+                <Text
+                  className="text-[#060b28] font-bold text-2xl mt-1"
+                  numberOfLines={2}
+                  ellipsizeMode="tail"
+                >
                   {cluster.name}
                 </Text>
-                <Text className="text-gray-600 text-sm text-center mt-1">
+                <Text className="text-gray-600 text-xs mt-1" numberOfLines={1}>
                   {cluster.open_time} - {cluster.close_time}
                 </Text>
               </View>
               <TouchableOpacity
-                className="bg-white rounded-2xl w-1/5 h-1/8 p-2 m-2 border-2 border-gray-500"
-                onPress={() => handleViewPress(cluster.id, cluster.name)}
+                className="bg-white rounded-2xl px-5 py-2 border-2 border-gray-500 self-center"
+                onPress={() => handleOpenClusterPreview(cluster)}
               >
-                <Text className="text-gray-500 font-semibold text-center">
+                <Text className="text-gray-500 font-semibold text-center text-lg">
                   Xem
                 </Text>
               </TouchableOpacity>
@@ -877,6 +944,118 @@ const Location = () => {
           Không có sân nào phù hợp với bộ lọc.
         </Text>
       )}
+
+      <Modal
+        visible={clusterPreviewVisible}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setClusterPreviewVisible(false)}
+      >
+        <View className="flex-1 bg-black/45 justify-end">
+          <View className="bg-white rounded-t-3xl p-4 max-h-[88%]">
+            {clusterPreviewLoading || !previewCluster ? (
+              <View className="items-center py-10">
+                <ActivityIndicator size="large" color="#2563eb" />
+                <Text className="text-blue-700 mt-3">Đang tải chi tiết cụm sân...</Text>
+              </View>
+            ) : (
+              <ScrollView showsVerticalScrollIndicator={false}>
+                <View className="rounded-2xl overflow-hidden bg-slate-100">
+                  {previewImages.length > 0 ? (
+                    <Image
+                      source={{ uri: previewImages[previewImageIndex] }}
+                      className="w-full h-52"
+                      resizeMode="cover"
+                    />
+                  ) : (
+                    <View className="h-52 items-center justify-center">
+                      <Ionicons name="image-outline" size={52} color="#94a3b8" />
+                      <Text className="text-slate-500 mt-2">Chưa có ảnh cụm sân</Text>
+                    </View>
+                  )}
+                </View>
+
+                {previewImages.length > 1 && (
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    className="mt-3"
+                    contentContainerStyle={{ paddingRight: 6 }}
+                  >
+                    {previewImages.map((url, index) => (
+                      <TouchableOpacity
+                        key={`${url}-${index}`}
+                        onPress={() => setPreviewImageIndex(index)}
+                        className={`mr-2 rounded-xl overflow-hidden border-2 ${
+                          previewImageIndex === index
+                            ? "border-blue-500"
+                            : "border-transparent"
+                        }`}
+                      >
+                        <Image
+                          source={{ uri: url }}
+                          style={{ width: 84, height: 64 }}
+                          resizeMode="cover"
+                        />
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                )}
+
+                <Text className="text-[#0f172a] font-extrabold text-3xl mt-4">
+                  {previewCluster.name}
+                </Text>
+                <Text className="text-slate-600 mt-1 text-base">
+                  {previewCluster.street}, {previewCluster.district}, {previewCluster.city}
+                </Text>
+
+                <View className="flex-row flex-wrap mt-3">
+                  {(previewCluster.sport_types || []).map((sport) => (
+                    <View
+                      key={sport.id}
+                      className="bg-blue-50 border border-blue-200 rounded-full px-3 py-1 mr-2 mb-2"
+                    >
+                      <Text className="text-blue-700 font-semibold">{sport.name}</Text>
+                    </View>
+                  ))}
+                </View>
+
+                <View className="bg-slate-50 border border-slate-200 rounded-xl p-3 mt-2">
+                  <Text className="text-slate-700 text-sm">
+                    Giờ hoạt động: {previewCluster.open_time} - {previewCluster.close_time}
+                  </Text>
+                  <Text className="text-slate-700 text-sm mt-1">
+                    Trạng thái: {previewCluster.status === "active" ? "Đang hoạt động" : "Tạm ngưng"}
+                  </Text>
+                </View>
+
+                <Text className="text-slate-600 mt-3 leading-6">
+                  Không gian thể thao năng động, phù hợp đặt sân nhanh cho đội bạn. Chọn ngày và sân ngay để giữ khung giờ đẹp.
+                </Text>
+
+                <View className="flex-row mt-5 mb-3">
+                  <TouchableOpacity
+                    className="flex-1 bg-blue-600 rounded-xl py-3 items-center mr-2"
+                    onPress={async () => {
+                      await handleStartBooking(previewCluster.id, previewCluster.name);
+                      setClusterPreviewVisible(false);
+                    }}
+                  >
+                    <Text className="text-white font-bold text-base">Đặt ngay</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    className="flex-1 bg-white border border-slate-300 rounded-xl py-3 items-center ml-2"
+                    onPress={() => setClusterPreviewVisible(false)}
+                  >
+                    <Text className="text-slate-700 font-semibold text-base">Đóng</Text>
+                  </TouchableOpacity>
+                </View>
+              </ScrollView>
+            )}
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };

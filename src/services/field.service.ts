@@ -19,14 +19,19 @@ class FieldService {
   /**
    * Get all fields in a cluster (temporary flow)
    */
-  async getFieldsByCluster(clusterId: number): Promise<{ fields: FieldBasic[]; total: number }> {
+  async getFieldsByCluster(
+    clusterId: number,
+    options?: { sportTypeId?: number }
+  ): Promise<{ fields: FieldBasic[]; total: number }> {
     try {
       const endpoint = API_CONFIG.FIELD_ENDPOINTS.GET_BY_CLUSTER.replace(
         ":clusterId",
         clusterId.toString()
       );
 
-      const response = await apiClient.get<GetOwnerFieldsResponse>(endpoint);
+      const response = await apiClient.get<GetOwnerFieldsResponse>(endpoint, {
+        params: options?.sportTypeId ? { sport_type_id: options.sportTypeId } : undefined,
+      });
 
       return response.data;
     } catch (error) {

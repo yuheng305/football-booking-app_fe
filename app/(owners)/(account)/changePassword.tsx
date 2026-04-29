@@ -5,11 +5,15 @@ import { router } from "expo-router";
 import HeaderOne from "@/component/HeaderOne";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { legacyApiService } from "@/src/services/legacy-api.service";
+import { Ionicons } from "@expo/vector-icons";
 
 const ChangePassword = () => {
   const [oldPassword, setOldPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [showOldPassword, setShowOldPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const handleChange = async () => {
     // Kiểm tra mật khẩu mới và xác nhận mật khẩu có khớp không
@@ -68,35 +72,74 @@ const ChangePassword = () => {
       {/* Nội dung chính chiếm không gian còn lại */}
       <View className="flex-1">
         <HeaderOne title="Đổi mật khẩu" />
-        <View className="px-6 mt-6 space-y-4">
+        <View className="px-6 mt-6 space-y-6">
           <View>
-            <Text className="mb-1 text-gray-600">Mật khẩu cũ</Text>
-            <TextInput
-              secureTextEntry
-              value={oldPassword}
-              onChangeText={setOldPassword}
-              className="border border-black px-4 py-2 rounded"
-            />
+            <Text className="mb-2 text-gray-600">Mật khẩu cũ</Text>
+            <View className="flex-row items-center border border-black px-4 py-2 rounded">
+              <Ionicons name="lock-closed-outline" size={20} color="gray" />
+              <TextInput
+                secureTextEntry={!showOldPassword}
+                value={oldPassword}
+                onChangeText={setOldPassword}
+                className="flex-1 ml-3"
+                autoCapitalize="none"
+              />
+              <TouchableOpacity
+                onPress={() => setShowOldPassword(!showOldPassword)}
+              >
+                <Ionicons
+                  name={showOldPassword ? "eye-off-outline" : "eye-outline"}
+                  size={20}
+                  color="gray"
+                />
+              </TouchableOpacity>
+            </View>
           </View>
 
           <View>
-            <Text className="mb-1 text-gray-600">Mật khẩu mới</Text>
-            <TextInput
-              secureTextEntry
-              value={newPassword}
-              onChangeText={setNewPassword}
-              className="border border-black px-4 py-2 rounded"
-            />
+            <Text className="mb-2 text-gray-600">Mật khẩu mới</Text>
+            <View className="flex-row items-center border border-black px-4 py-2 rounded">
+              <Ionicons name="lock-closed-outline" size={20} color="gray" />
+              <TextInput
+                secureTextEntry={!showNewPassword}
+                value={newPassword}
+                onChangeText={setNewPassword}
+                className="flex-1 ml-3"
+                autoCapitalize="none"
+              />
+              <TouchableOpacity
+                onPress={() => setShowNewPassword(!showNewPassword)}
+              >
+                <Ionicons
+                  name={showNewPassword ? "eye-off-outline" : "eye-outline"}
+                  size={20}
+                  color="gray"
+                />
+              </TouchableOpacity>
+            </View>
           </View>
 
           <View>
-            <Text className="mb-1 text-gray-600">Xác nhận mật khẩu mới</Text>
-            <TextInput
-              secureTextEntry
-              value={confirmPassword}
-              onChangeText={setConfirmPassword}
-              className="border border-black px-4 py-2 rounded"
-            />
+            <Text className="mb-2 text-gray-600">Xác nhận mật khẩu mới</Text>
+            <View className="flex-row items-center border border-black px-4 py-2 rounded">
+              <Ionicons name="lock-closed-outline" size={20} color="gray" />
+              <TextInput
+                secureTextEntry={!showConfirmPassword}
+                value={confirmPassword}
+                onChangeText={setConfirmPassword}
+                className="flex-1 ml-3"
+                autoCapitalize="none"
+              />
+              <TouchableOpacity
+                onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+              >
+                <Ionicons
+                  name={showConfirmPassword ? "eye-off-outline" : "eye-outline"}
+                  size={20}
+                  color="gray"
+                />
+              </TouchableOpacity>
+            </View>
           </View>
 
           <TouchableOpacity

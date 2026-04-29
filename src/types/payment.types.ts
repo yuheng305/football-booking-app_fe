@@ -15,11 +15,26 @@ export interface PaymentItem {
   payment_type: PaymentType | string;
   expires_at: string | null;
   booking_id: number;
+  tournament_id?: number | null;
   created_at: string;
   updated_at: string;
 }
 
 export interface GetPlayerPaymentsResponse {
+  data: {
+    payments: PaymentItem[];
+    total: number;
+    offset: number;
+    limit: number;
+  };
+  api_version: string;
+  errors: {
+    msg: string[];
+    code: null | string;
+  };
+}
+
+export interface GetOwnerPaymentsResponse {
   data: {
     payments: PaymentItem[];
     total: number;
@@ -62,4 +77,21 @@ export interface ZaloPayOrderData {
   qr_code: string | null;
   amount: number;
   description: string;
+}
+
+export type RevenuePeriod = "week" | "month" | "year";
+
+export interface OwnerRevenueClusterItem {
+  cluster_id: number;
+  cluster_name: string;
+  revenue: number;
+  payment_count: number;
+}
+
+export interface OwnerRevenueData {
+  total_revenue: number;
+  total_payments: number;
+  start_date: string;
+  end_date: string;
+  by_cluster: OwnerRevenueClusterItem[];
 }

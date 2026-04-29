@@ -7,7 +7,10 @@ import React, {
   useRef,
   useState,
 } from "react";
+import { usePathname } from "expo-router";
+import { StatusBar, Text, TouchableOpacity, View } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { Socket } from "socket.io-client";
 import notificationService from "../services/notification.service";
 import type { NotificationItem } from "../types/notification.types";
@@ -25,26 +28,67 @@ const NotificationsContext = createContext<NotificationsContextValue | undefined
 );
 
 function normalizeNotification(raw: any): NotificationItem {
+  const source = raw?.notification && typeof raw.notification === "object"
+    ? raw.notification
+    : raw;
+
   return {
-    id: Number(raw?.id ?? 0),
-    type: raw?.type ?? "system",
-    title: raw?.title ?? "Thông báo",
-    message: raw?.message ?? "",
-    entity_type: raw?.entity_type ?? null,
-    entity_id: raw?.entity_id != null ? Number(raw.entity_id) : null,
-    status: raw?.status ?? "unread",
-    created_at: raw?.created_at,
-    updated_at: raw?.updated_at,
+    id: Number(source?.id ?? 0),
+    user_id: source?.user_id != null ? Number(source.user_id) : undefined,
+    type: source?.type ?? "system",
+    title: source?.title ?? "Thông báo",
+    message: source?.message ?? "",
+    entity_type: source?.entity_type ?? null,
+    entity_id: source?.entity_id != null ? Number(source.entity_id) : null,
+    data:
+      source?.data && typeof source.data === "object"
+        ? (source.data as Record<string, any>)
+        : null,
+    status: source?.status ?? "unread",
+    read_at: source?.read_at ?? null,
+    created_at: source?.created_at,
+    updated_at: source?.updated_at,
   };
+}
+
+function getNotificationId(raw: any): number {
+  const source = raw?.notification && typeof raw.notification === "object"
+    ? raw.notification
+    : raw;
+
+  return Number(source?.id ?? source?.notification_id);
 }
 
 export const NotificationsProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
+  const insets = useSafeAreaInsets();
+  const topInset = Math.max(insets.top, StatusBar.currentHeight ?? 0);
+  const pathname = usePathname();
+  const isGuestRoute =
+    pathname === "/" ||
+    pathname === "/index" ||
+    pathname === "/onboarding" ||
+    pathname === "/login" ||
+    pathname === "/signup" ||
+    pathname === "/forgot-password";
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [popupNotification, setPopupNotification] = useState<NotificationItem | null>(null);
   const socketRef = useRef<Socket | null>(null);
+  const popupTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const showPopupNotification = useCallback((notification: NotificationItem) => {
+    if (popupTimeoutRef.current) {
+      clearTimeout(popupTimeoutRef.current);
+    }
+
+    setPopupNotification(notification);
+    popupTimeoutRef.current = setTimeout(() => {
+      setPopupNotification(null);
+    }, 4500);
+  }, []);
 
   const refreshNotifications = useCallback(async () => {
     try {
@@ -72,7 +116,12 @@ export const NotificationsProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const markAsRead = useCallback(async (notificationId: number) => {
     try {
-      await notificationService.markAsRead(notificationId);
+      const synced = await notificationService.markAsRead(notificationId);
+      if (!synced) {
+        console.log("[NOTIFICATIONS] markAsRead fallback to local state only", {
+          notificationId,
+        });
+      }
     } catch (error) {
       console.error("[NOTIFICATIONS] markAsRead API failed:", error);
     } finally {
@@ -88,6 +137,16 @@ export const NotificationsProvider: React.FC<{ children: React.ReactNode }> = ({
   useEffect(() => {
     let disposed = false;
 
+    if (isGuestRoute) {
+      console.log("[NOTIFICATIONS] skip socket connect on guest route", { pathname });
+      notificationService.disconnectSocket();
+      socketRef.current = null;
+      setLoading(false);
+      return () => {
+        disposed = true;
+      };
+    }
+
     const bootstrap = async () => {
       const [token, userDataRaw] = await Promise.all([
         AsyncStorage.getItem("authToken"),
@@ -95,6 +154,11 @@ export const NotificationsProvider: React.FC<{ children: React.ReactNode }> = ({
       ]);
 
       if (!token || !userDataRaw) {
+        console.log("[NOTIFICATIONS] skip socket connect: missing token or userData", {
+          hasToken: !!token,
+          hasUserData: !!userDataRaw,
+          pathname,
+        });
         setLoading(false);
         return;
       }
@@ -109,37 +173,98 @@ export const NotificationsProvider: React.FC<{ children: React.ReactNode }> = ({
         const userId = Number(userData?.user_id ?? userData?.id ?? userData?._id);
 
         if (!Number.isFinite(userId)) {
+          console.warn("[NOTIFICATIONS] skip socket connect: invalid userId", {
+            pathname,
+            userData,
+          });
           return;
         }
 
         const socket = notificationService.connectSocket();
         socketRef.current = socket;
 
-        socket.on("connect", () => {
-          socket.emit("authenticate", { user_id: userId });
+        console.log("[NOTIFICATIONS] init socket", {
+          pathname,
+          userId,
+          connected: socket.connected,
+          active: socket.active,
         });
 
-        socket.on("authenticated", () => {
-          console.log("[NOTIFICATIONS] socket authenticated");
+        socket.off("connect");
+        socket.off("authenticated");
+        socket.off("notification:created");
+        socket.off("notification:read");
+        socket.off("notification:archived");
+        socket.off("notification:deleted");
+        socket.off("notification:unread_count_updated");
+        socket.off("connect_error");
+        socket.off("error");
+        socket.offAny();
+
+        socket.on("connect", () => {
+          console.log("[NOTIFICATIONS] socket connected", {
+            socketId: socket.id,
+            userId,
+            pathname,
+          });
+          socket.emit("authenticate", { user_id: userId });
+          console.log("[NOTIFICATIONS] authenticate emitted", { userId });
+        });
+
+        socket.on("authenticated", (payload: any) => {
+          console.log("[NOTIFICATIONS] socket authenticated", {
+            userId,
+            payload,
+          });
+        });
+
+        if (__DEV__) {
+          socket.onAny((eventName, payload) => {
+            console.log("[NOTIFICATIONS] socket event received", {
+              eventName,
+              payload,
+            });
+          });
+        }
+
+        socket.on("disconnect", (reason) => {
+          console.log("[NOTIFICATIONS] socket disconnected", {
+            reason,
+            userId,
+            pathname,
+          });
         });
 
         socket.on("notification:created", (payload: any) => {
+          console.log("[NOTIFICATIONS] notification:created received", { payload });
           const incoming = normalizeNotification(payload);
           if (!incoming.id) {
+            console.warn("[NOTIFICATIONS] notification:created ignored due to missing id", {
+              payload,
+            });
             return;
           }
 
+          let alreadyExists = false;
           setNotifications((prev) => {
+            alreadyExists = prev.some((item) => item.id === incoming.id);
             const withoutDuplicate = prev.filter((item) => item.id !== incoming.id);
             return [incoming, ...withoutDuplicate];
           });
-          if ((incoming.status || "").toLowerCase() === "unread") {
+
+          if (!alreadyExists && (incoming.status || "").toLowerCase() === "unread") {
             setUnreadCount((prev) => prev + 1);
           }
+
+          showPopupNotification(incoming);
+          console.log("[NOTIFICATIONS] popup notification displayed", {
+            notificationId: incoming.id,
+            title: incoming.title,
+          });
         });
 
         socket.on("notification:read", (payload: any) => {
-          const notificationId = Number(payload?.id ?? payload?.notification_id);
+          const notificationId = getNotificationId(payload);
           if (!Number.isFinite(notificationId)) {
             return;
           }
@@ -164,7 +289,7 @@ export const NotificationsProvider: React.FC<{ children: React.ReactNode }> = ({
         });
 
         socket.on("notification:archived", (payload: any) => {
-          const notificationId = Number(payload?.id ?? payload?.notification_id);
+          const notificationId = getNotificationId(payload);
           if (!Number.isFinite(notificationId)) {
             return;
           }
@@ -177,7 +302,7 @@ export const NotificationsProvider: React.FC<{ children: React.ReactNode }> = ({
         });
 
         socket.on("notification:deleted", (payload: any) => {
-          const notificationId = Number(payload?.id ?? payload?.notification_id);
+          const notificationId = getNotificationId(payload);
           if (!Number.isFinite(notificationId)) {
             return;
           }
@@ -195,7 +320,11 @@ export const NotificationsProvider: React.FC<{ children: React.ReactNode }> = ({
         });
 
         socket.on("connect_error", (error: any) => {
-          console.error("[NOTIFICATIONS] socket connect_error:", error?.message || error);
+          console.error("[NOTIFICATIONS] socket connect_error:", {
+            message: error?.message || "unknown",
+            description: error?.description,
+            context: error?.context,
+          });
         });
 
         socket.on("error", (error: any) => {
@@ -210,10 +339,18 @@ export const NotificationsProvider: React.FC<{ children: React.ReactNode }> = ({
 
     return () => {
       disposed = true;
-      socketRef.current?.disconnect();
-      socketRef.current = null;
+      // Keep socket alive while user navigates between authenticated screens.
+      if (isGuestRoute) {
+        console.log("[NOTIFICATIONS] cleanup socket", { pathname });
+        notificationService.disconnectSocket();
+        socketRef.current = null;
+      }
+      if (popupTimeoutRef.current) {
+        clearTimeout(popupTimeoutRef.current);
+        popupTimeoutRef.current = null;
+      }
     };
-  }, [refreshNotifications]);
+  }, [isGuestRoute, refreshNotifications, showPopupNotification]);
 
   const value = useMemo(
     () => ({
@@ -228,7 +365,47 @@ export const NotificationsProvider: React.FC<{ children: React.ReactNode }> = ({
 
   return (
     <NotificationsContext.Provider value={value}>
-      {children}
+      <View className="flex-1">
+        {children}
+
+        {popupNotification ? (
+          <View
+            className="absolute z-50 bg-white rounded-2xl px-4 py-4 border border-[#dbe4f0]"
+            style={{
+              top: topInset + 16,
+              left: 16,
+              right: 16,
+              elevation: 12,
+              shadowColor: "#0f172a",
+              shadowOpacity: 0.22,
+              shadowRadius: 14,
+              shadowOffset: { width: 0, height: 8 },
+            }}
+          >
+            <View className="flex-row items-center justify-between mb-2">
+              <Text className="text-[#2563eb] text-[11px] font-extrabold tracking-[0.8px]">
+                THONG BAO MOI
+              </Text>
+              <TouchableOpacity
+                onPress={() => setPopupNotification(null)}
+                className="bg-[#0f172a] rounded-full px-3 py-1"
+              >
+                <Text className="text-white font-semibold text-[11px]">Dong</Text>
+              </TouchableOpacity>
+            </View>
+
+            <Text className="text-[#0f172a] font-bold text-base" numberOfLines={2}>
+              {popupNotification.title || "Thong bao moi"}
+            </Text>
+
+            {!!popupNotification.message && (
+              <Text className="text-[#334155] text-sm mt-1 leading-5" numberOfLines={3}>
+                {popupNotification.message}
+              </Text>
+            )}
+          </View>
+        ) : null}
+      </View>
     </NotificationsContext.Provider>
   );
 };

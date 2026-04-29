@@ -5,9 +5,11 @@ export default function OwnerLayout() {
   const hiddenScreens = [
     "(account)/changePassword",
     "(stadium)/addField",
+    "(stadium)/createCluster",
     "(stadium)/editField",
     "(stadium)/clusterDetail",
     "(booking)/bookingDetail",
+    "(stadium)/stadiumManagement",
   ];
 
   return (
@@ -21,7 +23,7 @@ export default function OwnerLayout() {
             case "home":
               iconName = focused ? "home" : "home-outline";
               break;
-            case "(stadium)/stadiumManagement":
+            case "(stadium)/clusterList":
               iconName = focused ? "football" : "football-outline";
               break;
             case "(booking)/ownerBookingManagement":
@@ -42,8 +44,8 @@ export default function OwnerLayout() {
     >
       <Tabs.Screen name="home" options={{ title: "Trang chủ" }} />
       <Tabs.Screen
-        name="(stadium)/stadiumManagement"
-        options={{ title: "Danh sách sân" }}
+        name="(stadium)/clusterList"
+        options={{ title: "Cụm sân" }}
       />
       <Tabs.Screen
         name="(booking)/ownerBookingManagement"

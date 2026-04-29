@@ -38,7 +38,8 @@ const ForgotPassword = () => {
 
       Alert.alert(
         "Thành công",
-        "Email đặt lại mật khẩu đã được gửi. Vui lòng kiểm tra email của bạn!"
+        message ||
+          "Email đặt lại mật khẩu đã được gửi. Vui lòng kiểm tra hộp thư đến và cả thư mục spam."
       );
       setEmail("");
       router.back();

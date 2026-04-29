@@ -19,15 +19,30 @@ export interface Cluster {
   owner_id: number;
   is_accepted: boolean;
   accepted_by: number | null;
+  approval_token?: string;
   created_at: string;
   updated_at: string;
 }
 
 export interface CreateClusterRequest {
   name: string;
-  address: string;
-  open_time: string; // HH:MM format
-  close_time: string; // HH:MM format
+  sport_type_ids: number[];
+  street: string;
+  district: string;
+  city: string;
+  open_time: string;
+  close_time: string;
+}
+
+export interface UpdateClusterRequest {
+  name?: string;
+  sport_type_ids?: number[];
+  street?: string;
+  district?: string;
+  city?: string;
+  open_time?: string;
+  close_time?: string;
+  status?: "active" | "inactive";
 }
 
 export interface CreateClusterResponse {
@@ -51,6 +66,13 @@ export interface GetClustersResponse {
     msg: string[];
     code: null | string;
   };
+}
+
+export interface ClusterListPayload {
+  clusters: Cluster[];
+  total: number;
+  offset: number;
+  limit: number;
 }
 
 export interface GetClustersQuery {

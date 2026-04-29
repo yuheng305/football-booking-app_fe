@@ -2,7 +2,7 @@
  * Authentication Types
  */
 
-export type UserRole = "admin" | "player" | "owner";
+export type UserRole = "organizer" | "player" | "owner";
 
 export interface User {
   user_id: number;
@@ -112,9 +112,7 @@ export interface ForgotPasswordRequest {
 }
 
 export interface ForgotPasswordResponse {
-  data: {
-    message: string;
-  };
+  data: boolean | { message?: string };
   api_version: string;
   errors: {
     msg: string[];

@@ -9,9 +9,9 @@ import {
   Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useRouter, useFocusEffect } from "expo-router";
+import { useRouter, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import HeaderOwner from "@/component/HeaderOwner";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { fieldService } from "@/src/services/field.service";
@@ -25,10 +25,13 @@ interface Stadium {
   status: "Đang hoạt động" | "Bảo trì";
   size: string;
   clusterId: number;
+  sportTypeName: string;
+  description: string;
+  pricePerHour: number;
 }
 
 interface StadiumManagementState {
-  filter: "Đang hoạt động" | "Bảo trì";
+  filter: "Tất cả" | "Đang hoạt động" | "Bảo trì";
   maintenanceModalVisible: boolean;
   resumeModalVisible: boolean;
   deleteModalVisible: boolean;
@@ -40,8 +43,14 @@ interface StadiumManagementState {
 
 export default function StadiumManagement() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ clusterId?: string }>();
+  const selectedClusterId = Number(params.clusterId);
+  const routeClusterId =
+    Number.isFinite(selectedClusterId) && selectedClusterId > 0
+      ? selectedClusterId
+      : TEMP_OWNER_CLUSTER_ID;
   const [state, setState] = useState<StadiumManagementState>({
-    filter: "Đang hoạt động",
+    filter: "Tất cả",
     maintenanceModalVisible: false,
     resumeModalVisible: false,
     deleteModalVisible: false,
@@ -55,17 +64,20 @@ export default function StadiumManagement() {
   const fetchStadiums = useCallback(async () => {
     setState((prev) => ({ ...prev, isLoading: true, error: null }));
     try {
-      console.log("[STADIUM MGMT] Fetching fields for cluster:", TEMP_OWNER_CLUSTER_ID);
+      console.log("[STADIUM MGMT] Fetching fields for cluster:", routeClusterId);
       
-      const response = await fieldService.getFieldsByCluster(TEMP_OWNER_CLUSTER_ID);
+      const response = await fieldService.getFieldsByCluster(routeClusterId);
       console.log("[STADIUM MGMT] API Response:", response);
 
       const stadiums: Stadium[] = response.fields.map((field) => ({
         id: field.id,
-        name: `Sân ${field.size}`, // Since API doesn't have name, use size
+        name: `Sân ${field.size}`,
         status: field.status === "active" ? "Đang hoạt động" : "Bảo trì",
         size: field.size,
         clusterId: field.cluster_id,
+        sportTypeName: field.sport_type?.name || "Chưa phân loại",
+        description: field.description || "Chưa có mô tả",
+        pricePerHour: field.price_per_hour || 0,
       }));
 
       setState((prev) => ({
@@ -88,7 +100,7 @@ export default function StadiumManagement() {
         isLoading: false,
       }));
     }
-  }, []);
+  }, [routeClusterId]);
 
   // Refetch data when screen comes into focus
   useFocusEffect(
@@ -114,18 +126,43 @@ export default function StadiumManagement() {
     }
   }, [state.error]);
 
-  const filteredStadiums = state.stadiums.filter(
-    (stadium) => stadium.status === state.filter
+  const availableSportTypes = useMemo(() => {
+    const uniqueTypes = new Map<number, string>();
+
+    state.stadiums.forEach((stadium) => {
+      const existing = Array.from(uniqueTypes.values()).includes(stadium.sportTypeName);
+      if (!existing) {
+        uniqueTypes.set(stadium.id, stadium.sportTypeName);
+      }
+    });
+
+    return Array.from(new Set(state.stadiums.map((stadium) => stadium.sportTypeName)));
+  }, [state.stadiums]);
+
+  const filteredStadiums = useMemo(
+    () =>
+      state.stadiums.filter((stadium) => {
+        const matchesStatus =
+          state.filter === "Tất cả" ? true : stadium.status === state.filter;
+        return matchesStatus;
+      }),
+    [state.filter, state.stadiums]
   );
 
-  const handleMaintenance = async (stadiumId: string, stadiumName: string) => {
+  const stadiumSummary = useMemo(() => {
+    const activeCount = state.stadiums.filter((stadium) => stadium.status === "Đang hoạt động").length;
+    const maintenanceCount = state.stadiums.filter((stadium) => stadium.status === "Bảo trì").length;
+    return { total: state.stadiums.length, activeCount, maintenanceCount };
+  }, [state.stadiums]);
+
+  const handleMaintenance = async (stadiumId: number, stadiumName: string) => {
     try {
       const authToken = await AsyncStorage.getItem("authToken");
       if (!authToken) {
         throw new Error("Token không tồn tại. Vui lòng đăng nhập lại.");
       }
 
-      await legacyApiService.updateFieldMaintainStatus(stadiumId, true, authToken);
+      await legacyApiService.updateFieldMaintainStatus(stadiumId.toString(), true, authToken);
       {
         setState((prev) => ({
           ...prev,
@@ -147,14 +184,14 @@ export default function StadiumManagement() {
     }
   };
 
-  const handleResume = async (stadiumId: string, stadiumName: string) => {
+  const handleResume = async (stadiumId: number, stadiumName: string) => {
     try {
       const authToken = await AsyncStorage.getItem("authToken");
       if (!authToken) {
         throw new Error("Token không tồn tại. Vui lòng đăng nhập lại.");
       }
 
-      await legacyApiService.updateFieldMaintainStatus(stadiumId, false, authToken);
+      await legacyApiService.updateFieldMaintainStatus(stadiumId.toString(), false, authToken);
       {
         setState((prev) => ({
           ...prev,
@@ -177,14 +214,14 @@ export default function StadiumManagement() {
     }
   };
 
-  const handleDelete = async (stadiumId: string, stadiumName: string) => {
+  const handleDelete = async (stadiumId: number, stadiumName: string) => {
     try {
       const authToken = await AsyncStorage.getItem("authToken");
       if (!authToken) {
         throw new Error("Token không tồn tại. Vui lòng đăng nhập lại.");
       }
 
-      await legacyApiService.deleteField(stadiumId, authToken);
+      await legacyApiService.deleteField(stadiumId.toString(), authToken);
       {
         setState((prev) => ({
           ...prev,
@@ -250,102 +287,138 @@ export default function StadiumManagement() {
           Danh sách sân
         </Text>
 
-        <TouchableOpacity
-          className="bg-[#0B8FAC] py-2 px-4 rounded-lg items-center"
-          onPress={() => router.push("/(owners)/(stadium)/addField")}
-        >
-          <Text className="text-white text-xs font-semibold">Thêm sân</Text>
-        </TouchableOpacity>
+        <View className="flex-row items-center gap-2">
+          <TouchableOpacity
+            className="bg-[#0B8FAC] py-2 px-3 rounded-lg items-center"
+            onPress={() => router.push("/(owners)/(stadium)/addField")}
+          >
+            <Text className="text-white text-xs font-semibold">Thêm sân</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
-      <View className="flex-row justify-center gap-4 px-4 mt-6">
-        <TouchableOpacity
-          className={`${
-            state.filter === "Đang hoạt động"
-              ? "bg-[#119916]"
-              : "bg-white border-2 border-[#119916]"
-          } px-6 py-2 rounded-full items-center`}
-          onPress={() =>
-            setState((prev) => ({ ...prev, filter: "Đang hoạt động" }))
-          }
-        >
-          <Text
-            className={`text-base font-medium ${
-              state.filter === "Đang hoạt động"
-                ? "text-white"
-                : "text-[#119916]"
-            }`}
-          >
-            Đang hoạt động
+      <View className="px-4 mt-5">
+        <View className="bg-[#F5F8FF] rounded-2xl p-4 border border-[#d9e6fb]">
+          <Text className="text-[#1E232C] font-bold text-base">Bộ lọc sân con</Text>
+          <Text className="text-gray-500 text-xs mt-1">
+            {stadiumSummary.total} sân con • {stadiumSummary.activeCount} đang hoạt động • {stadiumSummary.maintenanceCount} bảo trì
           </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          className={`${
-            state.filter === "Bảo trì"
-              ? "bg-[#114F99]"
-              : "bg-white border-2 border-[#114F99]"
-          } px-6 py-2 rounded-full items-center`}
-          onPress={() => setState((prev) => ({ ...prev, filter: "Bảo trì" }))}
-        >
-          <Text
-            className={`text-base font-medium ${
-              state.filter === "Bảo trì" ? "text-white" : "text-[#114F99]"
-            }`}
-          >
-            Bảo trì
-          </Text>
-        </TouchableOpacity>
+
+          <View className="flex-row flex-wrap gap-2 mt-3">
+            {[
+              { label: "Tất cả", value: "Tất cả" },
+              { label: "Đang hoạt động", value: "Đang hoạt động" },
+              { label: "Bảo trì", value: "Bảo trì" },
+            ].map((item) => {
+              const active = state.filter === item.value;
+              return (
+                <TouchableOpacity
+                  key={item.value}
+                  className={`px-4 py-2 rounded-full border ${
+                    active ? "bg-[#114F99] border-[#114F99]" : "bg-white border-gray-300"
+                  }`}
+                  onPress={() => setState((prev) => ({ ...prev, filter: item.value as StadiumManagementState["filter"] }))}
+                >
+                  <Text className={`text-xs font-semibold ${active ? "text-white" : "text-gray-700"}`}>
+                    {item.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
       </View>
 
-      <ScrollView className="flex-1 px-4 mt-6">
-        {filteredStadiums.map((stadium) => (
-          <View
-            key={stadium.id}
-            className="bg-white border border-[#11993C] rounded-lg mb-4 p-4 flex-row items-center justify-between"
-          >
-            <Text className="text-xl font-semibold text-black">
-              {stadium.name}
-            </Text>
-            <View className="flex-row items-center gap-2">
-              <TouchableOpacity
-                className="bg-white border-2 border-gray-500 rounded-full w-8 h-8 items-center justify-center"
-                onPress={() =>
-                  router.push({
-                    pathname: "/(owners)/(stadium)/editField",
-                    params: { stadiumName: stadium.name },
-                  })
-                }
-              >
-                <Ionicons name="time-outline" size={20} color="#000000" />
-              </TouchableOpacity>
-              {stadium.status === "Đang hoạt động" ? (
-                <TouchableOpacity
-                  className="bg-white border-2 border-gray-500 rounded-full px-4 py-2"
-                  onPress={() => handleMaintenance(stadium.id, stadium.name)}
-                >
-                  <Text className="text-gray-500 text-base font-medium">
-                    Bảo trì
-                  </Text>
-                </TouchableOpacity>
-              ) : (
-                <TouchableOpacity
-                  className="bg-white border-2 border-gray-500 rounded-full px-4 py-2"
-                  onPress={() => handleResume(stadium.id, stadium.name)}
-                >
-                  <Text className="text-gray-500 text-base font-medium">
-                    Hoạt động lại
-                  </Text>
-                </TouchableOpacity>
-              )}
-              <TouchableOpacity
-                className="bg-[#C21010] rounded-full px-4 py-2"
-                onPress={() => handleDelete(stadium.id, stadium.name)}
-              >
-                <Text className="text-white text-base font-medium">Xóa</Text>
-              </TouchableOpacity>
+      <ScrollView className="flex-1 px-4 mt-4">
+        {availableSportTypes.length > 0 && (
+          <View className="mb-4">
+            <Text className="text-[#1E232C] font-semibold mb-2">Loại sân</Text>
+            <View className="flex-row flex-wrap gap-2">
+              {availableSportTypes.map((sportType) => (
+                <View key={sportType} className="px-3 py-1 rounded-full bg-[#eef4ff] border border-[#cfdcf7]">
+                  <Text className="text-[#114F99] text-xs font-semibold">{sportType}</Text>
+                </View>
+              ))}
             </View>
           </View>
-        ))}
+        )}
+
+        {filteredStadiums.length === 0 ? (
+          <View className="bg-white border border-gray-200 rounded-2xl p-4">
+            <Text className="text-gray-700 font-semibold">Không có sân nào khớp bộ lọc</Text>
+            <Text className="text-gray-500 text-sm mt-1">Thử đổi trạng thái hoặc xem lại cụm sân hiện tại.</Text>
+          </View>
+        ) : (
+          filteredStadiums.map((stadium) => (
+            <View
+              key={stadium.id}
+              className="bg-white border border-[#dbe7f8] rounded-2xl mb-4 p-4"
+            >
+              <View className="flex-row items-start justify-between">
+                <View className="flex-1 pr-3">
+                  <Text className="text-xl font-bold text-black">{stadium.name}</Text>
+                  <Text className="text-gray-600 text-sm mt-1">{stadium.description}</Text>
+                  <Text className="text-gray-600 text-sm mt-1">Loại sân: {stadium.sportTypeName}</Text>
+                  <Text className="text-gray-600 text-sm mt-1">Kích thước: {stadium.size}</Text>
+                  <Text className="text-[#114F99] font-semibold text-sm mt-1">
+                    Giá giờ: {stadium.pricePerHour.toLocaleString("vi-VN")} VND
+                  </Text>
+                </View>
+
+                <View
+                  className={`px-3 py-1 rounded-full ${
+                    stadium.status === "Đang hoạt động" ? "bg-emerald-100" : "bg-orange-100"
+                  }`}
+                >
+                  <Text
+                    className={`text-xs font-semibold ${
+                      stadium.status === "Đang hoạt động" ? "text-emerald-700" : "text-orange-700"
+                    }`}
+                  >
+                    {stadium.status}
+                  </Text>
+                </View>
+              </View>
+
+              <View className="flex-row items-center gap-2 mt-4">
+                <TouchableOpacity
+                  className="flex-1 bg-white border border-gray-300 rounded-xl py-3 items-center"
+                  onPress={() =>
+                    router.push({
+                      pathname: "/(owners)/(stadium)/editField",
+                      params: { stadiumName: stadium.name },
+                    })
+                  }
+                >
+                  <Text className="text-gray-700 text-sm font-semibold">Chỉnh giờ</Text>
+                </TouchableOpacity>
+
+                {stadium.status === "Đang hoạt động" ? (
+                  <TouchableOpacity
+                    className="flex-1 bg-white border border-gray-300 rounded-xl py-3 items-center"
+                    onPress={() => handleMaintenance(stadium.id, stadium.name)}
+                  >
+                    <Text className="text-gray-700 text-sm font-semibold">Bảo trì</Text>
+                  </TouchableOpacity>
+                ) : (
+                  <TouchableOpacity
+                    className="flex-1 bg-white border border-gray-300 rounded-xl py-3 items-center"
+                    onPress={() => handleResume(stadium.id, stadium.name)}
+                  >
+                    <Text className="text-gray-700 text-sm font-semibold">Hoạt động lại</Text>
+                  </TouchableOpacity>
+                )}
+
+                <TouchableOpacity
+                  className="bg-[#C21010] rounded-xl px-4 py-3 items-center"
+                  onPress={() => handleDelete(stadium.id, stadium.name)}
+                >
+                  <Text className="text-white text-sm font-semibold">Xóa</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          ))
+        )}
       </ScrollView>
 
       <Modal

@@ -1,11 +1,14 @@
 import {
   View,
   Text,
+  Image,
   TouchableOpacity,
   ScrollView,
   Modal,
   StyleSheet,
   Alert,
+  ActivityIndicator,
+  Linking,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter, useLocalSearchParams } from "expo-router";
@@ -13,6 +16,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { useState, useEffect } from "react";
 import { bookingService } from "@/src/services/booking.service";
 import type { Booking as BookingType } from "@/src/types/booking.types";
+import { imageService } from "@/src/services/image.service";
+import ContactActions from "@/component/ContactActions";
 
 interface DisplayBooking {
   id: number;
@@ -40,6 +45,18 @@ export default function BookingDetail() {
   const [confirmRejectModalVisible, setConfirmRejectModalVisible] =
     useState(false);
   const [submittingAction, setSubmittingAction] = useState(false);
+  const [playerId, setPlayerId] = useState<number | null>(null);
+  const [playerInfo, setPlayerInfo] = useState<{
+    id: number;
+    fullName: string;
+    email: string;
+    phone: string;
+    role?: string;
+  } | null>(null);
+  const [playerQrUrl, setPlayerQrUrl] = useState<string | null>(null);
+  const [loadingPlayerInfo, setLoadingPlayerInfo] = useState(false);
+  const [showEmergencyInfo, setShowEmergencyInfo] = useState(false);
+  const [showQrPreview, setShowQrPreview] = useState(false);
 
   // Map API status to display status
   const mapStatus = (status: string): string => {
@@ -59,6 +76,21 @@ export default function BookingDetail() {
   };
 
   useEffect(() => {
+    const loadPlayerEmergencyInfo = async (targetPlayerId: number) => {
+      setLoadingPlayerInfo(true);
+      try {
+        const [profile, qrUrl] = await Promise.all([
+          bookingService.getUserBasicProfile(targetPlayerId),
+          imageService.getQrCodeUrl(targetPlayerId),
+        ]);
+
+        setPlayerInfo(profile);
+        setPlayerQrUrl(qrUrl);
+      } finally {
+        setLoadingPlayerInfo(false);
+      }
+    };
+
     const fetchBookingDetail = async () => {
       try {
         console.log("[BOOKING DETAIL] Fetching booking ID:", id);
@@ -84,7 +116,12 @@ export default function BookingDetail() {
         };
 
         setBooking(displayBooking);
+        setPlayerId(data.player_id || null);
         console.log("[BOOKING DETAIL] Loaded booking:", displayBooking);
+
+        if (data.player_id) {
+          await loadPlayerEmergencyInfo(data.player_id);
+        }
       } catch (error) {
         console.error("[BOOKING DETAIL] Error:", error);
         Alert.alert("Lỗi", "Không thể tải thông tin đặt sân");
@@ -183,6 +220,21 @@ export default function BookingDetail() {
     setConfirmRejectModalVisible(false);
   };
 
+  const handleOpenChat = () => {
+    if (!playerId) {
+      Alert.alert("Thong bao", "Khong tim thay player de lien he");
+      return;
+    }
+
+    router.push({
+      pathname: "/chat",
+      params: {
+        receiverId: String(playerId),
+        name: playerInfo?.fullName || booking?.clubName || "Player",
+      },
+    } as any);
+  };
+
   return (
     <SafeAreaView className="flex-1 bg-white">
       {/* <View className="w-full h-[44px] bg-black" /> */}
@@ -204,6 +256,80 @@ export default function BookingDetail() {
           <Text className="text-gray-900 text-lg font-bold">
             CLB: {booking.clubName}
           </Text>
+        </View>
+
+        <View className="bg-blue-50 border border-blue-200 rounded-xl mb-4 overflow-hidden">
+          <TouchableOpacity
+            className="px-4 py-3 flex-row items-center justify-between"
+            onPress={() => setShowEmergencyInfo((prev) => !prev)}
+          >
+            <View className="flex-row items-center flex-1 pr-3">
+              <Ionicons name="shield-checkmark-outline" size={18} color="#1d4ed8" />
+              <Text className="text-blue-900 text-base font-bold ml-2 flex-1">
+                Thông tin user xử lý sự cố
+              </Text>
+            </View>
+            <Ionicons
+              name={showEmergencyInfo ? "chevron-up" : "chevron-down"}
+              size={20}
+              color="#1d4ed8"
+            />
+          </TouchableOpacity>
+
+          {showEmergencyInfo && (
+            <View className="px-4 pb-4 border-t border-blue-200">
+              {loadingPlayerInfo ? (
+                <View className="items-center py-3">
+                  <ActivityIndicator size="small" color="#1d4ed8" />
+                  <Text className="text-blue-700 mt-2">Đang tải thông tin người dùng...</Text>
+                </View>
+              ) : (
+                <>
+                  <Text className="text-gray-800 font-semibold mt-3">
+                    Họ tên: {playerInfo?.fullName || "Không có dữ liệu"}
+                  </Text>
+                  <Text className="text-gray-700 mt-1">
+                    Email: {playerInfo?.email || "Không có dữ liệu"}
+                  </Text>
+                  <Text className="text-gray-700 mt-1">SĐT: {playerInfo?.phone || "Không có dữ liệu"}</Text>
+                  <ContactActions receiverId={playerInfo?.id || playerId} name={playerInfo?.fullName} phone={playerInfo?.phone} />
+                  <Text className="text-gray-700 mt-1">User ID: {playerInfo?.id || playerId || "--"}</Text>
+
+                  <View className="mt-3 pt-3 border-t border-blue-200">
+                    <Text className="text-blue-900 font-semibold mb-2">QR nhận tiền của user</Text>
+                    {playerQrUrl ? (
+                      <>
+                        <Image
+                          source={{ uri: playerQrUrl }}
+                          style={{ width: 220, height: 220, borderRadius: 12 }}
+                          resizeMode="cover"
+                        />
+                        <View className="flex-row mt-3">
+                          <TouchableOpacity
+                            className="bg-blue-600 px-4 py-2 rounded-lg mr-2"
+                            onPress={() => setShowQrPreview(true)}
+                          >
+                            <Text className="text-white font-semibold">Preview</Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            className="bg-white border border-blue-600 px-4 py-2 rounded-lg"
+                            onPress={() => Linking.openURL(playerQrUrl)}
+                          >
+                            <Text className="text-blue-700 font-semibold">Mở/Tải về</Text>
+                          </TouchableOpacity>
+                        </View>
+                      </>
+                    ) : (
+                      <Text className="text-amber-700">User chưa cập nhật QR nhận tiền.</Text>
+                    )}
+                    <Text className="text-xs text-gray-600 mt-2">
+                      Chỉ dùng QR này khi cần hoàn tiền/chuyển khoản xử lý sự cố booking.
+                    </Text>
+                  </View>
+                </>
+              )}
+            </View>
+          )}
         </View>
         <View className="w-full h-[1px] bg-gray-300" />
 
@@ -378,6 +504,41 @@ export default function BookingDetail() {
           </View>
         </View>
       </Modal>
+
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={showQrPreview}
+        onRequestClose={() => setShowQrPreview(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View className="bg-white rounded-2xl p-4 items-center" style={{ width: 320 }}>
+            <Text className="text-lg font-bold text-gray-900 mb-3">QR nhận tiền</Text>
+            {playerQrUrl ? (
+              <Image
+                source={{ uri: playerQrUrl }}
+                style={{ width: 280, height: 280, borderRadius: 12 }}
+                resizeMode="cover"
+              />
+            ) : (
+              <Text className="text-gray-500">Không có QR</Text>
+            )}
+            <TouchableOpacity
+              className="mt-4 bg-blue-600 px-4 py-3 rounded-xl w-full items-center"
+              onPress={() => setShowQrPreview(false)}
+            >
+              <Text className="text-white font-semibold">Đóng preview</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      <TouchableOpacity
+        className="absolute right-5 bottom-6 w-14 h-14 rounded-full bg-blue-600 items-center justify-center shadow"
+        onPress={handleOpenChat}
+      >
+        <Ionicons name="chatbubble-ellipses" size={24} color="#fff" />
+      </TouchableOpacity>
     </SafeAreaView>
   );
 }

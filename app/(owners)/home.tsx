@@ -15,35 +15,39 @@ export default function Home() {
   const router = useRouter();
 
   return (
-    <SafeAreaView className="flex-1 bg-[#060b28]">
-      {/* <View className="w-full h-11 bg-black" /> */}
+    <SafeAreaView className="flex-1 bg-[#060b28]" edges={["top"]}>
+      <ScrollView
+        className="flex-1"
+        contentContainerStyle={{ paddingBottom: 16 }}
+        showsVerticalScrollIndicator={false}
+      >
+        <View className="items-end mt-8 mr-4">
+          <Text className="text-[#ff4d4d] text-5xl font-bold">GoPitch</Text>
+          <Text className="text-[#93c5fd] text-3xl mt-2">Đặt sân thể thao</Text>
+        </View>
 
-      <View className="items-end mt-8 mr-4">
-        <Text className="text-[#ff4d4d] text-5xl font-bold">GoPitch</Text>
-        <Text className="text-[#93c5fd] text-3xl mt-2">Đặt sân thể thao</Text>
-      </View>
+        <View className="items-center">
+          <Image
+            source={require("../../assets/images/player_badminton.png")}
+            style={{
+              width: width * 1.2,
+              height: width * 1.2,
+              resizeMode: "contain",
+            }}
+          />
+        </View>
 
-      <View className="items-center">
-        <Image
-          source={require("../../assets/images/player_badminton.png")}
-          style={{
-            width: width * 1.2,
-            height: width * 1.2,
-            resizeMode: "contain",
-          }}
-        />
-      </View>
-
-      <View className="mb-8">
         <ScrollView
           horizontal
+          nestedScrollEnabled
+          directionalLockEnabled
           showsHorizontalScrollIndicator={false}
-          contentContainerStyle={{ paddingHorizontal: 16 }}
+          contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 6 }}
           className="flex-row"
         >
-          {/* Card: Danh sách sân */}
+          {/* Card: Danh sách sân
           <TouchableOpacity
-            className="w-40 h-40 bg-white rounded-2xl items-center justify-center p-4 border-2 border-[#3b82f6] mr-4"
+            className="w-40 h-36 bg-white rounded-2xl items-center justify-center p-3 border-2 border-[#3b82f6] mr-3"
             onPress={() => router.push("/(owners)/(stadium)/stadiumManagement")}
           >
             <Image
@@ -54,11 +58,25 @@ export default function Home() {
             <Text className="text-[#060b28] font-semibold text-center">
               Danh sách sân
             </Text>
+          </TouchableOpacity> */}
+          {/* Card: Cụm sân */}
+          <TouchableOpacity
+            className="w-40 h-36 bg-white rounded-2xl items-center justify-center p-3 border-2 border-[#3b82f6] mr-3"
+            onPress={() => router.push("/(owners)/(stadium)/clusterList")}
+          >
+            <Image
+              source={require("../../assets/images/book.png")}
+              className="w-full h-full"
+              resizeMode="contain"
+            />
+            <Text className="text-[#060b28] font-semibold text-center">
+              Cụm sân
+            </Text>
           </TouchableOpacity>
 
-          {/* Card: Quản lý đặt sân */}
+          {/* Card: Quản lý */}
           <TouchableOpacity
-            className="w-40 h-40 bg-white rounded-2xl items-center justify-center p-4 border-2 border-[#3b82f6] mr-4"
+            className="w-40 h-36 bg-white rounded-2xl items-center justify-center p-3 border-2 border-[#3b82f6] mr-3"
             onPress={() =>
               router.push("/(owners)/(booking)/ownerBookingManagement")
             }
@@ -69,13 +87,13 @@ export default function Home() {
               resizeMode="contain"
             />
             <Text className="text-[#060b28] font-semibold text-center">
-              Quản lý đặt sân
+              Quản lý
             </Text>
           </TouchableOpacity>
 
           {/* Card: Tài khoản */}
           <TouchableOpacity
-            className="w-40 h-40 bg-white rounded-2xl items-center justify-center p-4 border-2 border-[#3b82f6] mr-4"
+            className="w-40 h-36 bg-white rounded-2xl items-center justify-center p-3 border-2 border-[#3b82f6] mr-3"
             onPress={() => router.push("/(owners)/(account)/account")}
           >
             <Image
@@ -87,23 +105,8 @@ export default function Home() {
               Tài khoản
             </Text>
           </TouchableOpacity>
-
-          {/* Card: Thông tin cụm sân */}
-          <TouchableOpacity
-            className="w-40 h-40 bg-white rounded-2xl items-center justify-center p-4 border-2 border-[#3b82f6] mr-4"
-            onPress={() => router.push("/(owners)/(stadium)/clusterDetail")}
-          >
-            <Image
-              source={require("../../assets/images/book.png")}
-              className="w-full h-full"
-              resizeMode="contain"
-            />
-            <Text className="text-[#060b28] font-semibold text-center">
-              Chi tiết cụm sân
-            </Text>
-          </TouchableOpacity>
         </ScrollView>
-      </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }

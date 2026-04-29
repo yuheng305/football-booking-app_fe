@@ -1,4 +1,4 @@
-import {
+﻿import {
   Text,
   View,
   Image,
@@ -16,29 +16,32 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { fieldService } from "@/src/services/field.service";
 import { FieldWithAvailability } from "@/src/types/booking.types";
 import { bookingDraftService } from "@/src/services/booking-draft.service";
+import { imageService } from "@/src/services/image.service";
 
-interface Field {
+type SportFilterOption = {
   id: number;
-  size: string;
-  description: string;
-  status: string;
-  price_per_hour: number;
-  cluster_id: number;
-  created_at: string;
-  updated_at: string;
-}
+  label: string;
+};
 
-interface FieldsResponse {
-  data: {
-    fields: Field[];
-    total: number;
-  };
-  api_version: string;
-  errors: {
-    msg: string[];
-    code: string | null;
-  };
-}
+const SPORT_LABEL_MAP: Record<number, string> = {
+  1: "Bong da",
+  2: "Cau long",
+  3: "Pickleball",
+  4: "Tennis",
+  5: "Bong ro",
+};
+
+const getSportLabel = (sportTypeId?: number, sportTypeName?: string) => {
+  if (sportTypeName?.trim()) {
+    return sportTypeName.trim();
+  }
+
+  if (typeof sportTypeId === "number" && SPORT_LABEL_MAP[sportTypeId]) {
+    return SPORT_LABEL_MAP[sportTypeId];
+  }
+
+  return "Khac";
+};
 
 const FieldSelect = () => {
   const params = useLocalSearchParams();
@@ -50,6 +53,9 @@ const FieldSelect = () => {
   const [clusterName, setClusterName] = useState<string>("");
   const [selectedDate, setSelectedDate] = useState<string>("");
   const [activeClusterId, setActiveClusterId] = useState<string>("");
+  const [fieldImageMap, setFieldImageMap] = useState<Record<number, string>>({});
+  const [sportOptions, setSportOptions] = useState<SportFilterOption[]>([]);
+  const [selectedSportId, setSelectedSportId] = useState<number | "all">("all");
 
   const loadScreenData = async () => {
     try {
@@ -68,15 +74,15 @@ const FieldSelect = () => {
       setClusterName(resolvedClusterName);
 
       if (!resolvedClusterId || !resolvedDate) {
-        setError("Thiếu thông tin cụm sân hoặc ngày đặt. Vui lòng chọn lại.");
+        setError("Thieu thong tin cum san hoac ngay dat. Vui long chon lai.");
         setFields([]);
         return;
       }
 
       await fetchFieldsWithAvailability(resolvedClusterId, resolvedDate);
-    } catch (error) {
-      console.error("[FIELD SELECT] Error loading screen data:", error);
-      setError("Không thể tải thông tin chọn sân");
+    } catch (loadError) {
+      console.error("[FIELD SELECT] Error loading screen data:", loadError);
+      setError("Khong the tai thong tin chon san");
     }
   };
 
@@ -90,9 +96,6 @@ const FieldSelect = () => {
     }, [clusterIdParam])
   );
 
-  /**
-   * Fallback: Fetch from API if data not in storage
-   */
   const fetchFieldsWithAvailability = async (clusterId: string, bookingDate: string) => {
     try {
       setLoading(true);
@@ -103,20 +106,65 @@ const FieldSelect = () => {
         bookingDate,
       });
 
-      console.log("[FIELD SELECT] Fields with availability:", fieldsData);
-
-      // Filter only active fields
-      const activeFields = fieldsData.filter(
-        (item) => item.field.status === "active"
-      );
+      const activeFields = fieldsData.filter((item) => item.field.status === "active");
       setFields(activeFields);
 
+      const nextSportOptions = Array.from(
+        new Map(
+          activeFields
+            .map((item) => {
+              const sportTypeId = item.field.sport_type_id;
+              if (!sportTypeId) {
+                return null;
+              }
+
+              return [
+                sportTypeId,
+                {
+                  id: sportTypeId,
+                  label: getSportLabel(sportTypeId, item.field.sport_type?.name),
+                },
+              ] as const;
+            })
+            .filter((entry): entry is readonly [number, SportFilterOption] => !!entry)
+        ).values()
+      ).sort((a, b) => a.id - b.id);
+
+      setSportOptions(nextSportOptions);
+      setSelectedSportId((prev) => {
+        if (prev === "all") {
+          return prev;
+        }
+
+        return nextSportOptions.some((item) => item.id === prev) ? prev : "all";
+      });
+
+      const imageEntries = await Promise.all(
+        activeFields.map(async (item) => {
+          try {
+            const imageUrl = await imageService.getFirstImageUrl("field", item.field.id);
+            return imageUrl ? ([item.field.id, imageUrl] as const) : null;
+          } catch {
+            return null;
+          }
+        })
+      );
+
+      const nextImageMap = imageEntries.reduce<Record<number, string>>((acc, entry) => {
+        if (entry) {
+          const [fieldId, url] = entry;
+          acc[fieldId] = url;
+        }
+        return acc;
+      }, {});
+      setFieldImageMap(nextImageMap);
+
       if (activeFields.length === 0) {
-        setError("Hiện tại không có sân nào khả dụng trong ngày này.");
+        setError("Hien tai khong co san nao kha dung trong ngay nay.");
       }
-    } catch (error: any) {
-      console.error("[FIELD SELECT] Error fetching fields:", error);
-      setError(error.message || "Không thể tải danh sách sân");
+    } catch (fetchError: any) {
+      console.error("[FIELD SELECT] Error fetching fields:", fetchError);
+      setError(fetchError.message || "Khong the tai danh sach san");
     } finally {
       setLoading(false);
     }
@@ -125,8 +173,7 @@ const FieldSelect = () => {
   const handleSelectField = async (fieldData: FieldWithAvailability) => {
     try {
       const { field, available_slots, booked_slots } = fieldData;
-      
-      // Save selected field info
+
       await AsyncStorage.setItem("selectedFieldId", field.id.toString());
       await AsyncStorage.setItem("selectedFieldSize", field.size);
       await AsyncStorage.setItem("selectedFieldPrice", field.price_per_hour.toString());
@@ -143,20 +190,14 @@ const FieldSelect = () => {
         selectedEndTime: undefined,
         selectedDuration: undefined,
       });
-      
-      // Save availability data for time selection
+
       await AsyncStorage.setItem("fieldAvailableSlots", JSON.stringify(available_slots));
       await AsyncStorage.setItem("fieldBookedSlots", JSON.stringify(booked_slots));
 
-      console.log("[FIELD SELECT] Selected field:", field);
-      console.log("[FIELD SELECT] Available slots:", available_slots);
-      console.log("[FIELD SELECT] Booked slots:", booked_slots);
-
-      // Navigate to time selection
       router.push("/(tabs)/(stadiums)/time-select");
-    } catch (error) {
-      console.error("[FIELD SELECT] Error saving field:", error);
-      Alert.alert("Lỗi", "Không thể lưu thông tin sân");
+    } catch (saveError) {
+      console.error("[FIELD SELECT] Error saving field:", saveError);
+      Alert.alert("Loi", "Khong the luu thong tin san");
     }
   };
 
@@ -173,17 +214,19 @@ const FieldSelect = () => {
     return `${day}/${month}/${year}`;
   };
 
-  const headerSubtitle = [
-    clusterName,
-    selectedDate ? formatDate(selectedDate) : "",
-  ]
+  const headerSubtitle = [clusterName, selectedDate ? formatDate(selectedDate) : ""]
     .filter(Boolean)
     .join(" • ");
 
+  const filteredFields =
+    selectedSportId === "all"
+      ? fields
+      : fields.filter((item) => item.field.sport_type_id === selectedSportId);
+
   return (
-    <SafeAreaView className="flex-1 bg-gray-100" edges={['top']}>
+    <SafeAreaView className="flex-1 bg-gray-100" edges={["top"]}>
       <HeaderUser
-        title="Chọn sân"
+        title="Chon san"
         subtitle={headerSubtitle}
         showBackButton
         onBackPress={() => router.push("/(tabs)/(stadiums)/date-select")}
@@ -192,7 +235,7 @@ const FieldSelect = () => {
       {loading && (
         <View className="flex-1 items-center justify-center">
           <ActivityIndicator size="large" color="#3b82f6" />
-          <Text className="text-center text-lg mt-4">Đang tải...</Text>
+          <Text className="text-center text-lg mt-4">Dang tai...</Text>
         </View>
       )}
 
@@ -208,7 +251,7 @@ const FieldSelect = () => {
                 : null
             }
           >
-            <Text className="text-white font-semibold">Thử lại</Text>
+            <Text className="text-white font-semibold">Thu lai</Text>
           </TouchableOpacity>
         </View>
       )}
@@ -219,11 +262,54 @@ const FieldSelect = () => {
           contentContainerStyle={{ paddingHorizontal: 16 }}
           className="flex-1 mt-3"
         >
-          {fields.map((fieldData) => {
+          {sportOptions.length > 1 && (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              className="mb-4"
+              contentContainerStyle={{ paddingRight: 12 }}
+            >
+              <TouchableOpacity
+                className={`px-4 py-2 rounded-full mr-2 border ${selectedSportId === "all" ? "bg-blue-500 border-blue-500" : "bg-white border-gray-300"}`}
+                onPress={() => setSelectedSportId("all")}
+              >
+                <Text className={`${selectedSportId === "all" ? "text-white" : "text-gray-700"} font-semibold`}>
+                  Tat ca
+                </Text>
+              </TouchableOpacity>
+
+              {sportOptions.map((sport) => {
+                const isActive = selectedSportId === sport.id;
+
+                return (
+                  <TouchableOpacity
+                    key={sport.id}
+                    className={`px-4 py-2 rounded-full mr-2 border ${isActive ? "bg-blue-500 border-blue-500" : "bg-white border-gray-300"}`}
+                    onPress={() => setSelectedSportId(sport.id)}
+                  >
+                    <Text className={`${isActive ? "text-white" : "text-gray-700"} font-semibold`}>
+                      {sport.label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          )}
+
+          {filteredFields.length === 0 && (
+            <View className="items-center justify-center py-12">
+              <Ionicons name="filter-outline" size={48} color="#9ca3af" />
+              <Text className="text-center text-gray-500 mt-3 text-base">
+                Khong co san phu hop voi mon da chon
+              </Text>
+            </View>
+          )}
+
+          {filteredFields.map((fieldData) => {
             const { field, available_slots, booked_slots } = fieldData;
             const hasAvailability = available_slots.length > 0;
             const totalBooked = booked_slots.length;
-            
+
             return (
               <TouchableOpacity
                 key={field.id}
@@ -234,39 +320,38 @@ const FieldSelect = () => {
               >
                 <View className="flex-row items-start">
                   <View className="bg-blue-100 rounded-full p-3 mr-4">
-                    <Ionicons name="football" size={32} color="#3b82f6" />
+                    {fieldImageMap[field.id] ? (
+                      <Image
+                        source={{ uri: fieldImageMap[field.id] }}
+                        className="w-12 h-12 rounded-full"
+                        resizeMode="cover"
+                      />
+                    ) : (
+                      <Ionicons name="football" size={32} color="#3b82f6" />
+                    )}
                   </View>
 
                   <View className="flex-1">
                     <View className="flex-row items-center justify-between mb-2">
-                      <Text className="text-lg font-bold text-gray-900">
-                        Sân {field.size}
-                      </Text>
+                      <Text className="text-lg font-bold text-gray-900">San {field.size}</Text>
                       <View
-                        className={`${
-                          hasAvailability ? "bg-green-100" : "bg-red-100"
-                        } px-3 py-1 rounded-full`}
+                        className={`${hasAvailability ? "bg-green-100" : "bg-red-100"} px-3 py-1 rounded-full`}
                       >
                         <Text
-                          className={`${
-                            hasAvailability ? "text-green-700" : "text-red-700"
-                          } text-xs font-semibold`}
+                          className={`${hasAvailability ? "text-green-700" : "text-red-700"} text-xs font-semibold`}
                         >
-                          {hasAvailability ? "Khả dụng" : "Hết chỗ"}
+                          {hasAvailability ? "Kha dung" : "Het cho"}
                         </Text>
                       </View>
                     </View>
 
-                    <Text className="text-gray-600 text-sm mb-2">
-                      {field.description}
-                    </Text>
+                    <Text className="text-gray-600 text-sm mb-2">{field.description}</Text>
 
-                    {/* Availability info */}
                     {totalBooked > 0 && (
                       <View className="flex-row items-center mb-2">
                         <Ionicons name="time-outline" size={14} color="#f59e0b" />
                         <Text className="text-xs text-amber-600 ml-1">
-                          {totalBooked} khung giờ đã đặt
+                          {totalBooked} khung gio da dat
                         </Text>
                       </View>
                     )}
@@ -275,17 +360,15 @@ const FieldSelect = () => {
                       <View className="flex-row items-center">
                         <Ionicons name="cash-outline" size={18} color="#3b82f6" />
                         <Text className="text-blue-600 font-semibold text-base ml-2">
-                          {formatPrice(field.price_per_hour)}/giờ
+                          {formatPrice(field.price_per_hour)}/gio
                         </Text>
                       </View>
 
                       <View
-                        className={`${
-                          hasAvailability ? "bg-blue-500" : "bg-gray-300"
-                        } px-4 py-2 rounded-lg`}
+                        className={`${hasAvailability ? "bg-blue-500" : "bg-gray-300"} px-4 py-2 rounded-lg`}
                       >
                         <Text className="text-white font-semibold">
-                          {hasAvailability ? "Chọn" : "Hết chỗ"}
+                          {hasAvailability ? "Chon" : "Het cho"}
                         </Text>
                       </View>
                     </View>
@@ -301,7 +384,7 @@ const FieldSelect = () => {
         <View className="flex-1 items-center justify-center px-4">
           <Ionicons name="football-outline" size={64} color="#9ca3af" />
           <Text className="text-center text-gray-500 mt-4 text-base">
-            Không có sân nào khả dụng
+            Khong co san nao kha dung
           </Text>
         </View>
       )}

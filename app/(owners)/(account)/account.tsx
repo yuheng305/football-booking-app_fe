@@ -16,14 +16,13 @@ import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { authService } from "@/src/services/auth.service";
 import { legacyApiService } from "@/src/services/legacy-api.service";
+import { imageService } from "@/src/services/image.service";
 
 const Owner = () => {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [username, setUsername] = useState("");
-  const [clustername, setClustername] = useState("");
-  const [address, setAddress] = useState("");
   const [imageUri, setImageUri] = useState(
     require("../../../assets/images/user_placeholder.jpg")
   );
@@ -44,7 +43,17 @@ const Owner = () => {
         setEmail(userProfile.email || "");
         setPhone(userProfile.phone_number || "");
         setUsername(userProfile.email?.split("@")[0] || "");
-        
+
+        try {
+          const avatarUrl = await imageService.getAvatarUrl(userProfile.id);
+          if (avatarUrl) {
+            setImageUri({ uri: avatarUrl });
+          }
+        } catch (avatarError) {
+          console.error("Lỗi lấy avatar owner:", avatarError);
+        }
+
+
         // Lưu lại vào AsyncStorage để dùng offline
         const userDataToStore = {
           id: userProfile.id,
@@ -72,8 +81,6 @@ const Owner = () => {
             setEmail(userData.email || "");
             setPhone(userData.phone || "");
             setUsername(userData.username || "");
-            setClustername(userData.clusterName || "");
-            setAddress(userData.address || "");
           } else {
             Alert.alert("Lỗi", "Không tìm thấy thông tin người dùng!");
             router.replace("/login");
@@ -99,7 +106,26 @@ const Owner = () => {
     });
 
     if (!result.canceled) {
-      setImageUri({ uri: result.assets[0].uri });
+      const asset = result.assets[0];
+      setImageUri({ uri: asset.uri });
+
+      try {
+        const uploaded = await imageService.uploadImage(
+          "avatar",
+          asset.uri,
+          asset.fileName || undefined,
+          asset.mimeType || undefined,
+          undefined,
+          asset.fileSize || undefined
+        );
+
+        if (uploaded.url) {
+          setImageUri({ uri: uploaded.url });
+        }
+      } catch (error) {
+        console.error("Lỗi upload avatar owner:", error);
+        Alert.alert("Lỗi", "Không thể cập nhật ảnh đại diện. Vui lòng thử lại.");
+      }
     }
   };
 
@@ -122,8 +148,6 @@ const Owner = () => {
         username,
         phone,
         email,
-        clusterName: clustername, // Đổi thành clusterName để khớp với API
-        address,
       };
 
       console.log("Dữ liệu gửi API:", userData); // Debug
@@ -178,8 +202,6 @@ const Owner = () => {
     email,
     phone,
     username,
-    clustername,
-    address,
   }); // Debug
 
   if (loading) {
@@ -264,28 +286,6 @@ const Owner = () => {
               onChangeText={setEmail}
               keyboardType="email-address"
               placeholder="Nhập email"
-            />
-          </View>
-
-          <View className="border border-black px-4 pt-2">
-            <Text className="text-xl text-gray-600">Cụm sân</Text>
-            <TextInput
-              className="text-2xl font-bold"
-              value={clustername}
-              onChangeText={setClustername}
-              keyboardType="default"
-              placeholder="Nhập tên cụm sân"
-            />
-          </View>
-
-          <View className="border border-black px-4 pt-2">
-            <Text className="text-xl text-gray-600">Địa chỉ</Text>
-            <TextInput
-              className="text-2xl font-bold"
-              value={address}
-              onChangeText={setAddress}
-              keyboardType="default"
-              placeholder="Nhập địa chỉ"
             />
           </View>
 

@@ -9,6 +9,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
 import HeaderOne from "@/component/HeaderOne";
 import authService from "../../../src/services/auth.service";
 
@@ -17,6 +18,9 @@ const ChangePassword = () => {
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [showOldPassword, setShowOldPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const handleChange = async () => {
     // Validate inputs
@@ -92,21 +96,35 @@ const ChangePassword = () => {
     <SafeAreaView className="flex-1 bg-white" edges={['top']}>
       <View className="flex-1">
         <HeaderOne title="Đổi mật khẩu" />
-        <View className="px-6 mt-6 space-y-4">
+        <View className="px-6 mt-6 space-y-6">
           {/* Old Password */}
           <View>
             <Text className="mb-2 text-gray-600 font-semibold">
               Mật khẩu cũ
             </Text>
-            <TextInput
-              secureTextEntry
-              value={oldPassword}
-              onChangeText={setOldPassword}
-              placeholder="Nhập mật khẩu cũ"
-              placeholderTextColor="gray"
-              className="border border-gray-300 px-4 py-3 rounded bg-gray-50"
-              editable={!isLoading}
-            />
+            <View className="flex-row items-center border border-gray-300 px-4 py-3 rounded bg-gray-50">
+              <Ionicons name="lock-closed-outline" size={20} color="gray" />
+              <TextInput
+                secureTextEntry={!showOldPassword}
+                value={oldPassword}
+                onChangeText={setOldPassword}
+                placeholder="Nhập mật khẩu cũ"
+                placeholderTextColor="gray"
+                className="flex-1 ml-3"
+                autoCapitalize="none"
+                editable={!isLoading}
+              />
+              <TouchableOpacity
+                onPress={() => setShowOldPassword(!showOldPassword)}
+                disabled={isLoading}
+              >
+                <Ionicons
+                  name={showOldPassword ? "eye-off-outline" : "eye-outline"}
+                  size={20}
+                  color="gray"
+                />
+              </TouchableOpacity>
+            </View>
           </View>
 
           {/* New Password */}
@@ -114,15 +132,29 @@ const ChangePassword = () => {
             <Text className="mb-2 text-gray-600 font-semibold">
               Mật khẩu mới
             </Text>
-            <TextInput
-              secureTextEntry
-              value={newPassword}
-              onChangeText={setNewPassword}
-              placeholder="Nhập mật khẩu mới"
-              placeholderTextColor="gray"
-              className="border border-gray-300 px-4 py-3 rounded bg-gray-50"
-              editable={!isLoading}
-            />
+            <View className="flex-row items-center border border-gray-300 px-4 py-3 rounded bg-gray-50">
+              <Ionicons name="lock-closed-outline" size={20} color="gray" />
+              <TextInput
+                secureTextEntry={!showNewPassword}
+                value={newPassword}
+                onChangeText={setNewPassword}
+                placeholder="Nhập mật khẩu mới"
+                placeholderTextColor="gray"
+                className="flex-1 ml-3"
+                autoCapitalize="none"
+                editable={!isLoading}
+              />
+              <TouchableOpacity
+                onPress={() => setShowNewPassword(!showNewPassword)}
+                disabled={isLoading}
+              >
+                <Ionicons
+                  name={showNewPassword ? "eye-off-outline" : "eye-outline"}
+                  size={20}
+                  color="gray"
+                />
+              </TouchableOpacity>
+            </View>
           </View>
 
           {/* Confirm Password */}
@@ -130,15 +162,29 @@ const ChangePassword = () => {
             <Text className="mb-2 text-gray-600 font-semibold">
               Xác nhận mật khẩu mới
             </Text>
-            <TextInput
-              secureTextEntry
-              value={confirmPassword}
-              onChangeText={setConfirmPassword}
-              placeholder="Nhập lại mật khẩu mới"
-              placeholderTextColor="gray"
-              className="border border-gray-300 px-4 py-3 rounded bg-gray-50"
-              editable={!isLoading}
-            />
+            <View className="flex-row items-center border border-gray-300 px-4 py-3 rounded bg-gray-50">
+              <Ionicons name="lock-closed-outline" size={20} color="gray" />
+              <TextInput
+                secureTextEntry={!showConfirmPassword}
+                value={confirmPassword}
+                onChangeText={setConfirmPassword}
+                placeholder="Nhập lại mật khẩu mới"
+                placeholderTextColor="gray"
+                className="flex-1 ml-3"
+                autoCapitalize="none"
+                editable={!isLoading}
+              />
+              <TouchableOpacity
+                onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+                disabled={isLoading}
+              >
+                <Ionicons
+                  name={showConfirmPassword ? "eye-off-outline" : "eye-outline"}
+                  size={20}
+                  color="gray"
+                />
+              </TouchableOpacity>
+            </View>
           </View>
 
           {/* Submit Button */}

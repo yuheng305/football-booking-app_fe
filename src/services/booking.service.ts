@@ -57,6 +57,51 @@ type ZaloPayPaymentResponse = {
 };
 
 class BookingService {
+  async getUserBasicProfile(userId: number): Promise<{
+    id: number;
+    fullName: string;
+    email: string;
+    phone: string;
+    role?: string;
+  } | null> {
+    try {
+      const token = await AsyncStorage.getItem("authToken");
+      if (!token) {
+        throw new Error("Not authenticated");
+      }
+
+      const response = await fetch(`${API_CONFIG.BASE_URL}/users/${userId}`, {
+        method: "GET",
+        headers: {
+          accept: "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        return null;
+      }
+
+      const payload = (await response.json().catch(() => ({}))) as any;
+      const data = payload?.data || payload;
+      if (!data || !data.id) {
+        return null;
+      }
+
+      const fullName = [data.first_name, data.last_name].filter(Boolean).join(" ").trim();
+
+      return {
+        id: Number(data.id),
+        fullName: fullName || `User #${data.id}`,
+        email: data.email || "",
+        phone: data.phone_number || data.phone || "",
+        role: data.role,
+      };
+    } catch {
+      return null;
+    }
+  }
+
   private async ownerBookingAction(
     bookingId: number,
     action: "owner-confirm" | "owner-cancel",

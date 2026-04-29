@@ -49,8 +49,12 @@ export const API_CONFIG = {
   },
   PAYMENT_ENDPOINTS: {
     GET_PLAYER_PAYMENTS: "/payments/player/:playerId",
+    GET_ORGANIZER_PAYMENTS: "/payments/organizer/:organizerId",
+    GET_OWNER_PAYMENTS: "/payments/owner",
     CREATE_PAYMENT: "/payments",
     CREATE_ZALOPAY_ORDER: "/payments/zalopay/:bookingId",
+    CREATE_TOURNAMENT_ZALOPAY_ORDER: "/payments/zalopay/tournament/:tournamentId",
+    GET_OWNER_REVENUE: "/payments/owner/revenue",
   },
   NOTIFICATION_ENDPOINTS: {
     LIST: "/notifications",
@@ -62,6 +66,23 @@ export const API_CONFIG = {
     GET_AVAILABILITY: "/fields/cluster/:clusterId/availability",
     GET_FIELD_AVAILABILITY_BY_ID: "/fields/:fieldId/availability",
     GET_OWNER_FIELDS: "/fields/owner/:ownerId",
+  },
+  TOURNAMENT_ENDPOINTS: {
+    CREATE: "/tournaments",
+    CREATE_LEVEL_2: "/tournaments/v2",
+    DETAIL: "/tournaments/:id",
+    LEVEL_2_ROUND_MATCHES: "/tournaments/:id/rounds/:roundId/matches",
+    LEVEL_2_UPDATE_MATCH: "/tournaments/:id/rounds/:roundId/matches/:matchId",
+    LEVEL_2_AVAILABLE_SLOTS: "/tournaments/:id/rounds/:roundId/available-slots",
+    LEVEL_2_SCHEDULE_ROUND: "/tournaments/:id/rounds/:roundId/schedule",
+    OWNER_CONFIRM: "/tournaments/:id?action=owner-confirm",
+    OWNER_LIST: "/tournaments/owner",
+    ORGANIZER_LIST: "/tournaments/organizer/:organizerId",
+  },
+  CHAT_ENDPOINTS: {
+    LIST_CONVERSATIONS: "/chats/conversations",
+    SEND_MESSAGE: "/chats/messages",
+    LIST_MESSAGES: "/chats/messages/:receiverId",
   },
   TIMEOUT: 30000, // 30 seconds
 };

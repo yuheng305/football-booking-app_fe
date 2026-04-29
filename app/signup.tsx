@@ -7,13 +7,20 @@ import {
   Alert,
   ActivityIndicator,
   ScrollView,
+  KeyboardAvoidingView,
+  Platform,
 } from "react-native";
-import { Picker } from "@react-native-picker/picker";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import authService from "../src/services/auth.service";
 import { UserRole } from "../src/types/auth.types";
+
+const ROLE_OPTIONS: Array<{ value: UserRole; label: string }> = [
+  { value: "player", label: "Người chơi" },
+  { value: "owner", label: "Chủ sân" },
+  { value: "organizer", label: "Ban tổ chức" },
+];
 
 const Signup = () => {
   const [email, setEmail] = useState("");
@@ -26,6 +33,8 @@ const Signup = () => {
   const [role, setRole] = useState<UserRole>("player");
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const selectedRoleLabel =
+    ROLE_OPTIONS.find((option) => option.value === role)?.label || "Người chơi";
 
   const handleSignup = async () => {
     // Validate required fields
@@ -100,8 +109,17 @@ const Signup = () => {
 
   return (
     <SafeAreaView className="flex-1 bg-[#1A2A44]">
-      <ScrollView className="flex-1">
-        <View className="px-6 py-6">
+      <KeyboardAvoidingView
+        className="flex-1"
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}
+      >
+        <ScrollView
+          className="flex-1"
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={{ paddingBottom: 32 }}
+        >
+          <View className="px-6 py-6">
           {/* Tab Navigation */}
           <View className="flex-row justify-center gap-4 mb-8">
             <TouchableOpacity onPress={() => router.push("/login")}>
@@ -219,26 +237,39 @@ const Signup = () => {
           </View>
 
           {/* Role */}
-          {/* <View className="mb-6">
-            <View className="flex-row items-center border-b border-gray-500 py-2">
+          <View className="mb-6">
+            <View className="flex-row items-center mb-2">
               <Ionicons
                 name="shield-checkmark-outline"
                 size={24}
                 color="#3b82f6"
                 className="mr-3"
               />
-              <Picker
-                selectedValue={role}
-                onValueChange={(itemValue) => setRole(itemValue as UserRole)}
-                enabled={!isLoading}
-                style={{ flex: 1, color: "white" }}
-                itemStyle={{ color: "white", backgroundColor: "#1A2A44" }}
-              >
-                <Picker.Item label="Player" value="player" color="white" />
-                <Picker.Item label="Owner" value="owner" color="white" />
-              </Picker>
+              <Text className="text-white text-base">Vai trò</Text>
             </View>
-          </View> */}
+
+            <View className="flex-row flex-wrap gap-2">
+              {ROLE_OPTIONS.map((option) => {
+                const active = role === option.value;
+                return (
+                  <TouchableOpacity
+                    key={option.value}
+                    onPress={() => setRole(option.value)}
+                    disabled={isLoading}
+                    className={`px-3 py-2 rounded-xl border ${
+                      active ? "border-blue-400 bg-blue-500/20" : "border-gray-500"
+                    }`}
+                  >
+                    <Text className={active ? "text-blue-200 font-semibold" : "text-white"}>
+                      {option.label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            <Text className="text-gray-300 text-xs mt-2">Vai trò đã chọn: {selectedRoleLabel}</Text>
+          </View>
 
           {/* Password */}
           <View className="mb-6">
@@ -312,8 +343,9 @@ const Signup = () => {
               </Text>
             )}
           </TouchableOpacity>
-        </View>
-      </ScrollView>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 };

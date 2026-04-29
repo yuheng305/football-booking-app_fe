@@ -12,8 +12,10 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { router, useFocusEffect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import HeaderUser from "@/component/HeaderUser";
+import ContactActions from "@/component/ContactActions";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { bookingService } from "@/src/services/booking.service";
+import { clusterService } from "@/src/services/cluster.service";
 import {
   getBookingStatusMeta,
   isBookingPaid,
@@ -66,6 +68,7 @@ const formatBookingTime = (value?: string) => {
 
 const BookingDetail = () => {
   const [booking, setBooking] = useState<BookingDetail | null>(null);
+  const [ownerChatId, setOwnerChatId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const waitingPaymentResultRef = useRef(false);
@@ -131,6 +134,21 @@ const BookingDetail = () => {
         zalopayOrderUrl: data.zalopay_order_url ?? null,
         services: [],
       });
+
+      const ownerIdFromBooking = Number((data.field?.cluster as any)?.owner_id);
+      if (Number.isFinite(ownerIdFromBooking) && ownerIdFromBooking > 0) {
+        setOwnerChatId(ownerIdFromBooking);
+      } else {
+        const clusterId = Number(data.field?.cluster_id);
+        if (Number.isFinite(clusterId) && clusterId > 0) {
+          try {
+            const cluster = await clusterService.getCluster(clusterId);
+            setOwnerChatId(Number(cluster.owner_id) || null);
+          } catch {
+            setOwnerChatId(null);
+          }
+        }
+      }
 
       if (isBookingPaid(data.status)) {
         waitingPaymentResultRef.current = false;
@@ -209,6 +227,21 @@ const BookingDetail = () => {
 
   const handleGoHome = () => {
     router.push("/(tabs)/home");
+  };
+
+  const handleOpenChat = () => {
+    if (!ownerChatId) {
+      Alert.alert("Thong bao", "Khong tim thay chu san de lien he");
+      return;
+    }
+
+    router.push({
+      pathname: "/chat",
+      params: {
+        receiverId: String(ownerChatId),
+        name: booking?.clusterName || "Chu san",
+      },
+    } as any);
   };
 
   if (loading) {
@@ -347,9 +380,8 @@ const BookingDetail = () => {
                 <Ionicons name="location-outline" size={20} color="#6b7280" />
                 <Text className="text-gray-600 ml-2">Cụm sân:</Text>
               </View>
-              <Text className="text-gray-800 font-semibold text-base ml-7">
-                {booking.clusterName}
-              </Text>
+                <Text className="text-gray-800 font-semibold text-base ml-7">{booking.clusterName}</Text>
+                <ContactActions receiverId={ownerChatId} name={booking.clusterName} />
             </View>
 
             <View className="mb-3">
@@ -471,6 +503,13 @@ const BookingDetail = () => {
           </View>
         </View>
       </ScrollView>
+
+      <TouchableOpacity
+        className="absolute right-5 bottom-6 w-14 h-14 rounded-full bg-blue-600 items-center justify-center shadow"
+        onPress={handleOpenChat}
+      >
+        <Ionicons name="chatbubble-ellipses" size={24} color="#fff" />
+      </TouchableOpacity>
     </SafeAreaView>
   );
 };

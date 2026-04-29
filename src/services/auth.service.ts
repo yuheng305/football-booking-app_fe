@@ -29,6 +29,15 @@ const STORAGE_KEYS = {
 };
 
 class AuthService {
+  private unwrapData<T>(payload: T | { data: T }): T {
+    const candidate = payload as { data?: T };
+    if (candidate && typeof candidate === "object" && "data" in candidate && candidate.data) {
+      return candidate.data;
+    }
+
+    return payload as T;
+  }
+
   /**
    * Login user
    */
@@ -79,19 +88,34 @@ class AuthService {
    */
   async signup(data: SignupRequest): Promise<{ user: SignupResponse["data"] }> {
     try {
-      const response = await apiClient.post<SignupResponse>(
+      console.log("[AUTH][SIGNUP] Request start", {
+        email: data?.email,
+        role: data?.role,
+      });
+
+      const response = await apiClient.post<SignupResponse | SignupResponse["data"]>(
         API_CONFIG.AUTH_ENDPOINTS.SIGNUP,
         data
       );
 
-      if (!response.data?.email) {
+      const signupData = this.unwrapData<SignupResponse["data"]>(response);
+
+      if (!signupData?.email) {
         throw new Error("Invalid signup response");
       }
 
+      console.log("[AUTH][SIGNUP] Request success", {
+        email: signupData.email,
+      });
+
       return {
-        user: response.data,
+        user: signupData,
       };
     } catch (error) {
+      console.error("[AUTH][SIGNUP] Request failed", {
+        email: data?.email,
+        error,
+      });
       throw error;
     }
   }
@@ -109,6 +133,9 @@ class AuthService {
         AsyncStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN),
         AsyncStorage.removeItem(STORAGE_KEYS.REFRESH_TOKEN),
         AsyncStorage.removeItem(STORAGE_KEYS.USER_DATA),
+        AsyncStorage.removeItem("userProfile"),
+        AsyncStorage.removeItem("userRole"),
+        AsyncStorage.removeItem("playerId"),
       ]);
 
       // Clear auth token from client
@@ -119,6 +146,9 @@ class AuthService {
         AsyncStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN),
         AsyncStorage.removeItem(STORAGE_KEYS.REFRESH_TOKEN),
         AsyncStorage.removeItem(STORAGE_KEYS.USER_DATA),
+        AsyncStorage.removeItem("userProfile"),
+        AsyncStorage.removeItem("userRole"),
+        AsyncStorage.removeItem("playerId"),
       ]);
       apiClient.clearAuthToken();
       throw error;
@@ -204,17 +234,40 @@ class AuthService {
    */
   async forgotPassword(data: ForgotPasswordRequest): Promise<string> {
     try {
+      console.log("[AUTH][FORGOT_PASSWORD] Request start", {
+        email: data?.email,
+      });
+
       const response = await apiClient.post<ForgotPasswordResponse>(
         API_CONFIG.AUTH_ENDPOINTS.FORGOT_PASSWORD,
         data
       );
 
-      if (!response.data?.message) {
-        throw new Error("Failed to send reset password email");
+      const payload = response.data?.data;
+      let message = "";
+
+      if (payload === true) {
+        message =
+          "Email dat lai mat khau da duoc gui. Vui long kiem tra hop thu den va ca thu muc spam.";
+      } else if (typeof payload === "object" && payload?.message) {
+        message = payload.message;
       }
 
-      return response.data.message;
+      if (!message) {
+        throw new Error("Khong the gui email dat lai mat khau");
+      }
+
+      console.log("[AUTH][FORGOT_PASSWORD] Request success", {
+        email: data?.email,
+        message,
+      });
+
+      return message;
     } catch (error) {
+      console.error("[AUTH][FORGOT_PASSWORD] Request failed", {
+        email: data?.email,
+        error,
+      });
       throw error;
     }
   }
