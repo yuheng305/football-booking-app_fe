@@ -15,14 +15,9 @@ import { useRouter } from "expo-router";
 
 import { clusterService } from "@/src/services/cluster.service";
 import type { CreateClusterRequest } from "@/src/types/cluster.types";
+import { SPORT_TYPE_PICKER_OPTIONS } from "@/src/utils/sport-type.util";
 
-const SPORT_TYPE_OPTIONS = [
-  { id: 1, label: "Bóng đá" },
-  { id: 2, label: "Cầu lông" },
-  { id: 3, label: "Pickleball" },
-  { id: 4, label: "Tennis" },
-  { id: 5, label: "Bóng rổ" },
-];
+const SPORT_TYPE_OPTIONS = SPORT_TYPE_PICKER_OPTIONS;
 
 const TIME_OPTIONS: string[] = Array.from({ length: 48 }).map((_, index) => {
   const totalMinutes = index * 30;

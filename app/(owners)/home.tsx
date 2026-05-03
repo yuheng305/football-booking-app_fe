@@ -65,7 +65,7 @@ export default function Home() {
             onPress={() => router.push("/(owners)/(stadium)/clusterList")}
           >
             <Image
-              source={require("../../assets/images/book.png")}
+              source={require("../../assets/images/cluster.png")}
               className="w-full h-full"
               resizeMode="contain"
             />

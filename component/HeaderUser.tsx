@@ -25,7 +25,7 @@ const HeaderUser: React.FC<HeaderUserProps> = ({
   showBackButton = false,
   onBackPress,
   onLogoPress,
-  showNotificationButton = true,
+  showNotificationButton = false,
   onNotificationPress,
 }) => {
   const insets = useSafeAreaInsets();

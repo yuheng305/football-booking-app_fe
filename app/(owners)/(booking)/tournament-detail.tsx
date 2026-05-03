@@ -1,0 +1,1 @@
+export { default } from "../../(tabs)/tournament/detail";

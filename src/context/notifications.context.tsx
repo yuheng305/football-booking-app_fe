@@ -7,13 +7,15 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { usePathname } from "expo-router";
+import { usePathname, useRouter } from "expo-router";
 import { StatusBar, Text, TouchableOpacity, View } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { Socket } from "socket.io-client";
 import notificationService from "../services/notification.service";
 import type { NotificationItem } from "../types/notification.types";
+import { resolveProviderNotificationNavigation } from "../utils/notification-navigation.util";
+import { getRawUserRoleFromStorage, resolveUserRoleFromStorage } from "../utils/role.util";
 
 type NotificationsContextValue = {
   notifications: NotificationItem[];
@@ -64,6 +66,7 @@ export const NotificationsProvider: React.FC<{ children: React.ReactNode }> = ({
 }) => {
   const insets = useSafeAreaInsets();
   const topInset = Math.max(insets.top, StatusBar.currentHeight ?? 0);
+  const router = useRouter();
   const pathname = usePathname();
   const isGuestRoute =
     pathname === "/" ||
@@ -78,6 +81,45 @@ export const NotificationsProvider: React.FC<{ children: React.ReactNode }> = ({
   const [popupNotification, setPopupNotification] = useState<NotificationItem | null>(null);
   const socketRef = useRef<Socket | null>(null);
   const popupTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleNotificationPress = useCallback(
+    async (notification: NotificationItem) => {
+      const appRole = await resolveUserRoleFromStorage();
+      const rawRole = await getRawUserRoleFromStorage();
+      const plan = resolveProviderNotificationNavigation(notification, { appRole, rawRole });
+
+      if (plan.kind === "noop") {
+        if (plan.reason === "missing_target") {
+          console.log("[NOTIFICATIONS] No navigation target for notification:", {
+            entity_type: notification.entity_type,
+            entity_id: notification.entity_id,
+          });
+        } else {
+          console.log(
+            "[NOTIFICATIONS] Unknown entity_type for navigation:",
+            notification.entity_type
+          );
+        }
+        return;
+      }
+
+      try {
+        if (plan.kind === "setCurrentBookingIdAndPush") {
+          await AsyncStorage.setItem("currentBookingId", String(plan.bookingId));
+          router.push(plan.pathname as never);
+          return;
+        }
+        if (plan.kind === "pushHref") {
+          router.push(plan.href as never);
+          return;
+        }
+        router.push({ pathname: plan.pathname as never, params: plan.params as never });
+      } catch (error) {
+        console.error("[NOTIFICATIONS] Navigation failed:", error);
+      }
+    },
+    [router]
+  );
 
   const showPopupNotification = useCallback((notification: NotificationItem) => {
     if (popupTimeoutRef.current) {
@@ -369,7 +411,29 @@ export const NotificationsProvider: React.FC<{ children: React.ReactNode }> = ({
         {children}
 
         {popupNotification ? (
-          <View
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onPress={() => {
+              handleNotificationPress(popupNotification);
+              // Mark as read
+              if ((popupNotification.status || "").toLowerCase() === "unread") {
+                setNotifications((prev) =>
+                  prev.map((item) =>
+                    item.id === popupNotification.id
+                      ? { ...item, status: "read" }
+                      : item
+                  )
+                );
+                setUnreadCount((prev) => Math.max(0, prev - 1));
+                // Fire and forget: async mark as read on backend
+                notificationService
+                  .markAsRead(popupNotification.id)
+                  .catch((err) =>
+                    console.warn("[NOTIFICATIONS] markAsRead on tap failed:", err)
+                  );
+              }
+              setPopupNotification(null);
+            }}
             className="absolute z-50 bg-white rounded-2xl px-4 py-4 border border-[#dbe4f0]"
             style={{
               top: topInset + 16,
@@ -384,18 +448,18 @@ export const NotificationsProvider: React.FC<{ children: React.ReactNode }> = ({
           >
             <View className="flex-row items-center justify-between mb-2">
               <Text className="text-[#2563eb] text-[11px] font-extrabold tracking-[0.8px]">
-                THONG BAO MOI
+                THÔNG BÁO MỚI
               </Text>
               <TouchableOpacity
                 onPress={() => setPopupNotification(null)}
                 className="bg-[#0f172a] rounded-full px-3 py-1"
               >
-                <Text className="text-white font-semibold text-[11px]">Dong</Text>
+                <Text className="text-white font-semibold text-[11px]">Đóng</Text>
               </TouchableOpacity>
             </View>
 
             <Text className="text-[#0f172a] font-bold text-base" numberOfLines={2}>
-              {popupNotification.title || "Thong bao moi"}
+              {popupNotification.title || "Thông báo mới"}
             </Text>
 
             {!!popupNotification.message && (
@@ -403,7 +467,7 @@ export const NotificationsProvider: React.FC<{ children: React.ReactNode }> = ({
                 {popupNotification.message}
               </Text>
             )}
-          </View>
+          </TouchableOpacity>
         ) : null}
       </View>
     </NotificationsContext.Provider>
@@ -413,7 +477,7 @@ export const NotificationsProvider: React.FC<{ children: React.ReactNode }> = ({
 export const useNotifications = () => {
   const context = useContext(NotificationsContext);
   if (!context) {
-    throw new Error("useNotifications must be used within NotificationsProvider");
+    throw new Error("useNotifications chỉ dùng bên trong NotificationsProvider");
   }
 
   return context;

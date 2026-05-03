@@ -16,6 +16,8 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Ionicons } from "@expo/vector-icons";
 import { paymentService } from "@/src/services/payment.service";
 import type { PaymentItem } from "@/src/types/payment.types";
+import tournamentService from "@/src/services/tournament.service";
+import type { OrganizerTournamentItem } from "@/src/types/tournament.types";
 import { resolveUserRoleFromStorage as resolveUserRole } from "@/src/utils/role.util";
 
 type PaymentFilter = "all" | "unpaid" | "paid" | "expired";
@@ -24,6 +26,7 @@ type AppRole = "player" | "owner";
 type GroupedTournamentPayment = {
   groupKey: string;
   tournamentId: number;
+  tournamentName?: string;
   totalAmount: number;
   status: string;
   itemCount: number;
@@ -68,11 +71,46 @@ const getGroupedTournamentStatus = (items: PaymentItem[]): string => {
     return "expired";
   }
 
-  if (statuses.some((status) => isPayableStatus(status) || isUnpaidStatus(status))) {
+  // If any row is still pending owner approval, whole tournament should remain pending.
+  if (statuses.some((status) => status === "pending")) {
+    return "pending";
+  }
+
+  if (statuses.some((status) => isPayableStatus(status))) {
     return "payment_required";
   }
 
   return "pending";
+};
+
+const getTournamentStatusText = (status: string) => {
+  switch (normalizeStatus(status)) {
+    case "pending":
+      return "Chờ chủ sân duyệt";
+    case "confirmed":
+      return "Chờ thanh toán";
+    case "paid":
+      return "Đã thanh toán";
+    case "no_bookings":
+      return "Chưa có booking";
+    default:
+      return status;
+  }
+};
+
+const getTournamentStatusStyle = (status: string) => {
+  switch (normalizeStatus(status)) {
+    case "pending":
+      return "bg-sky-100 text-sky-700";
+    case "confirmed":
+      return "bg-orange-100 text-orange-700";
+    case "paid":
+      return "bg-green-100 text-green-700";
+    case "no_bookings":
+      return "bg-slate-100 text-slate-600";
+    default:
+      return "bg-gray-100 text-gray-700";
+  }
 };
 
 // Role resolution now handled by `src/utils/role.util.ts`
@@ -139,14 +177,21 @@ const Payment = () => {
   const fetchOrganizerTournaments = useCallback(async () => {
     const organizerId = await getOrganizerId();
 
-    const response = await paymentService.getOrganizerPayments({
-      organizerId,
-      offset: 0,
-      limit: 100,
-    });
+    const [tournamentResponse, paymentResponse] = await Promise.all([
+      tournamentService.listOrganizerTournaments({
+        organizerId,
+        offset: 0,
+        limit: 100,
+      }),
+      paymentService.getOrganizerPayments({
+        organizerId,
+        offset: 0,
+        limit: 100,
+      }),
+    ]);
 
     const byTournament = new Map<string, PaymentItem[]>();
-    (response.payments || []).forEach((payment) => {
+    (paymentResponse.payments || []).forEach((payment) => {
       const hasTournamentId = Number.isFinite(Number(payment.tournament_id));
       const key = hasTournamentId
         ? `t-${Number(payment.tournament_id)}`
@@ -156,26 +201,48 @@ const Payment = () => {
       byTournament.set(key, current);
     });
 
-    const grouped: GroupedTournamentPayment[] = Array.from(byTournament.entries()).map(
-      ([groupKey, items]) => {
-        const tournamentIdValue = Number(items[0]?.tournament_id);
-        const hasTournamentId = Number.isFinite(tournamentIdValue);
-        const totalAmount = items.reduce((sum, item) => sum + Number(item.amount || 0), 0);
+    const tournaments = tournamentResponse.tournaments || [];
+    const grouped: GroupedTournamentPayment[] = tournaments.map((tournament: OrganizerTournamentItem) => {
+      const groupKey = `t-${tournament.id}`;
+      const items = byTournament.get(groupKey) || [];
+      const payableItems = items.filter((item) => isPayableStatus(item.status));
+      const totalAmount = payableItems.reduce((sum, item) => sum + Number(item.amount || 0), 0);
+      const latestCreatedAt = [...items]
+        .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)))[0]?.created_at;
+
+      return {
+        groupKey,
+        tournamentId: tournament.id,
+        tournamentName: tournament.name,
+        totalAmount,
+        // Use backend tournament payment_status as source of truth for organizer UI.
+        status: String(tournament.payment_status || "pending"),
+        itemCount: payableItems.length,
+        latestCreatedAt: latestCreatedAt || String(tournament.updated_at || tournament.created_at),
+        paymentIds: items.map((item) => item.id),
+        isTemporaryGroup: false,
+      };
+    });
+
+    // Keep orphan payment rows visible for debugging when backend has not linked tournament_id.
+    const orphanGroups: GroupedTournamentPayment[] = Array.from(byTournament.entries())
+      .filter(([groupKey]) => groupKey.startsWith("tmp-"))
+      .map(([groupKey, items]) => {
         const latestCreatedAt = [...items]
           .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)))[0]?.created_at;
-
         return {
           groupKey,
-          tournamentId: hasTournamentId ? tournamentIdValue : -1,
-          totalAmount,
+          tournamentId: -1,
+          totalAmount: items.reduce((sum, item) => sum + Number(item.amount || 0), 0),
           status: getGroupedTournamentStatus(items),
           itemCount: items.length,
           latestCreatedAt: latestCreatedAt || new Date().toISOString(),
           paymentIds: items.map((item) => item.id),
-          isTemporaryGroup: !hasTournamentId,
+          isTemporaryGroup: true,
         };
-      }
-    );
+      });
+
+    grouped.push(...orphanGroups);
 
     grouped.sort((a, b) => b.latestCreatedAt.localeCompare(a.latestCreatedAt));
 
@@ -282,7 +349,7 @@ const Payment = () => {
 
   const handleOpenBookingDetail = async (bookingId: number) => {
     await AsyncStorage.setItem("currentBookingId", String(bookingId));
-    router.push("/(tabs)/(stadiums)/booking-detail");
+    router.push("/(tabs)/stadium/booking-detail");
   };
 
   const handlePayTournament = async (tournamentId: number) => {
@@ -379,7 +446,7 @@ const Payment = () => {
             ) : (
               groupedTournamentPayments.map((groupedPayment) => {
                 const isPaying = payingTournamentId === groupedPayment.tournamentId;
-                const canPay = !isPaidStatus(groupedPayment.status);
+                const canPay = normalizeStatus(groupedPayment.status) === "confirmed";
 
                 return (
                   <View
@@ -390,11 +457,11 @@ const Payment = () => {
                       <Text className="text-base font-bold text-[#1E232C] flex-1 pr-3">
                         {groupedPayment.isTemporaryGroup
                           ? "Cụm thanh toán tạm"
-                          : `Giải đấu #${groupedPayment.tournamentId}`}
+                          : `Giải đấu #${groupedPayment.tournamentId}${groupedPayment.tournamentName ? ` - ${groupedPayment.tournamentName}` : ""}`}
                       </Text>
-                      <View className={`px-3 py-1 rounded-full ${getStatusStyle(groupedPayment.status).split(" ")[0]}`}>
-                        <Text className={`font-semibold ${getStatusStyle(groupedPayment.status).split(" ")[1]}`}>
-                          {getStatusText(groupedPayment.status)}
+                      <View className={`px-3 py-1 rounded-full ${getTournamentStatusStyle(groupedPayment.status).split(" ")[0]}`}>
+                        <Text className={`font-semibold ${getTournamentStatusStyle(groupedPayment.status).split(" ")[1]}`}>
+                          {getTournamentStatusText(groupedPayment.status)}
                         </Text>
                       </View>
                     </View>
@@ -406,7 +473,7 @@ const Payment = () => {
                       </Text>
                     </View>
                     <View className="flex-row justify-between mb-1">
-                      <Text className="text-gray-500">Số dòng thanh toán</Text>
+                      <Text className="text-gray-500">Số dòng cần thanh toán</Text>
                       <Text className="text-gray-800 font-semibold">{groupedPayment.itemCount}</Text>
                     </View>
                     <View className="flex-row justify-between mb-1">
@@ -434,6 +501,12 @@ const Payment = () => {
                       <View className="bg-amber-50 mt-3 py-3 rounded-lg border border-amber-200">
                         <Text className="text-amber-700 text-center font-semibold">
                           Chờ backend trả tournament_id để thanh toán giải
+                        </Text>
+                      </View>
+                    ) : normalizeStatus(groupedPayment.status) === "pending" ? (
+                      <View className="bg-yellow-50 mt-3 py-3 rounded-lg border border-yellow-200">
+                        <Text className="text-yellow-700 text-center font-semibold">
+                          Chờ chủ sân duyệt, chưa thể thanh toán
                         </Text>
                       </View>
                     ) : (

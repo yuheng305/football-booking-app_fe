@@ -9,6 +9,7 @@ export default function OwnerLayout() {
     "(stadium)/editField",
     "(stadium)/clusterDetail",
     "(booking)/bookingDetail",
+    "(booking)/tournament-detail",
     "(stadium)/stadiumManagement",
   ];
 

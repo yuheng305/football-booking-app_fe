@@ -8,15 +8,10 @@ import { clusterService } from "@/src/services/cluster.service";
 import { imageService } from "@/src/services/image.service";
 import type { Cluster, UpdateClusterRequest } from "@/src/types/cluster.types";
 import type { ImageItem } from "@/src/types/image.types";
+import { formatSportDisplay, SPORT_TYPE_PICKER_OPTIONS } from "@/src/utils/sport-type.util";
 
 const TEMP_OWNER_CLUSTER_ID = 3;
-const SPORT_TYPE_OPTIONS = [
-  { id: 1, label: "Bóng đá" },
-  { id: 2, label: "Cầu lông" },
-  { id: 3, label: "Pickleball" },
-  { id: 4, label: "Tennis" },
-  { id: 5, label: "Bóng rổ" },
-];
+const SPORT_TYPE_OPTIONS = SPORT_TYPE_PICKER_OPTIONS;
 const TIME_OPTIONS: string[] = Array.from({ length: 48 }).map((_, index) => {
   const totalMinutes = index * 30;
   const hour = String(Math.floor(totalMinutes / 60)).padStart(2, "0");
@@ -309,6 +304,19 @@ export default function OwnerClusterDetail() {
             </View>
           </View>
           <Text className="text-gray-500 mt-1">Mã cụm sân: #{cluster.id}</Text>
+          <View
+            className={`mt-3 self-start px-3 py-1 rounded-full border ${
+              cluster.is_accepted ? "bg-emerald-50 border-emerald-200" : "bg-amber-50 border-amber-200"
+            }`}
+          >
+            <Text
+              className={`text-xs font-semibold ${
+                cluster.is_accepted ? "text-emerald-700" : "text-amber-700"
+              }`}
+            >
+              {cluster.is_accepted ? "Admin đã phê duyệt" : "Chờ admin phê duyệt"}
+            </Text>
+          </View>
           <TouchableOpacity
             className="mt-4 bg-[#114F99] py-2 rounded-lg items-center"
             onPress={openEditModal}
@@ -403,7 +411,9 @@ export default function OwnerClusterDetail() {
             {cluster.sport_types && cluster.sport_types.length > 0 ? (
               cluster.sport_types.map((sport) => (
                 <View key={sport.id} className="bg-blue-50 border border-blue-200 px-3 py-2 rounded-full mr-2 mb-2">
-                  <Text className="text-blue-700 font-medium">{sport.name}</Text>
+                  <Text className="text-blue-700 font-medium">
+                    {formatSportDisplay(sport.name, sport.id)}
+                  </Text>
                 </View>
               ))
             ) : (

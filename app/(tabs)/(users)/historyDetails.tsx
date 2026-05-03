@@ -171,7 +171,6 @@ const HistoryDetail = () => {
     date: formattedDate,
     time: `${startTime} - ${endTime}`,
     address: `${bookingData.field.cluster.street}, ${bookingData.field.cluster.district}, ${bookingData.field.cluster.city}`,
-    type: bookingData.type === "half" ? "Đặt nửa sân (Tìm đối)" : "Bao toàn sân",
     status: statusMeta.label,
     total: new Intl.NumberFormat("vi-VN", {
       style: "currency",
@@ -249,12 +248,6 @@ const HistoryDetail = () => {
           <View className="flex-row justify-between">
             <Text className="text-gray-600 font-semibold">Địa chỉ :</Text>
             <Text className="text-gray-800">{displayData.address}</Text>
-          </View>
-
-          {/* Loại hình */}
-          <View className="flex-row justify-between">
-            <Text className="text-gray-600 font-semibold">Loại hình :</Text>
-            <Text className="text-gray-800">{displayData.type}</Text>
           </View>
 
           {/* Trạng thái */}

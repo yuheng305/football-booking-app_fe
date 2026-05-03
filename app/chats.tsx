@@ -5,7 +5,6 @@ import {
   FlatList,
   RefreshControl,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
@@ -15,7 +14,6 @@ import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import chatService from "@/src/services/chat.service";
 import type { ChatConversation } from "@/src/types/chat.types";
-import API_CONFIG from "@/src/config/api.config";
 
 const resolveRole = async (): Promise<"owner" | "player"> => {
   try {
@@ -44,8 +42,6 @@ export default function ConversationsScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [role, setRole] = useState<"owner" | "player">("player");
-  const [phoneInput, setPhoneInput] = useState("");
-  const [resolvingPhone, setResolvingPhone] = useState(false);
 
   const loadConversations = useCallback(async (isRefresh = false) => {
     try {
@@ -76,52 +72,6 @@ export default function ConversationsScreen() {
     init();
   }, [loadConversations]);
 
-  const tryResolvePhoneToUser = async (phone: string) => {
-    const trimmed = phone.trim();
-    if (!trimmed) {
-      Alert.alert("Lỗi", "Vui lòng nhập số điện thoại");
-      return null;
-    }
-
-    setResolvingPhone(true);
-    try {
-      const token = await AsyncStorage.getItem("authToken");
-      const candidates = [
-        `${API_CONFIG.BASE_URL}/users/lookup?phone=${encodeURIComponent(trimmed)}`,
-        `${API_CONFIG.BASE_URL}/users/search?phone=${encodeURIComponent(trimmed)}`,
-        `${API_CONFIG.BASE_URL}/users?phone=${encodeURIComponent(trimmed)}`,
-        `${API_CONFIG.BASE_URL}/players/phone/${encodeURIComponent(trimmed)}`,
-      ];
-
-      for (const url of candidates) {
-        try {
-          const res = await fetch(url, {
-            method: "GET",
-            headers: token
-              ? { accept: "application/json", Authorization: `Bearer ${token}` }
-              : { accept: "application/json" },
-          });
-
-          if (!res.ok) continue;
-          const payload = await res.json().catch(() => null);
-          const data = payload?.data || payload || null;
-          const id = data?.id || data?.user?.id || data?.user_id || data?.player_id || null;
-          const name = data?.fullName || data?.first_name
-            ? [data.first_name, data.last_name].filter(Boolean).join(" ")
-            : data?.name || data?.email || null;
-
-          if (id) return { id: String(id), name: name || `User #${id}` };
-        } catch (e) {
-          // try next candidate
-        }
-      }
-
-      return null;
-    } finally {
-      setResolvingPhone(false);
-    }
-  };
-
   const title = useMemo(
     () => (role === "owner" ? "Hội thoại với người chơi" : "Hội thoại với chủ sân"),
     [role]
@@ -140,38 +90,6 @@ export default function ConversationsScreen() {
           <Text className="text-gray-900 font-bold text-lg">{title}</Text>
           <Text className="text-gray-500 text-sm">Chọn hội thoại để nhắn tin</Text>
         </View>
-      </View>
-
-      <View className="px-4 py-3 bg-white border-b border-gray-100">
-        <TextInput
-          value={phoneInput}
-          onChangeText={setPhoneInput}
-          placeholder="Nhập số điện thoại để bắt đầu chat"
-          keyboardType="phone-pad"
-          className="bg-gray-100 px-3 py-2 rounded-lg"
-        />
-        <TouchableOpacity
-          className="bg-blue-500 rounded-lg p-3 mt-3 items-center"
-          onPress={async () => {
-            const resolved = await tryResolvePhoneToUser(phoneInput);
-            if (!resolved) {
-              Alert.alert("Không tìm thấy", "Không tìm thấy người dùng với số điện thoại này");
-              return;
-            }
-
-            router.push({
-              pathname: "/chat",
-              params: { receiverId: resolved.id, name: resolved.name },
-            } as any);
-          }}
-          disabled={resolvingPhone}
-        >
-          {resolvingPhone ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <Text className="text-white font-semibold">Bắt đầu chat</Text>
-          )}
-        </TouchableOpacity>
       </View>
 
       {loading ? (

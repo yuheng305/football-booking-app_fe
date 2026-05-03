@@ -29,7 +29,6 @@ interface BookingDetail {
   fieldName: string;
   date: string;
   time: string;
-  bookingMode: string;
   rating: number;
   status: string;
   totalPrice: number;
@@ -127,7 +126,6 @@ const BookingDetail = () => {
         fieldName: data.field?.size ? `Sân ${data.field.size}` : "Sân",
         date: formatBookingDate(data.booking_date),
         time: `${formatBookingTime(data.start_time)} - ${formatBookingTime(data.end_time)}`,
-        bookingMode: data.type || "full",
         rating: 0,
         status: data.status || "pending",
         totalPrice: data.total_price ?? 0,
@@ -216,7 +214,7 @@ const BookingDetail = () => {
     const normalizedStatus = normalizeBookingStatus(booking.status);
     if (isBookingPayable(normalizedStatus)) {
       waitingPaymentResultRef.current = true;
-      router.push("/(tabs)/(stadiums)/booking-payment");
+      router.push("/(tabs)/stadium/booking-payment");
     } else {
       Alert.alert(
         "Thông báo",
@@ -231,7 +229,7 @@ const BookingDetail = () => {
 
   const handleOpenChat = () => {
     if (!ownerChatId) {
-      Alert.alert("Thong bao", "Khong tim thay chu san de lien he");
+      Alert.alert("Thông báo", "Không tìm thấy chủ sân để liên hệ");
       return;
     }
 
@@ -239,7 +237,7 @@ const BookingDetail = () => {
       pathname: "/chat",
       params: {
         receiverId: String(ownerChatId),
-        name: booking?.clusterName || "Chu san",
+        name: booking?.clusterName || "Chủ sân",
       },
     } as any);
   };

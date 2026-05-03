@@ -147,7 +147,7 @@ class ClusterService {
       const created = this.unwrapData<Cluster>(response);
 
       if (!created?.id) {
-        throw new Error("Failed to create cluster");
+        throw new Error("Không tạo được cụm sân");
       }
 
       return created;
@@ -171,7 +171,7 @@ class ClusterService {
       const cluster = this.unwrapData<Cluster>(response);
 
       if (!cluster?.id) {
-        throw new Error("Cluster not found");
+        throw new Error("Không tìm thấy cụm sân");
       }
 
       return cluster;
@@ -201,7 +201,7 @@ class ClusterService {
       const cluster = this.unwrapData<Cluster>(response);
 
       if (!cluster?.id) {
-        throw new Error("Failed to update cluster");
+        throw new Error("Không cập nhật được cụm sân");
       }
 
       return cluster;

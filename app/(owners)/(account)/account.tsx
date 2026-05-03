@@ -15,19 +15,33 @@ import HeaderOwner from "@/component/HeaderOwner";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { authService } from "@/src/services/auth.service";
-import { legacyApiService } from "@/src/services/legacy-api.service";
 import { imageService } from "@/src/services/image.service";
 
 const Owner = () => {
-  const [name, setName] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
+  const [age, setAge] = useState("");
   const [username, setUsername] = useState("");
   const [imageUri, setImageUri] = useState(
     require("../../../assets/images/user_placeholder.jpg")
   );
   const [loading, setLoading] = useState(true);
   const [ownerId, setOwnerId] = useState("");
+
+  const splitFullName = (fullName: string) => {
+    const trimmed = fullName.trim();
+    if (!trimmed) {
+      return { firstName: "", lastName: "" };
+    }
+
+    const parts = trimmed.split(/\s+/);
+    return {
+      firstName: parts[0] || "",
+      lastName: parts.slice(1).join(" "),
+    };
+  };
 
   // Lấy dữ liệu người dùng từ API khi component được mount
   useEffect(() => {
@@ -39,9 +53,11 @@ const Owner = () => {
         
         // Cập nhật state với dữ liệu từ API
         setOwnerId(userProfile.id.toString());
-        setName(`${userProfile.first_name} ${userProfile.last_name}`.trim());
+        setFirstName(userProfile.first_name || "");
+        setLastName(userProfile.last_name || "");
         setEmail(userProfile.email || "");
         setPhone(userProfile.phone_number || "");
+        setAge(String(userProfile.age ?? ""));
         setUsername(userProfile.email?.split("@")[0] || "");
 
         try {
@@ -77,9 +93,12 @@ const Owner = () => {
           if (userDataString) {
             const userData = JSON.parse(userDataString);
             setOwnerId(userData._id || "");
-            setName(userData.fullName || "");
+              const parsedName = splitFullName(userData.fullName || "");
+              setFirstName(parsedName.firstName);
+              setLastName(parsedName.lastName);
             setEmail(userData.email || "");
             setPhone(userData.phone || "");
+              setAge(String(userData.age ?? ""));
             setUsername(userData.username || "");
           } else {
             Alert.alert("Lỗi", "Không tìm thấy thông tin người dùng!");
@@ -144,26 +163,27 @@ const Owner = () => {
       }
 
       const userData = {
-        fullName: name,
-        username,
-        phone,
-        email,
+        first_name: firstName.trim(),
+        last_name: lastName.trim(),
+        phone_number: phone.trim(),
+        age: Number(age),
       };
 
       console.log("Dữ liệu gửi API:", userData); // Debug
-      const data = await legacyApiService.updateOwnerProfile(
-        ownerId,
-        userData,
-        token
-      );
+      const data = await authService.updateMe(userData);
       console.log("API response:", data); // Debug
 
       const updatedUserData = {
         ...data,
+        fullName: `${data.first_name} ${data.last_name}`.trim(),
+        email: data.email,
+        phone: data.phone_number,
+        username: data.email?.split("@")[0] || username,
         _id: ownerId,
         imageUri: imageUri?.uri || null,
       };
       await AsyncStorage.setItem("userData", JSON.stringify(updatedUserData));
+      await AsyncStorage.setItem("userProfile", JSON.stringify(data));
       console.log("Dữ liệu đã lưu lại:", updatedUserData); // Debug
       Alert.alert("Thành công", "Cập nhật tài khoản thành công!");
     } catch (error) {
@@ -188,6 +208,7 @@ const Owner = () => {
             console.log("Đang đăng xuất..."); // Debug
             await AsyncStorage.removeItem("authToken");
             await AsyncStorage.removeItem("userData");
+            await AsyncStorage.removeItem("userProfile");
             await AsyncStorage.removeItem("userRole");
             router.replace("/login");
           },
@@ -198,10 +219,12 @@ const Owner = () => {
   };
 
   console.log("Render với state:", {
-    name,
+    firstName,
+    lastName,
     email,
     phone,
     username,
+    age,
   }); // Debug
 
   if (loading) {
@@ -214,7 +237,7 @@ const Owner = () => {
 
   return (
     <SafeAreaView className="flex-1 bg-white" edges={['top']}>
-      <HeaderOwner title="Tài khoản" subtitle={name} />
+      <HeaderOwner title="Tài khoản" subtitle={`${firstName} ${lastName}`.trim()} />
       <ScrollView className="flex-1" bounces={false}>
         {/* Avatar người dùng */}
         <View className="items-center mt-6">
@@ -238,19 +261,20 @@ const Owner = () => {
             <Text className="text-xl text-gray-600">Tên</Text>
             <TextInput
               className="text-2xl font-bold"
-              value={name}
-              onChangeText={setName}
+              value={firstName}
+              onChangeText={setFirstName}
               placeholder="Nhập tên"
+              editable={true}
             />
           </View>
 
           <View className="border border-black px-4 pt-2">
-            <Text className="text-xl text-gray-600">Tài khoản</Text>
+            <Text className="text-xl text-gray-600">Họ</Text>
             <TextInput
               className="text-2xl font-bold"
-              value={username}
-              onChangeText={setUsername}
-              placeholder="Nhập tài khoản"
+              value={lastName}
+              onChangeText={setLastName}
+              placeholder="Nhập họ"
             />
           </View>
 
@@ -279,13 +303,34 @@ const Owner = () => {
           </View>
 
           <View className="border border-black px-4 pt-2">
-            <Text className="text-xl text-gray-600">Email</Text>
+            <Text className="text-xl text-gray-600">Tuổi</Text>
             <TextInput
               className="text-2xl font-bold"
+              value={age}
+              onChangeText={setAge}
+              keyboardType="number-pad"
+              placeholder="Nhập tuổi"
+            />
+          </View>
+
+          <View className="border border-black px-4 pt-2 bg-gray-100">
+            <Text className="text-xl text-gray-600">Email</Text>
+            <TextInput
+              className="text-2xl font-bold text-gray-500"
               value={email}
-              onChangeText={setEmail}
+              editable={false}
               keyboardType="email-address"
               placeholder="Nhập email"
+            />
+          </View>
+
+          <View className="border border-black px-4 pt-2 bg-gray-100">
+            <Text className="text-xl text-gray-600">Tài khoản</Text>
+            <TextInput
+              className="text-2xl font-bold text-gray-500"
+              value={username}
+              editable={false}
+              placeholder="Không hỗ trợ chỉnh sửa"
             />
           </View>
 

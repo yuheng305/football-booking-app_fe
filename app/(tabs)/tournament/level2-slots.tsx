@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useState } from "react";
 import { ActivityIndicator, Alert, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useNavigation } from "@react-navigation/native";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import HeaderUser from "@/component/HeaderUser";
 import tournamentService from "@/src/services/tournament.service";
@@ -12,6 +13,7 @@ import {
   Level2ScheduleSlotInput,
   Level2TournamentRound,
 } from "@/src/types/tournament.types";
+import { goBackOrReplace } from "@/src/utils/navigation.helper";
 
 const formatDate = (value: string) => {
   const [year, month, day] = value.split("-");
@@ -24,6 +26,7 @@ const slotKey = (slot: Level2ScheduleSlotInput) =>
 const toMoney = (value: number) => `${value.toLocaleString("vi-VN")} VND`;
 
 export default function TournamentLevel2SlotsScreen() {
+  const navigation = useNavigation();
   const params = useLocalSearchParams<{ roundId?: string }>();
   const [draft, setDraft] = useState<Level2FlowDraft>({ rounds: [], selections: [] });
   const [round, setRound] = useState<Level2TournamentRound | null>(null);
@@ -130,7 +133,7 @@ export default function TournamentLevel2SlotsScreen() {
       await tournamentLevel2DraftService.setRoundSelection(round.id, selectedSlots);
       await tournamentLevel2DraftService.markRoundScheduled(round.id);
       Alert.alert("Thành công", `Đã xếp lịch cho vòng ${round.round_number}.`);
-      router.replace("/(tabs)/tournament-level2-rounds" as never);
+      router.replace("/(tabs)/tournament/level2-rounds" as never);
     } catch (error: any) {
       const message = error?.message || "Không thể xác nhận vòng.";
       Alert.alert("Xếp lịch thất bại", message);
@@ -166,7 +169,7 @@ export default function TournamentLevel2SlotsScreen() {
         title={round ? `Vòng ${round.round_number}` : "Chọn slot"}
         subtitle="Bước 3/3: Chọn đủ slot"
         showBackButton
-        onBackPress={() => router.replace("/(tabs)/tournament-level2-rounds")}
+        onBackPress={() => goBackOrReplace(navigation, "/(tabs)/tournament/level2-rounds")}
       />
 
       {loading ? (
@@ -179,7 +182,7 @@ export default function TournamentLevel2SlotsScreen() {
             <Text className="text-amber-800">Không tìm thấy dữ liệu vòng đấu.</Text>
             <TouchableOpacity
               className="mt-3 bg-amber-500 rounded-xl py-3 items-center"
-              onPress={() => router.replace("/(tabs)/tournament-level2-rounds")}
+              onPress={() => router.replace("/(tabs)/tournament/level2-rounds")}
             >
               <Text className="text-white font-semibold">Quay lại danh sách vòng</Text>
             </TouchableOpacity>

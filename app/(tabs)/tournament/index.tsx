@@ -11,9 +11,10 @@ import { useRouter } from "expo-router";
 import { useState, useCallback } from "react";
 import { useFocusEffect } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import HeaderUser from "../../component/HeaderUser";
+import HeaderUser from "../../../component/HeaderUser";
 import tournamentService from "@/src/services/tournament.service";
 import { OrganizerTournamentItem } from "@/src/types/tournament.types";
+import { toVietnameseSportType } from "@/src/utils/sport-type.util";
 
 export default function Tournament() {
   const router = useRouter();
@@ -78,6 +79,13 @@ export default function Tournament() {
     return "bg-slate-100 text-slate-600";
   };
 
+  const tournamentLevelLabel = (level?: number | null) => {
+    if (level === 1) return "Level 1: Giải đấu tiêu chuẩn";
+    if (level === 2) return "Level 2: Giải đấu trực tiếp theo vòng";
+    if (level != null && Number.isFinite(level)) return `Level ${level}`;
+    return "Chưa xác định";
+  };
+
   const renderHelpModal = () => {
     if (!helpMode) return null;
 
@@ -88,7 +96,7 @@ export default function Tournament() {
 
     const description = isStandard
       ? "Bạn tự chọn sân và khung giờ theo lịch mong muốn. Phù hợp khi muốn chủ động toàn bộ lịch đấu."
-      : "Bạn cấu hình từng vòng, sau đó hệ thống gợi ý slot trống theo từng vòng để bạn chọn.";
+      : "Giải chia nhiều vòng loại trực tiếp: bạn chọn khu sân và khung thời gian từng vòng; hệ thống tự xếp lịch trận.";
 
     const steps = isStandard
       ? [
@@ -98,9 +106,9 @@ export default function Tournament() {
           "Bước 4: Xem lại và tạo giải đấu.",
         ]
       : [
-          "Bước 1: Tạo giải và cấu hình từng vòng.",
-          "Bước 2: Chọn đủ slot cho từng vòng theo gợi ý hệ thống.",
-          "Bước 3: Hoàn tất xếp lịch và thanh toán khi đủ điều kiện.",
+          "Bước 1: Nhập thông tin giải và tên các đội.",
+          "Bước 2: Chọn địa điểm và khung ngày giờ cho từng vòng, rồi tạo giải (lịch trận do hệ thống sắp).",
+          "Bước 3: Xem lại tóm tắt giải/sơ đồ nhánh; thanh toán khi được yêu cầu.",
         ];
 
     return (
@@ -162,7 +170,7 @@ export default function Tournament() {
                 <TouchableOpacity
                   className="mt-3 bg-indigo-600 rounded-xl py-3 items-center"
                   onPress={async () => {
-                    router.push("/(tabs)/tournament-create");
+                    router.push("/(tabs)/tournament/create");
                   }}
                 >
                   <Text className="text-white font-semibold">Bắt đầu tạo</Text>
@@ -182,12 +190,12 @@ export default function Tournament() {
                   </TouchableOpacity>
                 </View>
                 <Text className="text-emerald-700 text-sm mt-1">
-                  Tạo giải loại trực tiếp, cấu hình từng vòng, rồi chọn slot theo gợi ý hệ thống.
+                  Nhập danh sách đội, sau đó đặt lịch lần lượt cho từng vòng đấu.
                 </Text>
                 <TouchableOpacity
                   className="mt-3 bg-emerald-600 rounded-xl py-3 items-center"
                   onPress={async () => {
-                    router.push("/(tabs)/tournament-level2-create");
+                    router.push("/(tabs)/tournament/level2-create");
                   }}
                 >
                   <Text className="text-white font-semibold">Bắt đầu tạo</Text>
@@ -211,7 +219,7 @@ export default function Tournament() {
                     activeOpacity={0.9}
                     onPress={() =>
                       router.push({
-                        pathname: "/(tabs)/tournament-detail",
+                        pathname: "/(tabs)/tournament/detail",
                         params: {
                           id: String(tournament.id),
                           paymentStatus: tournament.payment_status || "",
@@ -230,13 +238,16 @@ export default function Tournament() {
                       </Text>
                     </View>
                     <Text className="text-gray-500 text-xs mt-1">
-                      Môn: {tournament.sport_type}
+                      Môn: {toVietnameseSportType(tournament.sport_type)}
                     </Text>
                     <Text className="text-gray-500 text-xs">
                       Hình thức: {modeLabel(tournament.mode)}
                     </Text>
                     <Text className="text-gray-500 text-xs">
-                      Quy mô: {tournament.size ?? "--"} đội • Phí tham gia: {(tournament.entry_fee ?? 0).toLocaleString("vi-VN")} VND
+                      {tournamentLevelLabel(tournament.level)}
+                    </Text>
+                    <Text className="text-gray-500 text-xs">
+                      Quy mô: {tournament.size ?? "--"} đội
                     </Text>
                     <Text className="text-gray-500 text-xs mt-1">
                       Tạo lúc: {formatDate(tournament.created_at)}

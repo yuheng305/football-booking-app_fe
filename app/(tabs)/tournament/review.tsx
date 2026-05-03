@@ -1,20 +1,23 @@
 import { useEffect, useMemo, useState } from "react";
 import { Alert, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useNavigation } from "@react-navigation/native";
 import { router, useLocalSearchParams } from "expo-router";
 import HeaderUser from "@/component/HeaderUser";
+import { goBackOrReplace } from "@/src/utils/navigation.helper";
 import tournamentDraftService from "@/src/services/tournament-draft.service";
 import { InternalTournamentPlan, TournamentDraft } from "@/src/types/tournament.types";
+import { toVietnameseSportType } from "@/src/utils/sport-type.util";
 
 const frequencyLabel: Record<string, string> = {
-  daily: "Hang ngay",
-  weekly: "Hang tuan",
-  weekdays: "Thu 2 - Thu 6",
+  daily: "Hằng ngày",
+  weekly: "Hằng tuần",
+  weekdays: "Thứ 2 – Thứ 6",
   custom: "Theo ngày cụ thể",
 };
 
 const formatDate = (value?: string) => {
-  if (!value) return "N/A";
+  if (!value) return "--";
   const [year, month, day] = value.split("-");
   return `${day}/${month}/${year}`;
 };
@@ -22,6 +25,7 @@ const formatDate = (value?: string) => {
 const formatTime = (value: string) => value.slice(0, 5);
 
 export default function TournamentReviewScreen() {
+  const navigation = useNavigation();
   const params = useLocalSearchParams<{ planId?: string; readonly?: string }>();
   const isReadOnly = params.readonly === "1";
   const [draft, setDraft] = useState<TournamentDraft>({});
@@ -79,14 +83,17 @@ export default function TournamentReviewScreen() {
         subtitle={isReadOnly ? "Chi tiết bản nháp" : "Bước 4/4"}
         showBackButton
         onBackPress={() =>
-          isReadOnly ? router.replace("/(tabs)/tournament") : router.replace("/(tabs)/tournament-schedule")
+          goBackOrReplace(
+            navigation,
+            isReadOnly ? "/(tabs)/tournament" : "/(tabs)/tournament/schedule"
+          )
         }
       />
 
       <ScrollView className="flex-1 px-4 pt-4">
         <View className="border border-gray-200 rounded-xl p-3 mb-3">
           <Text className="text-lg font-semibold text-gray-900">{draft.name}</Text>
-          <Text className="text-sm text-gray-500 mt-1">Môn: {draft.sportType}</Text>
+          <Text className="text-sm text-gray-500 mt-1">Môn: {toVietnameseSportType(draft.sportType)}</Text>
           <Text className="text-sm text-gray-500">
             Thời gian: {formatDate(draft.startDate)} đến {formatDate(draft.endDate)}
           </Text>

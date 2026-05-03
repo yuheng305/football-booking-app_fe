@@ -80,8 +80,8 @@ export default function OwnerClusterListScreen() {
   }, [loadClusters]);
 
   const subtitle = useMemo(() => {
-    if (!ownerId) return "Không tìm thấy owner_id";
-    return `Owner #${ownerId} • ${clusters.length} cụm sân`;
+    if (!ownerId) return "Không tìm thấy mã chủ sân";
+    return `Chủ sân #${ownerId} • ${clusters.length} cụm sân`;
   }, [clusters.length, ownerId]);
 
   if (loading) {
@@ -169,16 +169,26 @@ export default function OwnerClusterListScreen() {
                 </View>
               </View>
 
+              <View
+                className={`mt-3 self-start px-3 py-1 rounded-full border ${
+                  cluster.is_accepted ? "bg-emerald-50 border-emerald-200" : "bg-amber-50 border-amber-200"
+                }`}
+              >
+                <Text
+                  className={`text-xs font-semibold ${
+                    cluster.is_accepted ? "text-emerald-700" : "text-amber-700"
+                  }`}
+                >
+                  {cluster.is_accepted ? "Admin đã phê duyệt" : "Chờ admin phê duyệt"}
+                </Text>
+              </View>
+
               <Text className="text-gray-700 text-sm mt-2">
                 {cluster.street}, {cluster.district}, {cluster.city}
               </Text>
 
               <Text className="text-gray-600 text-xs mt-2">
                 Giờ hoạt động: {formatTime(cluster.open_time)} - {formatTime(cluster.close_time)}
-              </Text>
-
-              <Text className="text-gray-600 text-xs mt-1">
-                Trạng thái duyệt: {cluster.is_accepted ? "Đã duyệt" : "Chưa duyệt"}
               </Text>
             </TouchableOpacity>
           ))

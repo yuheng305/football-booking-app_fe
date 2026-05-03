@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useState } from "react";
 import { Alert, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useNavigation } from "@react-navigation/native";
 import { router, useFocusEffect } from "expo-router";
 import HeaderUser from "@/component/HeaderUser";
 import tournamentDraftService from "@/src/services/tournament-draft.service";
@@ -9,6 +10,7 @@ import {
   TournamentFrequency,
   TournamentScheduleItem,
 } from "@/src/types/tournament.types";
+import { goBackOrReplace } from "@/src/utils/navigation.helper";
 
 const DAY_OPTIONS = [
   { key: 1, label: "T2" },
@@ -69,6 +71,7 @@ const generateRepeatDates = (
 };
 
 export default function TournamentScheduleScreen() {
+  const navigation = useNavigation();
   const [draft, setDraft] = useState<TournamentDraft>({});
   const [items, setItems] = useState<TournamentScheduleItem[]>([]);
   const [selectedDays, setSelectedDays] = useState<number[]>([]);
@@ -139,7 +142,7 @@ export default function TournamentScheduleScreen() {
         Alert.alert("Chưa có lịch", "Vui lòng thêm ít nhất 1 lịch cụ thể.");
         return;
       }
-      router.replace("/(tabs)/tournament-review" as never);
+      router.push("/(tabs)/tournament/review" as never);
       return;
     }
 
@@ -170,7 +173,7 @@ export default function TournamentScheduleScreen() {
 
     setDraft(nextDraft);
     setItems(repeatedItems);
-    router.replace("/(tabs)/tournament-review" as never);
+    router.push("/(tabs)/tournament/review" as never);
   };
 
   return (
@@ -179,7 +182,7 @@ export default function TournamentScheduleScreen() {
         title={isRepeatMode ? "Thiết lập lặp lịch" : "Danh sách lịch cụ thể"}
         subtitle="Bước 3/4"
         showBackButton
-        onBackPress={() => router.replace("/(tabs)/tournament-venue")}
+        onBackPress={() => goBackOrReplace(navigation, "/(tabs)/tournament/venue")}
       />
 
       <ScrollView className="flex-1 px-4 pt-4">
@@ -191,7 +194,7 @@ export default function TournamentScheduleScreen() {
         </View>
 
         <TouchableOpacity
-          onPress={() => router.replace("/(tabs)/tournament-venue" as never)}
+          onPress={() => goBackOrReplace(navigation, "/(tabs)/tournament/venue")}
           className="border border-indigo-300 bg-indigo-50 rounded-xl py-3 items-center mb-3"
         >
           <Text className="text-indigo-700 font-semibold">

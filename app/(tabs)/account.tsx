@@ -19,13 +19,14 @@ import HeaderUser from "@/component/HeaderUser";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { authService } from "@/src/services/auth.service";
-import { legacyApiService } from "@/src/services/legacy-api.service";
 import { imageService } from "@/src/services/image.service";
 
 const User = () => {
-  const [name, setName] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
+  const [age, setAge] = useState("");
   const [username, setUsername] = useState("");
   const [userId, setUserId] = useState("");
   const [bookingHistory, setBookingHistory] = useState([]);
@@ -41,6 +42,19 @@ const User = () => {
   const [uploadingQr, setUploadingQr] = useState(false);
   const [loading, setLoading] = useState(true);
   const [role, setRole] = useState("");
+
+  const splitFullName = (fullName: string) => {
+    const trimmed = fullName.trim();
+    if (!trimmed) {
+      return { firstName: "", lastName: "" };
+    }
+
+    const parts = trimmed.split(/\s+/);
+    return {
+      firstName: parts[0] || "",
+      lastName: parts.slice(1).join(" "),
+    };
+  };
 
   const isOrganizerRole = (rawRole?: string) => {
     const normalized = String(rawRole || "")
@@ -58,9 +72,11 @@ const User = () => {
         console.log("Dữ liệu từ API getMe:", userProfile);
         
         // Cập nhật state với dữ liệu từ API
-        setName(`${userProfile.first_name} ${userProfile.last_name}`.trim());
+        setFirstName(userProfile.first_name || "");
+        setLastName(userProfile.last_name || "");
         setEmail(userProfile.email || "");
         setPhone(userProfile.phone_number || "");
+        setAge(String(userProfile.age ?? ""));
         setUsername(userProfile.email?.split("@")[0] || "");
         setUserId(userProfile.id.toString());
         setRole(String(userProfile.role || ""));
@@ -106,9 +122,12 @@ const User = () => {
           console.log("Fallback: Dữ liệu từ AsyncStorage:", userDataString);
           if (userDataString) {
             const userData = JSON.parse(userDataString);
-            setName(userData.fullName || "");
+            const parsedName = splitFullName(userData.fullName || "");
+            setFirstName(parsedName.firstName);
+            setLastName(parsedName.lastName);
             setEmail(userData.email || "");
             setPhone(userData.phone || "");
+            setAge(String(userData.age ?? ""));
             setUsername(userData.username || "");
             setUserId(userData._id || "");
             setBookingHistory(userData.bookingHistory || []);
@@ -221,32 +240,29 @@ const User = () => {
       }
 
       console.log("Dữ liệu gửi API:", {
-        fullName: name,
-        email,
-        phone,
-        username,
+        first_name: firstName,
+        last_name: lastName,
+        phone_number: phone,
+        age,
       });
-      const data = await legacyApiService.updateUserProfile(
-        userId,
-        {
-          fullName: name,
-          username,
-          phone,
-          email,
-        },
-        token
-      );
+      const data = await authService.updateMe({
+        first_name: firstName.trim(),
+        last_name: lastName.trim(),
+        phone_number: phone.trim(),
+        age: Number(age),
+      });
       console.log("API response:", data);
 
       const updatedUserData = {
         ...data,
-        fullName: name,
-        email,
-        phone,
-        username,
+        fullName: `${firstName} ${lastName}`.trim(),
+        email: data.email,
+        phone: data.phone_number,
+        username: data.email?.split("@")[0] || username,
         bookingHistory,
       };
       await AsyncStorage.setItem("userData", JSON.stringify(updatedUserData));
+      await AsyncStorage.setItem("userProfile", JSON.stringify(data));
       console.log("Dữ liệu đã lưu lại:", updatedUserData);
       Alert.alert("Thành công", "Cập nhật tài khoản thành công!");
     } catch (error) {
@@ -271,6 +287,7 @@ const User = () => {
             console.log("Đang đăng xuất...");
             await AsyncStorage.removeItem("authToken");
             await AsyncStorage.removeItem("userData");
+            await AsyncStorage.removeItem("userProfile");
             await AsyncStorage.removeItem("userRole");
             router.replace("/login");
           },
@@ -281,10 +298,12 @@ const User = () => {
   };
 
   console.log("Render với state:", {
-    name,
+    firstName,
+    lastName,
     email,
     phone,
     username,
+    age,
     bookingHistory,
   });
 
@@ -344,17 +363,19 @@ const User = () => {
             <Text className="text-xl text-gray-600">Tên</Text>
             <TextInput
               className="text-2xl font-bold"
-              value={name}
-              onChangeText={setName}
+              value={firstName}
+              onChangeText={setFirstName}
+              editable={true}
             />
           </View>
 
           <View className="border border-black px-4 pt-2">
-            <Text className="text-xl text-gray-600">Tài khoản</Text>
+            <Text className="text-xl text-gray-600">Họ</Text>
             <TextInput
               className="text-2xl font-bold"
-              value={username}
-              onChangeText={setUsername}
+              value={lastName}
+              onChangeText={setLastName}
+              editable={true}
             />
           </View>
 
@@ -382,12 +403,31 @@ const User = () => {
           </View>
 
           <View className="border border-black px-4 pt-2">
-            <Text className="text-xl text-gray-600">Email</Text>
+            <Text className="text-xl text-gray-600">Tuổi</Text>
             <TextInput
               className="text-2xl font-bold"
+              value={age}
+              onChangeText={setAge}
+              keyboardType="number-pad"
+            />
+          </View>
+
+          <View className="border border-black px-4 pt-2 bg-gray-100">
+            <Text className="text-xl text-gray-600">Email</Text>
+            <TextInput
+              className="text-2xl font-bold text-gray-500"
               value={email}
-              onChangeText={setEmail}
+              editable={false}
               keyboardType="email-address"
+            />
+          </View>
+
+          <View className="border border-black px-4 pt-2 bg-gray-100">
+            <Text className="text-xl text-gray-600">Tài khoản</Text>
+            <TextInput
+              className="text-2xl font-bold text-gray-500"
+              value={username}
+              editable={false}
             />
           </View>
 

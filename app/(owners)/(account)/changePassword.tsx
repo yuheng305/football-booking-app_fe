@@ -3,8 +3,7 @@ import { View, Text, TextInput, TouchableOpacity, Alert } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import HeaderOne from "@/component/HeaderOne";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { legacyApiService } from "@/src/services/legacy-api.service";
+import authService from "@/src/services/auth.service";
 import { Ionicons } from "@expo/vector-icons";
 
 const ChangePassword = () => {
@@ -22,43 +21,22 @@ const ChangePassword = () => {
       return;
     }
 
+    if (!oldPassword || !newPassword || !confirmPassword) {
+      Alert.alert("Lỗi", "Vui lòng nhập đầy đủ thông tin!");
+      return;
+    }
+
     try {
-      // Lấy token và userId từ AsyncStorage
-      const token = await AsyncStorage.getItem("authToken");
-      if (!token) {
-        Alert.alert("Lỗi", "Không tìm thấy token, vui lòng đăng nhập lại!");
-        router.replace("/login");
-        return;
-      }
-
-      const userDataString = await AsyncStorage.getItem("userData");
-      if (!userDataString) {
-        Alert.alert(
-          "Lỗi",
-          "Không tìm thấy thông tin người dùng, vui lòng đăng nhập lại!"
-        );
-        router.replace("/login");
-        return;
-      }
-      const userData = JSON.parse(userDataString);
-      const userId = userData._id;
-      console.log("userId:", userId);
-      if (!userId) {
-        Alert.alert("Lỗi", "Không tìm thấy userId, vui lòng đăng nhập lại!");
-        router.replace("/login");
-        return;
-      }
-
       // Chuẩn bị request body
       const requestBody = {
-        oldPassword,
-        newPassword,
-        confirmNewPassword: confirmPassword,
+        old_password: oldPassword,
+        new_password: newPassword,
+        confirmation_password: confirmPassword,
       };
 
-      await legacyApiService.changeOwnerPassword(userId, requestBody, token);
+      const message = await authService.changePassword(requestBody);
 
-      Alert.alert("Thành công", "Đổi mật khẩu thành công!");
+      Alert.alert("Thành công", message);
       router.back();
     } catch (error: unknown) {
       console.error("Lỗi khi đổi mật khẩu:", error);

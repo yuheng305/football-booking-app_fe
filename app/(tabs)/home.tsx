@@ -102,17 +102,15 @@ export default function Home() {
         >
           {isPlayer && (
             <TouchableOpacity
-              className="w-40 h-40 bg-white rounded-2xl items-center justify-center p-4 border-2 border-blue-500 mr-4"
-              onPress={() => router.push("/(tabs)/(stadiums)/location")}
+              className="w-40 h-40 bg-white rounded-2xl items-center justify-center p-3 border-2 border-blue-500 mr-4"
+              onPress={() => router.push("/(tabs)/stadium")}
             >
               {bookingIconFailed ? (
-                <View className="w-full items-center justify-center py-2">
-                  <MaterialCommunityIcons name="soccer-field" size={62} color="#1d4ed8" />
-                </View>
+                <MaterialCommunityIcons name="soccer-field" size={62} color="#1d4ed8" />
               ) : (
                 <Image
                   source={require("../../assets/images/book.png")}
-                  style={{ width: 76, height: 76, marginBottom: 4 }}
+                  className="w-full h-full"
                   resizeMode="contain"
                   onError={() => setBookingIconFailed(true)}
                 />
@@ -186,7 +184,7 @@ export default function Home() {
             </TouchableOpacity>
           )}
 
-          {isOrganizer && (
+          {/* {isOrganizer && (
             <TouchableOpacity
               className="w-40 h-40 bg-white rounded-2xl items-center justify-center p-4 border-2 border-blue-500 mr-4"
               onPress={() => router.push("/chats")}
@@ -196,7 +194,7 @@ export default function Home() {
                 Hội thoại
               </Text>
             </TouchableOpacity>
-          )}
+          )} */}
         </ScrollView>
       </View>
     </SafeAreaView>

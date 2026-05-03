@@ -6,6 +6,10 @@ import {
   CreateLevel2TournamentResult,
   TournamentDetailData,
   TournamentRoundMatchesData,
+  TournamentBracketData,
+  TournamentBracketMatch,
+  TournamentRoundMatch,
+  PatchLevel2MatchExtraPayload,
   UpdateLevel2MatchTeamsPayload,
   UpdateLevel2MatchTeamsResult,
   CreateTournamentPayload,
@@ -16,9 +20,40 @@ import {
   OwnerConfirmTournamentResult,
   ScheduleLevel2RoundPayload,
   ScheduleLevel2RoundResult,
+  Level2RescheduleBookingPayload,
+  Level2RescheduleBookingResult,
   TournamentCreateResult,
   TournamentOwnerBookingStatus,
 } from "../types/tournament.types";
+
+function mapBracketMatchToRoundMatch(m: TournamentBracketMatch): TournamentRoundMatch {
+  const booked = m.booking_id != null && Number(m.booking_id) > 0;
+  return {
+    id: m.id,
+    round_number: m.round_number,
+    team_a_name: m.team_a_name,
+    team_b_name: m.team_b_name,
+    booking_id: m.booking_id ?? undefined,
+    round_id: m.round_id ?? undefined,
+    tournament_id: m.tournament_id,
+    booking_date: m.booking_date ?? "",
+    start_time: m.start_time ?? "",
+    end_time: m.end_time ?? "",
+    field_id: m.field_id ?? undefined,
+    field_name: null,
+    field_description: m.field_description ?? null,
+    status: booked ? "scheduled" : "pending",
+    extra_data: m.extra_data ?? null,
+    created_at: m.created_at,
+    updated_at: m.updated_at,
+  };
+}
+
+/** Lọc client-side từ GET /tournaments/:id/matches (danh sách toàn giải). */
+export function mapBracketMatchesForRound(data: TournamentBracketData, roundId: number): TournamentRoundMatch[] {
+  const rid = Number(roundId);
+  return data.matches.filter((m) => Number(m.round_id) === rid).map(mapBracketMatchToRoundMatch);
+}
 
 type ApiEnvelope<T> = {
   data: T;
@@ -71,18 +106,54 @@ class TournamentService {
     tournamentId: number,
     roundId: number
   ): Promise<TournamentRoundMatchesData> {
-    const endpoint = API_CONFIG.TOURNAMENT_ENDPOINTS.LEVEL_2_ROUND_MATCHES.replace(
+    const all = await this.getLevel2AllMatches(tournamentId);
+    const matches = mapBracketMatchesForRound(all, roundId);
+    return {
+      round_id: roundId,
+      matches,
+      total: matches.length,
+    };
+  }
+
+  async getLevel2AllMatches(tournamentId: number): Promise<TournamentBracketData> {
+    const endpoint = API_CONFIG.TOURNAMENT_ENDPOINTS.LEVEL_2_ALL_MATCHES.replace(
       ":id",
       String(tournamentId)
-    ).replace(":roundId", String(roundId));
+    );
 
-    const response = await apiClient.get<
-      TournamentRoundMatchesData | ApiEnvelope<TournamentRoundMatchesData>
-    >(endpoint);
+    const response = await apiClient.get<TournamentBracketData | ApiEnvelope<TournamentBracketData>>(
+      endpoint
+    );
 
-    const data = this.unwrapData<TournamentRoundMatchesData>(response);
-    if (!data?.round_id || !Array.isArray(data?.matches)) {
-      throw new Error("Không tải được danh sách trận đấu của vòng");
+    const data = this.unwrapData<TournamentBracketData>(response);
+    if (!data?.tournament_id || !Array.isArray(data?.matches)) {
+      throw new Error("Không tải được sơ đồ nhánh đấu");
+    }
+
+    return data;
+  }
+
+  /**
+   * PATCH /tournaments/:id/matches/:matchId — extra_data.team_win = tên đội thắng (chuỗi).
+   * BE trả về object trận (cùng dạng phần tử trong GET …/matches).
+   */
+  async patchLevel2Match(
+    tournamentId: number,
+    matchId: number,
+    payload: PatchLevel2MatchExtraPayload
+  ): Promise<TournamentBracketMatch> {
+    const endpoint = API_CONFIG.TOURNAMENT_ENDPOINTS.LEVEL_2_PATCH_MATCH.replace(
+      ":id",
+      String(tournamentId)
+    ).replace(":matchId", String(matchId));
+
+    const response = await apiClient.patch<
+      TournamentBracketMatch | ApiEnvelope<TournamentBracketMatch>
+    >(endpoint, payload);
+
+    const data = this.unwrapData<TournamentBracketMatch>(response);
+    if (!data?.id) {
+      throw new Error("Không thể cập nhật kết quả trận đấu");
     }
 
     return data;
@@ -194,6 +265,28 @@ class TournamentService {
     return data;
   }
 
+  async rescheduleLevel2Booking(
+    tournamentId: number,
+    bookingId: number,
+    payload: Level2RescheduleBookingPayload
+  ): Promise<Level2RescheduleBookingResult> {
+    const endpoint = API_CONFIG.TOURNAMENT_ENDPOINTS.LEVEL_2_BOOKING_RESCHEDULE.replace(
+      ":id",
+      String(tournamentId)
+    ).replace(":bookingId", String(bookingId));
+
+    const response = await apiClient.post<
+      Level2RescheduleBookingResult | ApiEnvelope<Level2RescheduleBookingResult>
+    >(endpoint, payload);
+
+    const data = this.unwrapData<Level2RescheduleBookingResult>(response);
+    if (!data?.booking_id) {
+      throw new Error(data?.message || "Không đổi được lịch booking");
+    }
+
+    return data;
+  }
+
   async ownerConfirmTournament(
     tournamentId: number,
     payload?: OwnerConfirmTournamentPayload
@@ -213,6 +306,23 @@ class TournamentService {
     }
 
     return data;
+  }
+
+  async ownerRejectTournament(
+    tournamentId: number,
+    payload?: { reason?: string }
+  ): Promise<{ status?: string } | null> {
+    const endpoint = API_CONFIG.TOURNAMENT_ENDPOINTS.OWNER_REJECT.replace(
+      ":id",
+      String(tournamentId)
+    );
+
+    const response = await apiClient.patch<{ status?: string } | ApiEnvelope<{ status?: string }>>(
+      endpoint,
+      payload
+    );
+
+    return this.unwrapData<{ status?: string }>(response);
   }
 
   async listOwnerTournaments(params?: {

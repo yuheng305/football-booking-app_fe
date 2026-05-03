@@ -163,7 +163,12 @@ class ApiClient {
       let response = await fetch(url, requestOptions);
       console.log(`[API] Response status: ${response.status}`);
 
-      if (response.status === 401 && !this.shouldSkipRefresh(endpoint)) {
+      // 401: chuẩn hết hạn token; một số BE trả 403 cho JWT không hợp lệ / hết hạn
+      const authLooksStale =
+        (response.status === 401 || response.status === 403) &&
+        !this.shouldSkipRefresh(endpoint);
+
+      if (authLooksStale) {
         const refreshedAccessToken = await this.tryRefreshAccessToken();
 
         if (refreshedAccessToken) {
@@ -199,7 +204,7 @@ class ApiClient {
       if (error instanceof Error) {
         throw new Error(error.message);
       }
-      throw new Error("An unknown error occurred");
+      throw new Error("Đã xảy ra lỗi không xác định");
     }
   }
 

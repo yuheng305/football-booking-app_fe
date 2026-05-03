@@ -47,4 +47,29 @@ export const resolveUserRoleFromStorage = async (): Promise<AppRole> => {
   return "player";
 };
 
+/** Role thô từ storage (không gom organizer với owner). Dùng khi cần phân nhánh UI. */
+export async function getRawUserRoleFromStorage(): Promise<string | null> {
+  try {
+    const [profileRaw, userDataRaw, legacyRole] = await Promise.all([
+      AsyncStorage.getItem("userProfile"),
+      AsyncStorage.getItem("userData"),
+      AsyncStorage.getItem("userRole"),
+    ]);
+    const r =
+      (userDataRaw ? JSON.parse(userDataRaw)?.role : null) ??
+      (profileRaw ? JSON.parse(profileRaw)?.role : null) ??
+      (legacyRole != null && legacyRole !== "" ? String(legacyRole) : null);
+    if (r == null || r === "") return null;
+    return String(r).trim().toLowerCase();
+  } catch {
+    return null;
+  }
+}
+
+/** Chủ sân (màn owner / trung tâm quản lý) — khác organizer ở tab Giải đấu. */
+export function isFieldOwnerRole(rawRole: string | null): boolean {
+  if (!rawRole) return false;
+  return rawRole === "owner" || rawRole === "field_owner";
+}
+
 export default resolveUserRoleFromStorage;

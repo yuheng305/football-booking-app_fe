@@ -123,7 +123,7 @@ const LocationTime = () => {
   const handleFieldPress = (fieldId: string) => {
     console.log(`Chọn sân ${fieldId}`);
     router.push({
-      pathname: "/(tabs)/(stadiums)/service",
+      pathname: "/(tabs)/stadium/service",
       params: { fieldId, clusterId, bookingTime },
     });
   };

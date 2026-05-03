@@ -103,7 +103,7 @@ class ImageService {
     }
 
     if (rules.requiresEntityId && (!Number.isFinite(entityId) || (entityId as number) <= 0)) {
-      throw new Error(`entity_id is required for type=${type}`);
+      throw new Error(`Thiếu mã đối tượng (entity_id) hợp lệ cho loại tải ảnh: ${type}`);
     }
 
     const formData = new FormData();
@@ -146,11 +146,11 @@ class ImageService {
 
   async deleteImage(type: "field" | "cluster", imageId: number, entityId: number): Promise<void> {
     if (!Number.isFinite(imageId) || imageId <= 0) {
-      throw new Error("image_id không hợp lệ");
+      throw new Error("Mã ảnh không hợp lệ");
     }
 
     if (!Number.isFinite(entityId) || entityId <= 0) {
-      throw new Error("entity_id không hợp lệ");
+      throw new Error("Mã đối tượng không hợp lệ");
     }
 
     await apiClient.delete<DeleteImageResponse>(`/images/${imageId}`, {

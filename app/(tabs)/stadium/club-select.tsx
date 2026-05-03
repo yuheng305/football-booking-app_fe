@@ -104,7 +104,7 @@ const ClubSelect = () => {
       console.log("[CLUB SELECT] Selected club:", club);
 
       // Navigate to location screen để chọn địa điểm
-      router.push("/(tabs)/(stadiums)/location");
+      router.push("/(tabs)/stadium");
     } catch (error) {
       console.error("[CLUB SELECT] Error saving club:", error);
       Alert.alert("Lỗi", "Không thể lưu thông tin câu lạc bộ");

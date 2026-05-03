@@ -3,10 +3,17 @@
  * Dễ dàng thay đổi endpoint tùy theo environment
  */
 
-// API Base URL - Switch between local and production
-const API_BASE_URL = __DEV__ 
-  ? "https://datn-be-9zkr.onrender.com/api/v1" // Production for now
-  : "https://datn-be-9zkr.onrender.com/api/v1";
+/**
+ * API Configuration
+ * Read from app.json extra.API_BASE_URL or fallback to default
+ */
+
+import Constants from 'expo-constants';
+
+const DEFAULT_API_BASE_URL = "https://datn-be-9zkr.onrender.com/api/v1";
+
+// Get API URL from app.json extra config
+const API_BASE_URL = Constants.expoConfig?.extra?.API_BASE_URL || DEFAULT_API_BASE_URL;
 
 export const API_CONFIG = {
   BASE_URL: API_BASE_URL,
@@ -71,11 +78,19 @@ export const API_CONFIG = {
     CREATE: "/tournaments",
     CREATE_LEVEL_2: "/tournaments/v2",
     DETAIL: "/tournaments/:id",
+    /** Danh sách toàn bộ trận giải level 2 (FE lọc theo round_id / round_number). */
+    LEVEL_2_ALL_MATCHES: "/tournaments/:id/matches",
+    /** Cập nhật extra_data (vd. team_win) cho một trận — không cần roundId trong path. */
+    LEVEL_2_PATCH_MATCH: "/tournaments/:id/matches/:matchId",
+    /** @deprecated BE không còn endpoint theo vòng — giữ key để khỏi gãy tham chiếu cũ. */
     LEVEL_2_ROUND_MATCHES: "/tournaments/:id/rounds/:roundId/matches",
     LEVEL_2_UPDATE_MATCH: "/tournaments/:id/rounds/:roundId/matches/:matchId",
     LEVEL_2_AVAILABLE_SLOTS: "/tournaments/:id/rounds/:roundId/available-slots",
     LEVEL_2_SCHEDULE_ROUND: "/tournaments/:id/rounds/:roundId/schedule",
+    /** Đổi lịch một booking thuộc giải level 2 (BTC). */
+    LEVEL_2_BOOKING_RESCHEDULE: "/tournaments/:id/bookings/:bookingId/reschedule",
     OWNER_CONFIRM: "/tournaments/:id?action=owner-confirm",
+    OWNER_REJECT: "/tournaments/:id?action=owner-reject",
     OWNER_LIST: "/tournaments/owner",
     ORGANIZER_LIST: "/tournaments/organizer/:organizerId",
   },

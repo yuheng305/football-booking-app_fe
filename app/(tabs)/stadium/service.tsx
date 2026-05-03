@@ -209,7 +209,7 @@ const Service = () => {
 
       // Chuyển đến màn hình booking-confirm
       router.push({
-        pathname: "/(tabs)/(stadiums)/booking-confirm",
+        pathname: "/(tabs)/stadium/booking-confirm",
         params: { fieldId },
       });
     } catch (error: unknown) {

@@ -10,6 +10,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useNavigation } from "@react-navigation/native";
 import { router } from "expo-router";
 import { Calendar } from "react-native-calendars";
 import HeaderUser from "@/component/HeaderUser";
@@ -23,6 +24,7 @@ import {
   TournamentScheduleItem,
   TournamentSportType,
 } from "@/src/types/tournament.types";
+import { goBackOrReplace } from "@/src/utils/navigation.helper";
 
 const slotKey = (start: string, end: string) => `${start}-${end}`;
 
@@ -45,6 +47,8 @@ const formatMinuteToHHMM = (total: number): string => {
 };
 
 const toApiTime = (hhmm: string): string => `${hhmm}:00`;
+
+const toVnd = (value?: number): string => `${(value || 0).toLocaleString("vi-VN")} VND`;
 
 const expandRangeToHalfHourSlots = (startTime: string, endTime: string): string[] => {
   const startMinute = parseTimeToMinutes(startTime);
@@ -91,6 +95,7 @@ const SPORT_TYPE_ID_MAP: Record<TournamentSportType, number> = {
 };
 
 export default function TournamentVenueScreen() {
+  const navigation = useNavigation();
   const scrollRef = useRef<ScrollView | null>(null);
   const [loadingClusters, setLoadingClusters] = useState(true);
   const [loadingFields, setLoadingFields] = useState(false);
@@ -318,7 +323,7 @@ export default function TournamentVenueScreen() {
       return;
     }
 
-    router.replace("/(tabs)/tournament-schedule" as never);
+    router.push("/(tabs)/tournament/schedule" as never);
   };
 
   const handleAddScheduleItem = async () => {
@@ -516,7 +521,7 @@ export default function TournamentVenueScreen() {
         title="Chọn sân và khung giờ"
         subtitle={isRepeatMode ? "Bước 2/4: Chọn lịch mẫu lặp" : "Bước 2/4"}
         showBackButton
-        onBackPress={() => router.replace("/(tabs)/tournament-create")}
+        onBackPress={() => goBackOrReplace(navigation, "/(tabs)/tournament/create")}
       />
 
       <View className="px-4 pt-4 pb-2">
@@ -636,6 +641,11 @@ export default function TournamentVenueScreen() {
                       ? `Sân ${selectedField.field.id} - ${selectedField.field.size}`
                       : "Chưa chọn sân"}
                   </Text>
+                  {selectedField ? (
+                    <Text className="text-emerald-800 text-xs mt-1">
+                      Giá: {toVnd(selectedField.field.price_per_hour)}/giờ
+                    </Text>
+                  ) : null}
                   <Text className="text-emerald-700 text-xs mt-1">Nhấn để mở popup chọn sân</Text>
                 </TouchableOpacity>
               )}
@@ -726,7 +736,9 @@ export default function TournamentVenueScreen() {
             <View className="border border-amber-200 bg-amber-50 rounded-xl p-3 mt-2">
               <Text className="text-amber-800 font-medium">Bạn chưa chọn cụm sân</Text>
               <Text className="text-amber-700 text-xs mt-1">
-                Nhấn vào ô "Cụm sân đang chọn" phía trên để mở danh sách cụm sân.
+                {
+                  'Nhấn vào ô "Cụm sân đang chọn" phía trên để mở danh sách cụm sân.'
+                }
               </Text>
             </View>
           )}
@@ -909,6 +921,9 @@ export default function TournamentVenueScreen() {
                   >
                     <Text className={active ? "text-emerald-800 font-semibold" : "text-gray-900 font-medium"}>
                       Sân {item.field.id} - {item.field.size}
+                    </Text>
+                    <Text className="text-xs text-gray-600 mt-1">
+                      Giá: {toVnd(item.field.price_per_hour)}/giờ
                     </Text>
                     <Text className="text-xs text-gray-500 mt-1">
                       {disabled ? "Hết slot trong ngày" : "Có thể chọn"}

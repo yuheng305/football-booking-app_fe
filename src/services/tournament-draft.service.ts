@@ -123,7 +123,8 @@ class TournamentDraftService {
         })),
       })),
       size: 0,
-      entry_fee: 150000,
+      // Internal tournament flow does not collect entry fee from UI.
+      entry_fee: 0,
     };
 
     const createdTournament = await tournamentService.createTournament(payload);

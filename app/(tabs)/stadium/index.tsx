@@ -19,6 +19,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { clusterService } from "@/src/services/cluster.service";
 import { bookingDraftService } from "@/src/services/booking-draft.service";
 import { imageService } from "@/src/services/image.service";
+import { formatSportDisplay } from "@/src/utils/sport-type.util";
 
 interface Cluster {
   id: number;
@@ -76,7 +77,7 @@ const SPORT_FILTERS: Array<{ key: SportFilter; label: string; icon: string }> = 
   { key: "all", label: "Tất cả", icon: "apps-outline" },
   { key: "football", label: "Bóng đá", icon: "football-outline" },
   { key: "badminton", label: "Cầu lông", icon: "🏸" },
-  { key: "tennis", label: "Tennis", icon: "tennisball-outline" },
+  { key: "tennis", label: "Quần vợt", icon: "tennisball-outline" },
   { key: "pickleball", label: "Pickleball", icon: "🏓" },
   { key: "basketball", label: "Bóng rổ", icon: "basketball-outline" },
 ];
@@ -409,7 +410,7 @@ const Location = () => {
       console.log("[LOCATION] Start booking draft:", { clusterId, clusterName });
       
       // Chuyển đến màn hình chọn ngày
-      router.push("/(tabs)/(stadiums)/date-select");
+      router.push("/(tabs)/stadium/date-select");
     } catch (error) {
       console.error("Lỗi khi lưu cluster info:", error);
       alert("Đã xảy ra lỗi. Vui lòng thử lại.");
@@ -1015,7 +1016,9 @@ const Location = () => {
                       key={sport.id}
                       className="bg-blue-50 border border-blue-200 rounded-full px-3 py-1 mr-2 mb-2"
                     >
-                      <Text className="text-blue-700 font-semibold">{sport.name}</Text>
+                      <Text className="text-blue-700 font-semibold">
+                        {formatSportDisplay(sport.name, sport.id)}
+                      </Text>
                     </View>
                   ))}
                 </View>

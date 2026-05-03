@@ -15,6 +15,23 @@ import {
   FieldBasic,
 } from "../types/booking.types";
 
+type CreateFieldPayload = {
+  cluster_id: number;
+  sport_type_id: number;
+  size: string;
+  description: string;
+  price_per_hour: number;
+};
+
+type CreateFieldResponse = {
+  data: FieldBasic;
+  api_version: string;
+  errors: {
+    msg: string[];
+    code: null | string;
+  };
+};
+
 class FieldService {
   /**
    * Get all fields in a cluster (temporary flow)
@@ -112,6 +129,21 @@ class FieldService {
       return response.data;
     } catch (error) {
       console.error("[FIELD SERVICE] Error fetching owner fields:", error);
+      throw error;
+    }
+  }
+
+  async createField(payload: CreateFieldPayload): Promise<FieldBasic> {
+    try {
+      const response = await apiClient.post<CreateFieldResponse>("/fields", payload);
+
+      if (!response.data?.id) {
+        throw new Error("Không tạo được sân");
+      }
+
+      return response.data;
+    } catch (error) {
+      console.error("[FIELD SERVICE] Error creating field:", error);
       throw error;
     }
   }

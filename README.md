@@ -24,6 +24,23 @@ In the output, you'll find options to open the app in a
 - [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
 
 You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+`
+## Environment variables
+
+This project reads the API base URL from environment variables. The code will use the first value available in this order:
+
+- `EXPO_API_BASE_URL` (preferred for Expo builds)
+- `API_BASE_URL`
+- Fallback to the default configured in `src/config/api.config.ts`
+
+To configure locally, copy `.env.example` to `.env` and edit the values. Example:
+
+```env
+EXPO_API_BASE_URL=https://your-api.example.com/api/v1
+API_BASE_URL=https://your-api.example.com/api/v1
+```
+
+If you're using CI/CD, set `EXPO_API_BASE_URL` or `API_BASE_URL` in your build environment.
 
 ## Get a fresh project
 

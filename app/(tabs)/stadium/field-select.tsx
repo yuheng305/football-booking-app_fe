@@ -1,4 +1,4 @@
-﻿import {
+import {
   Text,
   View,
   Image,
@@ -9,6 +9,7 @@
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useState, useEffect, useCallback } from "react";
+import { useNavigation } from "@react-navigation/native";
 import { router, useLocalSearchParams, useFocusEffect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import HeaderUser from "@/component/HeaderUser";
@@ -17,33 +18,16 @@ import { fieldService } from "@/src/services/field.service";
 import { FieldWithAvailability } from "@/src/types/booking.types";
 import { bookingDraftService } from "@/src/services/booking-draft.service";
 import { imageService } from "@/src/services/image.service";
+import { goBackOrReplace } from "@/src/utils/navigation.helper";
+import { formatSportDisplay } from "@/src/utils/sport-type.util";
 
 type SportFilterOption = {
   id: number;
   label: string;
 };
 
-const SPORT_LABEL_MAP: Record<number, string> = {
-  1: "Bong da",
-  2: "Cau long",
-  3: "Pickleball",
-  4: "Tennis",
-  5: "Bong ro",
-};
-
-const getSportLabel = (sportTypeId?: number, sportTypeName?: string) => {
-  if (sportTypeName?.trim()) {
-    return sportTypeName.trim();
-  }
-
-  if (typeof sportTypeId === "number" && SPORT_LABEL_MAP[sportTypeId]) {
-    return SPORT_LABEL_MAP[sportTypeId];
-  }
-
-  return "Khac";
-};
-
 const FieldSelect = () => {
+  const navigation = useNavigation();
   const params = useLocalSearchParams();
   const clusterIdParam = params.clusterId as string | undefined;
 
@@ -74,7 +58,7 @@ const FieldSelect = () => {
       setClusterName(resolvedClusterName);
 
       if (!resolvedClusterId || !resolvedDate) {
-        setError("Thieu thong tin cum san hoac ngay dat. Vui long chon lai.");
+        setError("Thiếu thông tin cụm sân hoặc ngày đặt. Vui lòng chọn lại.");
         setFields([]);
         return;
       }
@@ -82,7 +66,7 @@ const FieldSelect = () => {
       await fetchFieldsWithAvailability(resolvedClusterId, resolvedDate);
     } catch (loadError) {
       console.error("[FIELD SELECT] Error loading screen data:", loadError);
-      setError("Khong the tai thong tin chon san");
+      setError("Không thể tải thông tin chọn sân");
     }
   };
 
@@ -122,7 +106,7 @@ const FieldSelect = () => {
                 sportTypeId,
                 {
                   id: sportTypeId,
-                  label: getSportLabel(sportTypeId, item.field.sport_type?.name),
+                  label: formatSportDisplay(item.field.sport_type?.name, sportTypeId),
                 },
               ] as const;
             })
@@ -160,11 +144,11 @@ const FieldSelect = () => {
       setFieldImageMap(nextImageMap);
 
       if (activeFields.length === 0) {
-        setError("Hien tai khong co san nao kha dung trong ngay nay.");
+        setError("Hiện tại không có sân nào khả dụng trong ngày này.");
       }
-    } catch (fetchError: any) {
+      } catch (fetchError: any) {
       console.error("[FIELD SELECT] Error fetching fields:", fetchError);
-      setError(fetchError.message || "Khong the tai danh sach san");
+      setError(fetchError.message || "Không thể tải danh sách sân");
     } finally {
       setLoading(false);
     }
@@ -194,10 +178,10 @@ const FieldSelect = () => {
       await AsyncStorage.setItem("fieldAvailableSlots", JSON.stringify(available_slots));
       await AsyncStorage.setItem("fieldBookedSlots", JSON.stringify(booked_slots));
 
-      router.push("/(tabs)/(stadiums)/time-select");
+      router.push("/(tabs)/stadium/time-select");
     } catch (saveError) {
       console.error("[FIELD SELECT] Error saving field:", saveError);
-      Alert.alert("Loi", "Khong the luu thong tin san");
+      Alert.alert("Lỗi", "Không thể lưu thông tin sân");
     }
   };
 
@@ -226,16 +210,16 @@ const FieldSelect = () => {
   return (
     <SafeAreaView className="flex-1 bg-gray-100" edges={["top"]}>
       <HeaderUser
-        title="Chon san"
+        title="Chọn sân"
         subtitle={headerSubtitle}
         showBackButton
-        onBackPress={() => router.push("/(tabs)/(stadiums)/date-select")}
+        onBackPress={() => goBackOrReplace(navigation, "/(tabs)/stadium/date-select")}
       />
 
       {loading && (
-        <View className="flex-1 items-center justify-center">
+          <View className="flex-1 items-center justify-center">
           <ActivityIndicator size="large" color="#3b82f6" />
-          <Text className="text-center text-lg mt-4">Dang tai...</Text>
+          <Text className="text-center text-lg mt-4">Đang tải...</Text>
         </View>
       )}
 
@@ -251,7 +235,7 @@ const FieldSelect = () => {
                 : null
             }
           >
-            <Text className="text-white font-semibold">Thu lai</Text>
+            <Text className="text-white font-semibold">Tải lại</Text>
           </TouchableOpacity>
         </View>
       )}
@@ -274,7 +258,7 @@ const FieldSelect = () => {
                 onPress={() => setSelectedSportId("all")}
               >
                 <Text className={`${selectedSportId === "all" ? "text-white" : "text-gray-700"} font-semibold`}>
-                  Tat ca
+                  Tất cả
                 </Text>
               </TouchableOpacity>
 
@@ -300,7 +284,7 @@ const FieldSelect = () => {
             <View className="items-center justify-center py-12">
               <Ionicons name="filter-outline" size={48} color="#9ca3af" />
               <Text className="text-center text-gray-500 mt-3 text-base">
-                Khong co san phu hop voi mon da chon
+                Không có sân phù hợp với môn đã chọn
               </Text>
             </View>
           )}
@@ -333,14 +317,14 @@ const FieldSelect = () => {
 
                   <View className="flex-1">
                     <View className="flex-row items-center justify-between mb-2">
-                      <Text className="text-lg font-bold text-gray-900">San {field.size}</Text>
+                      <Text className="text-lg font-bold text-gray-900">Sân {field.size}</Text>
                       <View
                         className={`${hasAvailability ? "bg-green-100" : "bg-red-100"} px-3 py-1 rounded-full`}
                       >
                         <Text
                           className={`${hasAvailability ? "text-green-700" : "text-red-700"} text-xs font-semibold`}
                         >
-                          {hasAvailability ? "Kha dung" : "Het cho"}
+                          {hasAvailability ? "Khả dụng" : "Hết chỗ"}
                         </Text>
                       </View>
                     </View>
@@ -351,7 +335,7 @@ const FieldSelect = () => {
                       <View className="flex-row items-center mb-2">
                         <Ionicons name="time-outline" size={14} color="#f59e0b" />
                         <Text className="text-xs text-amber-600 ml-1">
-                          {totalBooked} khung gio da dat
+                          {totalBooked} khung giờ đã đặt
                         </Text>
                       </View>
                     )}
@@ -360,7 +344,7 @@ const FieldSelect = () => {
                       <View className="flex-row items-center">
                         <Ionicons name="cash-outline" size={18} color="#3b82f6" />
                         <Text className="text-blue-600 font-semibold text-base ml-2">
-                          {formatPrice(field.price_per_hour)}/gio
+                          {formatPrice(field.price_per_hour)}/giờ
                         </Text>
                       </View>
 
@@ -368,7 +352,7 @@ const FieldSelect = () => {
                         className={`${hasAvailability ? "bg-blue-500" : "bg-gray-300"} px-4 py-2 rounded-lg`}
                       >
                         <Text className="text-white font-semibold">
-                          {hasAvailability ? "Chon" : "Het cho"}
+                          {hasAvailability ? "Chọn" : "Hết chỗ"}
                         </Text>
                       </View>
                     </View>
@@ -384,7 +368,7 @@ const FieldSelect = () => {
         <View className="flex-1 items-center justify-center px-4">
           <Ionicons name="football-outline" size={64} color="#9ca3af" />
           <Text className="text-center text-gray-500 mt-4 text-base">
-            Khong co san nao kha dung
+            Không có sân nào khả dụng
           </Text>
         </View>
       )}

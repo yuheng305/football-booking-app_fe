@@ -5,7 +5,6 @@
 
 import apiClient from "../utils/api.client";
 import API_CONFIG from "../config/api.config";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   GetPlayerBookingsResponse,
   GetPlayerBookingsParams,
@@ -65,25 +64,9 @@ class BookingService {
     role?: string;
   } | null> {
     try {
-      const token = await AsyncStorage.getItem("authToken");
-      if (!token) {
-        throw new Error("Not authenticated");
-      }
-
-      const response = await fetch(`${API_CONFIG.BASE_URL}/users/${userId}`, {
-        method: "GET",
-        headers: {
-          accept: "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      if (!response.ok) {
-        return null;
-      }
-
-      const payload = (await response.json().catch(() => ({}))) as any;
-      const data = payload?.data || payload;
+      const payload = (await apiClient.get<any>(`/users/${userId}`).catch(() => null)) as any;
+      if (!payload) return null;
+      const data = payload?.data ?? payload;
       if (!data || !data.id) {
         return null;
       }
@@ -104,42 +87,17 @@ class BookingService {
 
   private async ownerBookingAction(
     bookingId: number,
-    action: "owner-confirm" | "owner-cancel",
+    action: "owner-confirm" | "owner-cancel" | "owner-reject",
     reason: string
   ): Promise<OwnerBookingActionResponse> {
-    const token = await AsyncStorage.getItem("authToken");
-
-    if (!token) {
-      throw new Error("Not authenticated");
-    }
-
     const endpoint = API_CONFIG.BOOKING_ENDPOINTS.UPDATE_BOOKING.replace(
       ":id",
       String(bookingId)
     );
-    const url = `${API_CONFIG.BASE_URL}${endpoint}?action=${action}`;
 
-    const response = await fetch(url, {
-      method: "PATCH",
-      headers: {
-        accept: "application/json",
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({ reason }),
+    return apiClient.patch<OwnerBookingActionResponse>(endpoint, { reason }, {
+      params: { action },
     });
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      const message =
-        errorData?.errors?.msg?.[0] ||
-        errorData?.detail ||
-        errorData?.message ||
-        `API Error: ${response.status} ${response.statusText}`;
-      throw new Error(message);
-    }
-
-    return (await response.json()) as OwnerBookingActionResponse;
   }
 
   /**
@@ -149,14 +107,26 @@ class BookingService {
     params: GetPlayerBookingsParams
   ): Promise<{ bookings: Booking[]; total: number; offset: number; limit: number }> {
     try {
-      const { playerId, offset = 0, limit = 30 } = params;
-      
-      const response = await apiClient.get<GetPlayerBookingsResponse>(
-        `${API_CONFIG.BOOKING_ENDPOINTS.GET_PLAYER_BOOKINGS.replace(":playerId", playerId.toString())}?offset=${offset}&limit=${limit}`
+      const { playerId, tournamentId, offset = 0, limit = 30 } = params;
+
+      const queryParams: Record<string, string> = {
+        offset: String(offset),
+        limit: String(limit),
+      };
+      if (tournamentId != null && Number.isFinite(Number(tournamentId))) {
+        queryParams.tournament_id = String(tournamentId);
+      }
+
+      const query = new URLSearchParams(queryParams).toString();
+      const path = API_CONFIG.BOOKING_ENDPOINTS.GET_PLAYER_BOOKINGS.replace(
+        ":playerId",
+        playerId.toString()
       );
 
+      const response = await apiClient.get<GetPlayerBookingsResponse>(`${path}?${query}`);
+
       if (!response.data) {
-        throw new Error("Failed to get player bookings");
+        throw new Error("Không tải được danh sách đặt sân của bạn");
       }
 
       return response.data;
@@ -174,11 +144,10 @@ class BookingService {
 
     for (let attempt = 1; attempt <= 2; attempt++) {
       try {
-        console.log("[BOOKING SERVICE] GET booking detail", { bookingId, attempt });
         const response = await apiClient.get<{ data: Booking }>(endpoint);
 
         if (!response.data) {
-          throw new Error("Failed to get booking");
+          throw new Error("Không tải được chi tiết đặt sân");
         }
 
         console.log("[BOOKING SERVICE] Booking detail success:", {
@@ -203,7 +172,7 @@ class BookingService {
       }
     }
 
-    throw new Error("Failed to get booking");
+    throw new Error("Không tải được chi tiết đặt sân");
   }
 
   /**
@@ -241,41 +210,30 @@ class BookingService {
     params: GetOwnerBookingsParams
   ): Promise<{ bookings: Booking[]; total: number; offset: number; limit: number }> {
     try {
-      const { clusterId, offset = 0, limit = 30 } = params;
-      const token = await AsyncStorage.getItem("authToken");
+      const { clusterId, fieldId, status, offset = 0, limit = 30 } = params as any;
 
-      if (!token) {
-        throw new Error("Not authenticated");
+      const queryParams: Record<string, string | number> = {
+        offset,
+        limit,
+      };
+
+      if (clusterId && Number.isFinite(Number(clusterId))) {
+        queryParams.cluster_id = clusterId;
       }
 
-      const query = new URLSearchParams({
-        cluster_id: String(clusterId),
-        offset: String(offset),
-        limit: String(limit),
-      }).toString();
-
-      const url = `${API_CONFIG.BASE_URL}${API_CONFIG.BOOKING_ENDPOINTS.GET_OWNER_BOOKINGS}?${query}`;
-      const response = await fetch(url, {
-        method: "GET",
-        headers: {
-          accept: "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        const message =
-          errorData?.errors?.msg?.[0] ||
-          errorData?.detail ||
-          errorData?.message ||
-          `API Error: ${response.status} ${response.statusText}`;
-        throw new Error(message);
+      if (fieldId && Number.isFinite(Number(fieldId))) {
+        queryParams.field_id = fieldId;
+      }
+      if (status) {
+        queryParams.status = status;
       }
 
-      const result = (await response.json()) as GetOwnerBookingsResponse;
+      const result = await apiClient.get<GetOwnerBookingsResponse>(
+        API_CONFIG.BOOKING_ENDPOINTS.GET_OWNER_BOOKINGS,
+        { params: queryParams }
+      );
       if (!result.data) {
-        throw new Error("Failed to get owner bookings");
+        throw new Error("Không tải được danh sách đặt sân của chủ sân");
       }
 
       return result.data;
@@ -287,47 +245,32 @@ class BookingService {
 
   async ownerConfirmBooking(
     bookingId: number,
-    reason: string = "Owner approved"
+    reason: string = "Chủ sân đã xác nhận đặt sân"
   ): Promise<OwnerBookingActionResponse> {
     return this.ownerBookingAction(bookingId, "owner-confirm", reason);
   }
 
   async ownerCancelBooking(
     bookingId: number,
-    reason: string = "Owner canceled"
+    reason: string = "Chủ sân đã hủy đặt sân"
   ): Promise<OwnerBookingActionResponse> {
     return this.ownerBookingAction(bookingId, "owner-cancel", reason);
   }
 
+  async ownerRejectBooking(
+    bookingId: number,
+    reason: string = "Chủ sân đã từ chối đặt sân"
+  ): Promise<OwnerBookingActionResponse> {
+    return this.ownerBookingAction(bookingId, "owner-reject", reason);
+  }
+
   async getZaloPayOrderUrl(bookingId: number): Promise<string> {
-    const token = await AsyncStorage.getItem("authToken");
-
-    if (!token) {
-      throw new Error("Not authenticated");
-    }
-
-    const url = `${API_CONFIG.BASE_URL}/payments/zalopay/${bookingId}`;
+    const endpoint = API_CONFIG.PAYMENT_ENDPOINTS.CREATE_ZALOPAY_ORDER.replace(
+      ":bookingId",
+      String(bookingId)
+    );
     console.log("[BOOKING SERVICE] GET ZaloPay order, bookingId:", bookingId);
-    console.log("[BOOKING SERVICE] ZaloPay URL:", url);
-    const response = await fetch(url, {
-      method: "GET",
-      headers: {
-        accept: "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      const message =
-        errorData?.errors?.msg?.[0] ||
-        errorData?.detail ||
-        errorData?.message ||
-        `API Error: ${response.status} ${response.statusText}`;
-      throw new Error(message);
-    }
-
-    const result = (await response.json()) as ZaloPayPaymentResponse;
+    const result = await apiClient.get<ZaloPayPaymentResponse>(endpoint);
     if (!result.data?.order_url) {
       throw new Error("Không lấy được link thanh toán ZaloPay");
     }

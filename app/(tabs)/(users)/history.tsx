@@ -155,9 +155,6 @@ const History = () => {
                     <Text className="text-sm font-semibold mt-1">
                       {formattedDate} • {startTime} - {endTime}
                     </Text>
-                    <Text className="text-xs text-gray-600 mt-1">
-                      Loại: {item.type === "half" ? "Nửa sân (Tìm đối)" : "Bao sân"}
-                    </Text>
                   </View>
                   <View className="items-end">
                     <Text className={`text-sm font-bold ${statusMeta.textColorClass}`}>
@@ -182,7 +179,7 @@ const History = () => {
                         const bookingId = item.id.toString();
                         await AsyncStorage.setItem("currentBookingId", bookingId);
                         console.log("[HISTORY] Navigate to stadium booking-detail with currentBookingId:", bookingId);
-                        router.push("/(tabs)/(stadiums)/booking-detail");
+                        router.push("/(tabs)/stadium/booking-detail");
                       } catch (error) {
                         console.error("[HISTORY] Failed to open booking detail:", error);
                         Alert.alert("Lỗi", "Không thể mở chi tiết đặt sân");

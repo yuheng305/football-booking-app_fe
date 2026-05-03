@@ -35,7 +35,7 @@ const UniversalHeader: React.FC<UniversalHeaderProps> = ({
   subtitle = "",
   showBackButton = false,
   showLogo = true,
-  showNotificationButton = true,
+  showNotificationButton = false,
   onLogoPress,
   onBackPress,
   onNotificationPress,

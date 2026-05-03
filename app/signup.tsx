@@ -142,7 +142,7 @@ const Signup = () => {
               <TextInput
                 value={email}
                 onChangeText={setEmail}
-                placeholder="Email"
+                placeholder="Nhập email"
                 placeholderTextColor="gray"
                 className="flex-1 text-white"
                 keyboardType="email-address"

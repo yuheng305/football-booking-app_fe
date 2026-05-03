@@ -102,7 +102,7 @@ const ClubDetails = () => {
             await clubService.leaveClub(Number(clubId), userId);
             Alert.alert("Thành công", "Đã rời khỏi câu lạc bộ!", [
               {
-                text: "OK",
+                text: "Đồng ý",
                 onPress: () => router.back(),
               },
             ]);

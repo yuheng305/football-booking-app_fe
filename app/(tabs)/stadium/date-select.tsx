@@ -2,13 +2,16 @@ import { Text, View, ActivityIndicator, Alert, TouchableOpacity } from "react-na
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Calendar } from "react-native-calendars";
 import { useState, useEffect, useCallback } from "react";
+import { useNavigation } from "@react-navigation/native";
 import { router, useFocusEffect } from "expo-router";
 import HeaderUser from "@/component/HeaderUser";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { fieldService } from "@/src/services/field.service";
 import { bookingDraftService } from "@/src/services/booking-draft.service";
+import { goBackOrReplace } from "@/src/utils/navigation.helper";
 
 const DateSelect = () => {
+  const navigation = useNavigation();
   const [selectedDate, setSelectedDate] = useState("");
   const [loading, setLoading] = useState(false);
   const [clusterId, setClusterId] = useState<string>("");
@@ -86,14 +89,14 @@ const DateSelect = () => {
           Alert.alert(
             "Thông báo",
             "Không có sân nào khả dụng trong ngày này. Vui lòng chọn ngày khác.",
-            [{ text: "OK" }]
+            [{ text: "Đồng ý" }]
           );
           return;
         }
 
         // Navigate sang field selection với data đã load
         router.push({
-          pathname: "/(tabs)/(stadiums)/field-select",
+          pathname: "/(tabs)/stadium/field-select",
           params: { clusterId: clusterId },
         });
       } catch (error: any) {
@@ -115,7 +118,7 @@ const DateSelect = () => {
       <HeaderUser
         title="Chọn ngày đặt sân"
         showBackButton
-        onBackPress={() => router.push("/(tabs)/stadium")}
+        onBackPress={() => goBackOrReplace(navigation, "/(tabs)/stadium")}
       />
 
       <View className="w-full px-4">

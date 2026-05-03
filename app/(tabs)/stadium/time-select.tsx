@@ -9,6 +9,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useState, useEffect, useRef, useCallback } from "react";
+import { useNavigation } from "@react-navigation/native";
 import { router, useFocusEffect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import HeaderUser from "@/component/HeaderUser";
@@ -16,6 +17,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { TimeSlot } from "@/src/types/booking.types";
 import { fieldService } from "@/src/services/field.service";
 import { bookingDraftService } from "@/src/services/booking-draft.service";
+import { goBackOrReplace } from "@/src/utils/navigation.helper";
 
 interface BookedSlot {
   start: number; // Hour in decimal (e.g., 9.5 = 9:30)
@@ -28,6 +30,7 @@ interface AvailableSlot {
 }
 
 const TimeSelect = () => {
+  const navigation = useNavigation();
   const [loading, setLoading] = useState(true);
   
   // Booking data
@@ -347,8 +350,8 @@ const TimeSelect = () => {
       console.log("  - End:", endTimeStr);
       console.log("  - Duration:", duration);
 
-      // Navigate to booking confirmation
-      router.replace("/(tabs)/(stadiums)/booking-confirm");
+      // Giữ stack (push) để nút quay lại từ xác nhận về đúng bước chọn giờ — replace hay làm goBack nhảy sai bước
+      router.push("/(tabs)/stadium/booking-confirm");
     } catch (error) {
       console.error("Error saving time:", error);
       Alert.alert("Lỗi", "Không thể lưu thời gian đã chọn");
@@ -368,17 +371,9 @@ const TimeSelect = () => {
         title="Chọn giờ đặt sân"
         subtitle={headerSubtitle}
         showBackButton
-        onBackPress={async () => {
-          const draft = await bookingDraftService.getDraft();
-          const clusterId =
-            draft.clusterId !== undefined
-              ? String(draft.clusterId)
-              : await AsyncStorage.getItem("clusterId");
-          router.push({
-            pathname: "/(tabs)/(stadiums)/field-select",
-            params: { clusterId: clusterId || "" },
-          });
-        }}
+        onBackPress={() =>
+          goBackOrReplace(navigation, "/(tabs)/stadium/field-select")
+        }
       />
 
       <View className="w-full px-4 py-2">

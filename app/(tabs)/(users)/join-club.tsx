@@ -73,7 +73,7 @@ const JoinClub = () => {
             await clubService.joinClub(club.id, userId);
             Alert.alert("Thành công", "Đã gửi yêu cầu tham gia câu lạc bộ!", [
               {
-                text: "OK",
+                text: "Đồng ý",
                 onPress: () => router.back(),
               },
             ]);

@@ -73,8 +73,9 @@ export interface Booking {
   club_id: number;
   player_id: number;
   field_id: number;
+  tournament_id?: number | null;
   zalopay_order_url?: string | null;
-  club: Club;
+  club?: Club;
   field: Field;
   created_at: string;
   updated_at: string;
@@ -96,6 +97,8 @@ export interface GetPlayerBookingsResponse {
 
 export interface GetPlayerBookingsParams {
   playerId: number;
+  /** Lọc booking theo giải đấu (organizer / player) */
+  tournamentId?: number;
   offset?: number;
   limit?: number;
 }
@@ -154,7 +157,9 @@ export interface GetFieldAvailabilityByFieldResponse {
  * Owner Booking Types
  */
 export interface GetOwnerBookingsParams {
-  clusterId: number;
+  clusterId?: number;
+  fieldId?: number;
+  status?: BookingStatus;
   offset?: number;
   limit?: number;
 }

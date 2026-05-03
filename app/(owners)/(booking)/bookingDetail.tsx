@@ -31,7 +31,6 @@ interface DisplayBooking {
   clubAddress: string;
   clusterName: string;
   clusterAddress: string;
-  type: string;
   price: number;
 }
 
@@ -101,17 +100,16 @@ export default function BookingDetail() {
 
         const displayBooking: DisplayBooking = {
           id: data.id,
-          field: data.field.name,
+          field: `Sân ${data.field.size}`,
           fieldSize: data.field.size,
           time: `${data.start_time} - ${data.end_time}`,
           date: new Date(data.booking_date).toLocaleDateString("vi-VN"),
           status: data.status,
           statusDisplay: mapStatus(data.status),
-          clubName: data.club.name,
-          clubAddress: data.club.address,
-          clusterName: data.field.cluster.name,
-          clusterAddress: `${data.field.cluster.street}, ${data.field.cluster.district}, ${data.field.cluster.city}`,
-          type: data.type === "half" ? "Nửa sân" : "Toàn sân",
+          clubName: data.club?.name || `CLB #${data.club_id}`,
+          clubAddress: data.club?.address || "Không có dữ liệu",
+          clusterName: data.field?.cluster?.name || "Không có dữ liệu",
+          clusterAddress: data.field?.cluster ? `${data.field.cluster.street}, ${data.field.cluster.district}, ${data.field.cluster.city}` : "Không có dữ liệu",
           price: data.total_price,
         };
 
@@ -156,7 +154,7 @@ export default function BookingDetail() {
     try {
       setSubmittingAction(true);
       console.log(`[BOOKING DETAIL] Approve booking ${booking.id}`);
-      await bookingService.ownerConfirmBooking(booking.id, "Owner approved booking");
+      await bookingService.ownerConfirmBooking(booking.id, "Chủ sân đã xác nhận đặt sân");
       setBooking((prev) =>
         prev
           ? {
@@ -185,17 +183,18 @@ export default function BookingDetail() {
     try {
       setSubmittingAction(true);
       console.log(`[BOOKING DETAIL] Rejecting booking ${booking.id}`);
-      await bookingService.ownerCancelBooking(booking.id, "Owner canceled booking");
+      const resp = await bookingService.ownerRejectBooking(booking.id, "Chủ sân đã từ chối đặt sân");
+      const newStatus = resp?.data?.status || "canceled";
       setBooking((prev) =>
         prev
           ? {
               ...prev,
-              status: "canceled",
-              statusDisplay: mapStatus("canceled"),
+              status: newStatus,
+              statusDisplay: mapStatus(newStatus),
             }
           : prev
       );
-      
+
       setConfirmRejectModalVisible(false);
       setRejectModalVisible(true);
     } catch (error) {
@@ -222,7 +221,7 @@ export default function BookingDetail() {
 
   const handleOpenChat = () => {
     if (!playerId) {
-      Alert.alert("Thong bao", "Khong tim thay player de lien he");
+      Alert.alert("Thông báo", "Không tìm thấy người chơi để liên hệ");
       return;
     }
 
@@ -230,7 +229,7 @@ export default function BookingDetail() {
       pathname: "/chat",
       params: {
         receiverId: String(playerId),
-        name: playerInfo?.fullName || booking?.clubName || "Player",
+        name: playerInfo?.fullName || "Player",
       },
     } as any);
   };
@@ -252,11 +251,7 @@ export default function BookingDetail() {
       </View>
 
       <ScrollView className="flex-1 px-4 mt-4">
-        <View className="mb-4">
-          <Text className="text-gray-900 text-lg font-bold">
-            CLB: {booking.clubName}
-          </Text>
-        </View>
+        {/* Club info hidden per owner request */}
 
         <View className="bg-blue-50 border border-blue-200 rounded-xl mb-4 overflow-hidden">
           <TouchableOpacity
@@ -333,11 +328,7 @@ export default function BookingDetail() {
         </View>
         <View className="w-full h-[1px] bg-gray-300" />
 
-        <View className="mt-4 mb-4">
-          <Text className="text-gray-900 text-base font-semibold">
-            Địa chỉ CLB: {booking.clubAddress}
-          </Text>
-        </View>
+        {/* Club address hidden per owner request */}
         <View className="w-full h-[1px] bg-gray-300" />
 
         <View className="mt-4 mb-4">
@@ -371,13 +362,6 @@ export default function BookingDetail() {
         <View className="mt-4 mb-4">
           <Text className="text-gray-900 text-base font-bold">
             Giờ: {booking.time}
-          </Text>
-        </View>
-        <View className="w-full h-[1px] bg-gray-300" />
-
-        <View className="mt-4 mb-4">
-          <Text className="text-gray-900 text-base font-bold">
-            Loại hình: {booking.type}
           </Text>
         </View>
         <View className="w-full h-[1px] bg-gray-300" />
@@ -421,7 +405,7 @@ export default function BookingDetail() {
               onPress={handleReject}
               disabled={submittingAction}
             >
-              <Text className="text-white text-base font-bold">Hủy</Text>
+              <Text className="text-white text-base font-bold">Từ chối</Text>
             </TouchableOpacity>
           </View>
         )}

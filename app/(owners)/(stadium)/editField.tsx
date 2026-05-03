@@ -12,7 +12,7 @@ import { useRouter, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useState } from "react";
 
-export default function editField() {
+export default function EditField() {
   const router = useRouter();
   const { stadiumName } = useLocalSearchParams();
   const [startDate, setStartDate] = useState("20/04/2025");

@@ -312,8 +312,8 @@ export default function ChatScreen() {
         )}
 
         <View
-          className="flex-row items-end px-3 py-3 bg-white border-t border-gray-200"
-          style={{ paddingBottom: Math.max(insets.bottom, 8) }}
+          className="flex-row items-end px-3 py-2 bg-white border-t border-gray-200"
+          style={{ paddingBottom: insets.bottom }}
         >
           <TextInput
             value={input}

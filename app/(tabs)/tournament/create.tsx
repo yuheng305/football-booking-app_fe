@@ -9,15 +9,17 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Calendar } from "react-native-calendars";
+import { useNavigation } from "@react-navigation/native";
 import { router } from "expo-router";
 import HeaderUser from "@/component/HeaderUser";
 import { TournamentFrequency, TournamentSportType } from "@/src/types/tournament.types";
 import tournamentDraftService from "@/src/services/tournament-draft.service";
+import { goBackOrReplace } from "@/src/utils/navigation.helper";
 
 const SPORTS: Array<{ key: TournamentSportType; label: string; icon: string }> = [
   { key: "football", label: "Bóng đá", icon: "⚽" },
   { key: "badminton", label: "Cầu lông", icon: "🏸" },
-  { key: "tennis", label: "Tennis", icon: "🎾" },
+  { key: "tennis", label: "Quần vợt", icon: "🎾" },
   { key: "pickleball", label: "Pickleball", icon: "🏓" },
   { key: "basketball", label: "Bóng rổ", icon: "🏀" },
 ];
@@ -30,6 +32,7 @@ const formatDate = (iso: string) => {
 };
 
 export default function TournamentCreateScreen() {
+  const navigation = useNavigation();
   const [name, setName] = useState("");
   const [sportType, setSportType] = useState<TournamentSportType>("football");
   const [frequency, setFrequency] = useState<TournamentFrequency>("custom");
@@ -79,7 +82,7 @@ export default function TournamentCreateScreen() {
       scheduleItems: existing.scheduleItems || [],
     });
 
-    router.replace("/(tabs)/tournament-venue" as never);
+    router.push("/(tabs)/tournament/venue" as never);
   };
 
   return (
@@ -88,7 +91,7 @@ export default function TournamentCreateScreen() {
         title="Tạo giải đấu"
         subtitle="Bước 1/4: Thông tin cơ bản"
         showBackButton
-        onBackPress={() => router.replace("/(tabs)/tournament")}
+        onBackPress={() => goBackOrReplace(navigation, "/(tabs)/tournament")}
       />
 
       <View className="px-4 pt-2">

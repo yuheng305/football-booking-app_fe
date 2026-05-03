@@ -30,7 +30,7 @@ class ClubService {
       );
 
       if (!response.data?.id) {
-        throw new Error("Failed to create club");
+        throw new Error("Không tạo được câu lạc bộ");
       }
 
       return response.data;
@@ -142,7 +142,7 @@ class ClubService {
       const response = await apiClient.patch<UpdateClubResponse>(endpoint, data);
 
       if (!response.data?.id) {
-        throw new Error("Failed to update club");
+        throw new Error("Không cập nhật được câu lạc bộ");
       }
 
       return response.data;

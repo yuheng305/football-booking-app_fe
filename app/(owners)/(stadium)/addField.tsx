@@ -9,22 +9,69 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { legacyApiService } from "@/src/services/legacy-api.service";
+import { fieldService } from "@/src/services/field.service";
+import { SPORT_TYPE_PICKER_OPTIONS } from "@/src/utils/sport-type.util";
+
+const SPORT_TYPE_OPTIONS = SPORT_TYPE_PICKER_OPTIONS;
 
 export default function AddField() {
   const router = useRouter();
-  const [fieldName, setFieldName] = useState("");
-  const [note, setNote] = useState("");
+  const params = useLocalSearchParams<{ clusterId?: string }>();
+  const [fieldSize, setFieldSize] = useState("");
+  const [description, setDescription] = useState("");
+  const [pricePerHour, setPricePerHour] = useState("100000");
+  const [selectedSportTypeId, setSelectedSportTypeId] = useState(1);
   const [successModalVisible, setSuccessModalVisible] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [resolvedClusterId, setResolvedClusterId] = useState<number>(
+    Number(params.clusterId ?? 0)
+  );
+
+  useEffect(() => {
+    const resolveClusterId = async () => {
+      if (Number.isFinite(Number(params.clusterId)) && Number(params.clusterId) > 0) {
+        setResolvedClusterId(Number(params.clusterId));
+        return;
+      }
+
+      const storedClusterId = await AsyncStorage.getItem("clusterId");
+      const parsedClusterId = Number(storedClusterId);
+      if (Number.isFinite(parsedClusterId) && parsedClusterId > 0) {
+        setResolvedClusterId(parsedClusterId);
+      }
+    };
+
+    resolveClusterId();
+  }, [params.clusterId]);
+
+  const parsePrice = (value: string) => {
+    const parsed = Number(String(value).replace(/[^0-9]/g, ""));
+    return Number.isFinite(parsed) ? parsed : NaN;
+  };
 
   const handleSave = async () => {
-    if (!fieldName) {
+    if (!Number.isFinite(resolvedClusterId) || resolvedClusterId <= 0) {
+      Alert.alert("Lỗi", "Không xác định được cụm sân. Vui lòng quay lại và chọn cụm sân.");
+      return;
+    }
+
+    if (!fieldSize.trim()) {
       Alert.alert("Lỗi", "Vui lòng điền tên sân!");
+      return;
+    }
+
+    if (!description.trim()) {
+      Alert.alert("Lỗi", "Vui lòng nhập mô tả sân!");
+      return;
+    }
+
+    const parsedPrice = parsePrice(pricePerHour);
+    if (!Number.isFinite(parsedPrice) || parsedPrice <= 0) {
+      Alert.alert("Lỗi", "Vui lòng nhập giá sân hợp lệ!");
       return;
     }
 
@@ -35,17 +82,17 @@ export default function AddField() {
         Alert.alert("Lỗi", "Vui lòng đăng nhập lại!");
         return;
       }
+      await fieldService.createField({
+        cluster_id: resolvedClusterId,
+        sport_type_id: selectedSportTypeId,
+        size: fieldSize.trim(),
+        description: description.trim(),
+        price_per_hour: parsedPrice,
+      });
 
-      await legacyApiService.createField(
-        {
-          name: fieldName,
-          openHour: 7,
-          closeHour: 22,
-          isMaintain: false,
-          clusterId: "6809b04e7456305b0fb34f5b",
-        },
-        authToken
-      );
+      await AsyncStorage.removeItem("fieldAvailableSlots");
+      await AsyncStorage.removeItem("fieldBookedSlots");
+
       setSuccessModalVisible(true);
     } catch (error: any) {
       console.error("Lỗi khi thêm sân:", error);
@@ -62,7 +109,10 @@ export default function AddField() {
 
   const closeSuccessModal = () => {
     setSuccessModalVisible(false);
-    router.push("/stadiumManagement");
+    router.push({
+      pathname: "/(owners)/(stadium)/stadiumManagement",
+      params: { clusterId: String(resolvedClusterId) },
+    });
   };
 
   if (loading) {
@@ -80,7 +130,12 @@ export default function AddField() {
       <View className="flex-row items-center px-4 pt-4">
         <TouchableOpacity
           className="w-10 h-10 bg-white border border-gray-200 rounded-xl items-center justify-center"
-          onPress={() => router.push("/stadiumManagement")}
+          onPress={() =>
+            router.push({
+              pathname: "/(owners)/(stadium)/stadiumManagement",
+              params: { clusterId: String(resolvedClusterId) },
+            })
+          }
         >
           <Ionicons name="arrow-back" size={20} color="#1E232C" />
         </TouchableOpacity>
@@ -95,13 +150,13 @@ export default function AddField() {
       <View className="px-4 mt-8">
         <View className="mb-6">
           <Text className="text-black text-[15px] font-medium mb-2">
-            Tên sân
+            Tên sân / size
           </Text>
           <TextInput
             className="bg-gray-100 border border-gray-300 rounded-lg p-4 text-black text-[15px] font-medium"
-            value={fieldName}
-            onChangeText={setFieldName}
-            placeholder="Nhập tên sân"
+            value={fieldSize}
+            onChangeText={setFieldSize}
+            placeholder="Ví dụ: Sân Pickleball"
             placeholderTextColor="#8391A1"
             style={{ fontFamily: "Urbanist" }}
           />
@@ -109,23 +164,63 @@ export default function AddField() {
 
         <View className="mb-6">
           <Text className="text-black text-[15px] font-medium mb-2">
-            Ghi chú
+            Môn thể thao
+          </Text>
+          <View className="flex-row flex-wrap gap-2">
+            {SPORT_TYPE_OPTIONS.map((option) => {
+              const active = selectedSportTypeId === option.id;
+              return (
+                <TouchableOpacity
+                  key={option.id}
+                  className={`px-3 py-2 rounded-full border ${
+                    active ? "bg-[#114F99] border-[#114F99]" : "bg-white border-gray-300"
+                  }`}
+                  onPress={() => setSelectedSportTypeId(option.id)}
+                >
+                  <Text className={`text-sm font-semibold ${active ? "text-white" : "text-gray-700"}`}>
+                    {option.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
+
+        <View className="mb-6">
+          <Text className="text-black text-[15px] font-medium mb-2">
+            Mô tả
           </Text>
           <TextInput
             className="bg-gray-100 border border-gray-300 rounded-lg p-4 text-black text-[15px] font-medium"
-            value={note}
-            onChangeText={setNote}
-            placeholder="Nhập ghi chú"
+            value={description}
+            onChangeText={setDescription}
+            placeholder="Ví dụ: Sân Pickleball phục vụ mọi lứa tuổi"
             placeholderTextColor="#8391A1"
-            style={{ fontFamily: "Urbanist" }}
+            multiline
+            textAlignVertical="top"
+            style={{ fontFamily: "Urbanist", minHeight: 96 }}
           />
         </View>
 
         <View className="mb-6">
           <Text className="text-black text-[15px] font-medium mb-2">
-            Upload images
+            Giá / giờ
           </Text>
-          <View className="w-[82px] h-[82px] bg-gray-200" />
+          <TextInput
+            className="bg-gray-100 border border-gray-300 rounded-lg p-4 text-black text-[15px] font-medium"
+            value={pricePerHour}
+            onChangeText={setPricePerHour}
+            placeholder="Ví dụ: 100000"
+            placeholderTextColor="#8391A1"
+            keyboardType="numeric"
+            style={{ fontFamily: "Urbanist" }}
+          />
+        </View>
+
+        <View className="mb-6">
+          <Text className="text-black text-[13px] text-gray-500">
+            Cụm sân hiện tại: #{resolvedClusterId}
+          </Text>
         </View>
 
         <TouchableOpacity
@@ -165,7 +260,6 @@ export default function AddField() {
     </SafeAreaView>
   );
 }
-
 const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,

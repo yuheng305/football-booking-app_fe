@@ -44,7 +44,8 @@
       },
       "eas": {
         "projectId": "4a27d556-89a4-42f9-9483-0aaba9f5c55a"
-      }
+      },
+      "API_BASE_URL": "http://13.214.178.239:8030/api/v1"
     },
     "runtimeVersion": {
       "policy": "appVersion"

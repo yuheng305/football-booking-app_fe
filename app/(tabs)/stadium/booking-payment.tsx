@@ -155,7 +155,7 @@ const BookingPayment = () => {
         [
           {
             text: "Xem chi tiết đơn",
-            onPress: () => router.replace("/(tabs)/(stadiums)/booking-detail"),
+            onPress: () => router.replace("/(tabs)/stadium/booking-detail"),
           },
         ]
       );
@@ -206,13 +206,13 @@ const BookingPayment = () => {
             </Text>
           </View>
 
-          {/* Amount Section */}
-          <View className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg p-6 mb-4 shadow">
-            <Text className="text-white text-center text-sm mb-2">
+          {/* Amount Section — nền solid (gradient Tailwind không render đúng trên RN → chữ trắng trên nền trắng). */}
+          <View className="rounded-2xl p-6 mb-4 bg-blue-600 shadow-md border border-blue-700">
+            <Text className="text-center text-sm mb-2 text-blue-50 font-medium">
               Tổng số tiền cần thanh toán
             </Text>
-            <Text className="text-white text-center text-4xl font-bold">
-              {totalAmount.toLocaleString()}đ
+            <Text className="text-center text-4xl font-bold text-white">
+              {totalAmount.toLocaleString("vi-VN")} đ
             </Text>
           </View>
 

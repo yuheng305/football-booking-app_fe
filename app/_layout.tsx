@@ -1,8 +1,7 @@
 import { Stack } from "expo-router";
 import { TouchableOpacity, View } from "react-native";
 import { NotificationsProvider } from "@/src/context/notifications.context";
-import GlobalChatBubble from "@/component/GlobalChatBubble";
-import GlobalNotificationBubble from "@/component/GlobalNotificationBubble";
+import GlobalFloatingActionGroup from "@/component/GlobalFloatingActionGroup";
 import "./global.css";
 
 (TouchableOpacity as any).defaultProps = {
@@ -26,8 +25,7 @@ export default function RootLayout() {
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           <Stack.Screen name="(owners)" options={{ headerShown: false }} />
         </Stack>
-        <GlobalNotificationBubble />
-        <GlobalChatBubble />
+        <GlobalFloatingActionGroup />
       </View>
     </NotificationsProvider>
   );

@@ -8,6 +8,7 @@ import {
   Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useNavigation } from "@react-navigation/native";
 import { router, useFocusEffect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import HeaderUser from "@/component/HeaderUser";
@@ -15,8 +16,10 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import apiClient from "@/src/utils/api.client";
 import bookingService from "@/src/services/booking.service";
 import { bookingDraftService } from "@/src/services/booking-draft.service";
+import { goBackOrReplace } from "@/src/utils/navigation.helper";
 
 const BookingConfirm = () => {
+  const navigation = useNavigation();
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
@@ -150,7 +153,7 @@ const BookingConfirm = () => {
         "Đặt sân thành công! Vui lòng chờ chủ sân duyệt. Khi trạng thái chuyển sang Đã xác nhận, bạn mới thanh toán được.",
         [
           {
-            text: "OK",
+            text: "Đồng ý",
             onPress: async () => {
               const createdBookingId = String(createdBooking.id);
               await AsyncStorage.setItem("currentBookingId", createdBookingId);
@@ -173,7 +176,7 @@ const BookingConfirm = () => {
               ]);
 
               // Navigate to booking detail screen
-              router.replace("/(tabs)/(stadiums)/booking-detail");
+              router.replace("/(tabs)/stadium/booking-detail");
             },
           },
         ],
@@ -187,7 +190,7 @@ const BookingConfirm = () => {
       Alert.alert(
         "Lỗi đặt sân", 
         error.message || "Đặt sân thất bại. Vui lòng thử lại.",
-        [{ text: "OK" }]
+        [{ text: "Đồng ý" }]
       );
     } finally {
       setSubmitting(false);
@@ -208,7 +211,7 @@ const BookingConfirm = () => {
       <HeaderUser
         title="Xác nhận đặt sân"
         showBackButton
-        onBackPress={() => router.push("/(tabs)/(stadiums)/time-select")}
+        onBackPress={() => goBackOrReplace(navigation, "/(tabs)/stadium/time-select")}
       />
 
       <ScrollView className="flex-1 px-4 mt-4" showsVerticalScrollIndicator={false}>

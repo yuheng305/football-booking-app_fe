@@ -14,8 +14,10 @@ import { Ionicons } from "@expo/vector-icons";
 import { useState, useCallback, useEffect } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { bookingService } from "@/src/services/booking.service";
+import { clusterService } from "@/src/services/cluster.service";
 import tournamentService from "@/src/services/tournament.service";
-import type { Booking as BookingType } from "@/src/types/booking.types";
+import { fieldService } from "@/src/services/field.service";
+import type { Booking as BookingType, BookingStatus } from "@/src/types/booking.types";
 import paymentService from "@/src/services/payment.service";
 import {
   OwnerRevenueClusterItem,
@@ -26,10 +28,17 @@ import {
   OwnerTournamentItem,
   TournamentOwnerBookingStatus,
 } from "@/src/types/tournament.types";
+import { toVietnameseSportType } from "@/src/utils/sport-type.util";
 
 const TEMP_OWNER_CLUSTER_ID = 3;
 
 type ManagementPanel = "field" | "revenue" | "tournament";
+
+/** Doanh thu BE chỉ cộng thanh toán hoàn tất — modal chi tiết phải khớp. */
+const isPaymentCountedInOwnerRevenue = (status: string) => {
+  const n = String(status || "").toLowerCase();
+  return n === "success" || n === "completed";
+};
 
 interface DisplayBooking {
   id: number;
@@ -45,6 +54,13 @@ export default function BookingManagement() {
   const router = useRouter();
   const [activePanel, setActivePanel] = useState<ManagementPanel>("field");
   const [filter, setFilter] = useState("All");
+  const [ownerFields, setOwnerFields] = useState<{ id: number; size: string }[]>([]);
+  const [selectedFieldId, setSelectedFieldId] = useState<number | null>(null);
+  const [ownerClusters, setOwnerClusters] = useState<{ id: number; name: string }[]>([]);
+  const [selectedClusterId, setSelectedClusterId] = useState<number | null>(null);
+  const [showClusterDropdown, setShowClusterDropdown] = useState(false);
+  const [showFieldDropdown, setShowFieldDropdown] = useState(false);
+  const [filtersCollapsed, setFiltersCollapsed] = useState<boolean>(true);
   const [bookings, setBookings] = useState<DisplayBooking[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -65,25 +81,88 @@ export default function BookingManagement() {
   const [ownerTournaments, setOwnerTournaments] = useState<OwnerTournamentItem[]>([]);
   const [tournamentLoading, setTournamentLoading] = useState(false);
   const [tournamentStatusFilter, setTournamentStatusFilter] =
-    useState<TournamentOwnerBookingStatus>("confirmed");
+    useState<TournamentOwnerBookingStatus>("pending");
   const [approvingTournamentId, setApprovingTournamentId] = useState<number | null>(null);
 
+  /** Khớp booking.types BookingStatus + vài giá trị BE gửi thêm */
   const mapStatus = (status: string): string => {
-    switch (status.toLowerCase()) {
+    const s = String(status ?? "").trim().toLowerCase();
+    switch (s) {
       case "pending":
         return "Chờ duyệt";
       case "confirmed":
+      case "approved":
         return "Đã xác nhận";
-      case "completed":
-        return "Hoàn thành";
       case "payment_required":
         return "Chờ thanh toán";
+      case "completed":
+      case "success":
+        return "Hoàn thành";
       case "canceled":
+      case "cancelled":
+      case "rejected":
         return "Đã hủy";
       default:
-        return status;
+        return "Không xác định";
     }
   };
+
+  /** Ánh xạ chip UI → query BE (không dùng includes("chờ") — tránh "Chờ thanh toán" → pending). */
+  const resolveOwnerBookingStatusQuery = (
+    filterKey: string
+  ): BookingStatus | "done_merged" | undefined => {
+    switch (filterKey) {
+      case "All":
+        return undefined;
+      case "Chờ duyệt":
+        return "pending";
+      case "Đã xác nhận":
+        return "confirmed";
+      case "Chờ thanh toán":
+        return "payment_required";
+      case "Hoàn thành":
+        return "done_merged";
+      case "Đã hủy":
+        return "canceled";
+      default:
+        return undefined;
+    }
+  };
+
+  // Load owner clusters on mount and restore stored cluster selection
+  useEffect(() => {
+    (async () => {
+      try {
+        const clustersResp = await clusterService.getClusters({ offset: 0, limit: 50 });
+        console.log("[OWNER BOOKINGS] getClusters response:", clustersResp);
+        setOwnerClusters((clustersResp.clusters || []).map((c: any) => ({ id: c.id, name: c.name })));
+
+        const storedCluster = await AsyncStorage.getItem("clusterId");
+        if (storedCluster && Number.isFinite(Number(storedCluster))) {
+          setSelectedClusterId(Number(storedCluster));
+        }
+      } catch (e) {
+        console.warn("[OWNER BOOKINGS] Failed to load clusters on mount", e);
+      }
+    })();
+  }, []);
+
+  // Load fields whenever selectedClusterId changes
+  useEffect(() => {
+    (async () => {
+      if (selectedClusterId) {
+        try {
+          const fieldsResp = await fieldService.getFieldsByCluster(selectedClusterId);
+          setOwnerFields(fieldsResp.fields.map((f: any) => ({ id: f.id, size: f.size })));
+        } catch (e) {
+          console.warn("[OWNER BOOKINGS] Could not load fields for cluster", e);
+          setOwnerFields([]);
+        }
+      } else {
+        setOwnerFields([]);
+      }
+    })();
+  }, [selectedClusterId]);
 
   const fetchBookings = useCallback(async (isRefreshing = false) => {
     try {
@@ -103,25 +182,93 @@ export default function BookingManagement() {
         }
       }
 
-      const response = await bookingService.getOwnerBookings({
-        clusterId: TEMP_OWNER_CLUSTER_ID,
+      // selectedClusterId should be set (from storage or owner clusters). If not, try to resolve it now.
+      let clusterId = selectedClusterId;
+      if (!clusterId) {
+        const storedCluster = await AsyncStorage.getItem("clusterId");
+        if (storedCluster && Number.isFinite(Number(storedCluster))) {
+          clusterId = Number(storedCluster);
+          setSelectedClusterId(clusterId);
+        }
+      }
+
+      // Do not auto-select a cluster by default. Allow null to mean "All clusters".
+      if (!clusterId) {
+        try {
+          const clusters = await clusterService.getClusters({ offset: 0, limit: 50 });
+          console.log("[OWNER BOOKINGS] getClusters (fetchBookings) response:", clusters);
+          setOwnerClusters((clusters.clusters || []).map((c) => ({ id: c.id, name: c.name })));
+        } catch (e) {
+          console.warn("[OWNER BOOKINGS] Could not resolve clusterId dynamically", e);
+        }
+      }
+
+      // Allow null clusterId to mean "all clusters". Do not throw.
+
+      // Ensure ownerClusters list is populated for cluster selector
+      try {
+        const clusters = await clusterService.getClusters({ offset: 0, limit: 50 });
+        setOwnerClusters((clusters.clusters || []).map((c) => ({ id: c.id, name: c.name })));
+      } catch (e) {
+        // non-fatal
+      }
+
+      // Load fields for the cluster so owner can filter by field (only when a cluster is selected)
+      if (clusterId) {
+        try {
+          const fieldsResp = await fieldService.getFieldsByCluster(clusterId);
+          setOwnerFields(fieldsResp.fields.map((f) => ({ id: f.id, size: f.size })));
+        } catch (e) {
+          console.warn("[OWNER BOOKINGS] Could not load fields for cluster", e);
+        }
+      } else {
+        setOwnerFields([]);
+      }
+
+      const statusQuery = resolveOwnerBookingStatusQuery(filter);
+
+      const baseParams = {
+        fieldId: selectedFieldId ?? undefined,
         offset: 0,
         limit: 100,
-      });
+        ...(clusterId ? { clusterId } : {}),
+      };
 
-      const displayBookings: DisplayBooking[] = response.bookings.map(
-        (booking: BookingType, index: number) => ({
-          id: booking.id,
-          displayId: `#${index + 1}`,
-          field:
-            (booking as any)?.field?.name ||
-            (booking.field?.size ? `Sân ${booking.field.size}` : `Sân #${booking.field_id}`),
-          time: `${booking.start_time} - ${booking.end_time}`,
-          date: new Date(booking.booking_date).toLocaleDateString("vi-VN"),
-          status: mapStatus(booking.status),
-          clubName: booking.club.name,
-        })
-      );
+      let responseBookings: BookingType[];
+
+      if (statusQuery === "done_merged") {
+        const [resSuccess, resCompleted] = await Promise.all([
+          bookingService.getOwnerBookings({ ...baseParams, status: "success" }),
+          bookingService.getOwnerBookings({ ...baseParams, status: "completed" }),
+        ]);
+        const byId = new Map<number, BookingType>();
+        for (const b of [...resSuccess.bookings, ...resCompleted.bookings]) {
+          byId.set(b.id, b);
+        }
+        responseBookings = Array.from(byId.values());
+      } else {
+        const response = await bookingService.getOwnerBookings({
+          ...baseParams,
+          ...(statusQuery ? { status: statusQuery } : {}),
+        });
+        responseBookings = response.bookings;
+      }
+
+      const displayBookings: DisplayBooking[] = responseBookings
+        .filter((booking: BookingType) => !booking.tournament_id)
+        .map(
+          (booking: BookingType, index: number) => ({
+            id: booking.id,
+            displayId: `#${booking.id}`,
+            field:
+              (booking as any)?.field?.name ||
+              (booking.field?.size ? `Sân ${booking.field.size}` : `Sân #${booking.field_id}`),
+            time: `${booking.start_time} - ${booking.end_time}`,
+            date: new Date(booking.booking_date).toLocaleDateString("vi-VN"),
+            status: mapStatus(booking.status),
+            clubName: booking.club?.name || `CLB #${booking.club_id}`,
+          })
+        );
 
       setBookings(displayBookings);
       await AsyncStorage.setItem("ownerBookingsCache", JSON.stringify(displayBookings));
@@ -136,7 +283,7 @@ export default function BookingManagement() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [router]);
+  }, [router, selectedClusterId, selectedFieldId, filter]);
 
   const fetchRevenue = useCallback(async () => {
     try {
@@ -257,13 +404,16 @@ export default function BookingManagement() {
   }, [paymentClusterByBookingId]);
 
   const formatPaymentStatus = (status: string) => {
-    const normalized = status.toLowerCase();
+    const normalized = String(status || "").toLowerCase();
     if (normalized === "success" || normalized === "completed") return "Thành công";
     if (normalized === "pending") return "Đang chờ";
+    if (normalized === "processing" || normalized === "in_progress" || normalized === "pending_payment")
+      return "Đang xử lý";
     if (normalized === "confirmed") return "Đã xác nhận";
     if (normalized === "expired") return "Hết hạn";
-    if (normalized === "failed" || normalized === "canceled") return "Thất bại";
-    return status;
+    if (normalized === "failed" || normalized === "canceled" || normalized === "cancelled")
+      return "Thất bại";
+    return "Không xác định";
   };
 
   const openClusterPayments = async (cluster: OwnerRevenueClusterItem) => {
@@ -279,9 +429,13 @@ export default function BookingManagement() {
           ? []
           : await fetchOwnerPayments();
 
-      await loadClusterMappingsForPayments(paymentsSource);
+      const revenuePayments = paymentsSource.filter((p) =>
+        isPaymentCountedInOwnerRevenue(String(p.status))
+      );
 
-      const filtered = paymentsSource.filter((payment) => {
+      await loadClusterMappingsForPayments(revenuePayments);
+
+      const filtered = revenuePayments.filter((payment) => {
         const mapping = paymentClusterByBookingId[payment.booking_id];
         return mapping?.clusterId === cluster.cluster_id;
       });
@@ -302,10 +456,12 @@ export default function BookingManagement() {
       return;
     }
 
-    const filtered = ownerPayments.filter((payment) => {
-      const mapping = paymentClusterByBookingId[payment.booking_id];
-      return mapping?.clusterId === selectedRevenueCluster.cluster_id;
-    });
+    const filtered = ownerPayments
+      .filter((p) => isPaymentCountedInOwnerRevenue(String(p.status)))
+      .filter((payment) => {
+        const mapping = paymentClusterByBookingId[payment.booking_id];
+        return mapping?.clusterId === selectedRevenueCluster.cluster_id;
+      });
 
     setClusterPayments(
       filtered.slice().sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)))
@@ -322,10 +478,13 @@ export default function BookingManagement() {
   };
 
   const getTournamentFilterLabel = (status: TournamentOwnerBookingStatus) => {
-    if (status === "pending") return "Chờ duyệt";
-    if (status === "confirmed") return "Đã duyệt";
-    if (status === "payment_required") return "Chờ thanh toán";
-    return status;
+    const s = String(status ?? "").toLowerCase();
+    if (s === "pending") return "Chờ duyệt";
+    if (s === "confirmed" || s === "payment_required") return "Chờ thanh toán";
+    if (s === "completed" || s === "success") return "Hoàn thành";
+    if (s === "canceled" || s === "cancelled") return "Đã hủy";
+    if (s === "rejected") return "Từ chối";
+    return "Không xác định";
   };
 
   const buildDefaultExpiresAt = () => {
@@ -412,33 +571,230 @@ export default function BookingManagement() {
 
   const renderFieldPanel = () => (
     <>
-      <View className="flex-row justify-center gap-3 px-4 mt-2">
-        {[
-          { label: "Tất cả", value: "All", activeBg: "#114F99", activeText: "#ffffff", border: "#114F99" },
-          { label: "Chờ duyệt", value: "Chờ duyệt", activeBg: "#F59E0B", activeText: "#ffffff", border: "#F59E0B" },
-          { label: "Hoàn thành", value: "Hoàn thành", activeBg: "#16A34A", activeText: "#ffffff", border: "#16A34A" },
-        ].map((item) => {
-          const active = filter === item.value;
-          return (
-            <TouchableOpacity
-              key={item.value}
-              className="px-5 py-2 rounded-full items-center border"
-              style={{
-                backgroundColor: active ? item.activeBg : "#ffffff",
-                borderColor: item.border,
-              }}
-              onPress={() => setFilter(item.value)}
-            >
-              <Text
-                className="text-sm font-semibold"
-                style={{ color: active ? item.activeText : item.border }}
-              >
-                {item.label}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
+      <View className="px-4 mt-3 flex-row items-center justify-between">
+        <Text className="text-lg font-semibold text-[#1E232C]">Bộ lọc</Text>
+        <TouchableOpacity
+          className="px-3 py-2 rounded-full"
+          onPress={() => setFiltersCollapsed((s) => !s)}
+        >
+          <Ionicons name={filtersCollapsed ? "chevron-down" : "chevron-up"} size={20} color="#374151" />
+        </TouchableOpacity>
       </View>
+
+      {!filtersCollapsed && (
+        <>
+          {/* Cluster Dropdown */}
+          <View className="px-4 mt-3">
+            <Text className="text-gray-700 text-sm font-semibold mb-2">Cụm sân</Text>
+            <TouchableOpacity
+              className="bg-white border border-[#114F99] rounded-lg px-4 py-3 flex-row items-center justify-between"
+              onPress={() => setShowClusterDropdown(true)}
+            >
+              <Text className="text-[#114F99] font-medium">
+                {ownerClusters.find((c) => c.id === selectedClusterId)?.name || "Chọn cụm sân"}
+              </Text>
+              <Ionicons name="chevron-down" size={20} color="#114F99" />
+            </TouchableOpacity>
+
+            <Modal visible={showClusterDropdown} transparent animationType="fade">
+              <TouchableOpacity
+                className="flex-1 bg-black/30"
+                activeOpacity={1}
+                onPress={() => setShowClusterDropdown(false)}
+              >
+                <View className="flex-1 justify-center items-center">
+                  <View className="bg-white rounded-2xl w-80 max-h-72 overflow-hidden">
+                    <View className="px-4 py-3 border-b border-gray-200 flex-row items-center justify-between">
+                      <Text className="text-lg font-bold text-[#1E232C]">Chọn cụm sân</Text>
+                      <TouchableOpacity onPress={() => setShowClusterDropdown(false)}>
+                        <Ionicons name="close" size={24} color="#1E232C" />
+                      </TouchableOpacity>
+                    </View>
+                    <ScrollView showsVerticalScrollIndicator={false}>
+                      <TouchableOpacity
+                        className={`px-4 py-3 border-b border-gray-100 ${
+                          selectedClusterId === null ? "bg-[#eef4ff]" : ""
+                        }`}
+                        onPress={async () => {
+                          setSelectedClusterId(null);
+                          await AsyncStorage.removeItem("clusterId");
+                          setSelectedFieldId(null);
+                          setShowClusterDropdown(false);
+                          setTimeout(() => fetchBookings(true), 0);
+                        }}
+                      >
+                        <View className="flex-row items-center justify-between">
+                          <Text className={`font-medium ${
+                            selectedClusterId === null ? "text-[#114F99]" : "text-[#1E232C]"
+                          }`}>
+                            Tất cả cụm sân
+                          </Text>
+                          {selectedClusterId === null && (
+                            <Ionicons name="checkmark" size={20} color="#114F99" />
+                          )}
+                        </View>
+                      </TouchableOpacity>
+
+                      {ownerClusters.map((cluster) => (
+                        <TouchableOpacity
+                          key={cluster.id}
+                          className={`px-4 py-3 border-b border-gray-100 ${
+                            selectedClusterId === cluster.id ? "bg-[#eef4ff]" : ""
+                          }`}
+                          onPress={async () => {
+                            setSelectedClusterId(cluster.id);
+                            await AsyncStorage.setItem("clusterId", String(cluster.id));
+                            setSelectedFieldId(null);
+                            setShowClusterDropdown(false);
+                            setTimeout(() => fetchBookings(true), 0);
+                          }}
+                        >
+                          <View className="flex-row items-center justify-between">
+                            <Text
+                              className={`font-medium ${
+                                selectedClusterId === cluster.id ? "text-[#114F99]" : "text-[#1E232C]"
+                              }`}
+                            >
+                              {cluster.name}
+                            </Text>
+                            {selectedClusterId === cluster.id && (
+                              <Ionicons name="checkmark" size={20} color="#114F99" />
+                            )}
+                          </View>
+                        </TouchableOpacity>
+                      ))}
+                    </ScrollView>
+                  </View>
+                </View>
+              </TouchableOpacity>
+            </Modal>
+          </View>
+
+          {/* Field Dropdown (only when a cluster is selected) */}
+          {selectedClusterId ? (
+            <View className="px-4 mt-3">
+            <Text className="text-gray-700 text-sm font-semibold mb-2">Sân</Text>
+            <TouchableOpacity
+              className="bg-white border border-[#114F99] rounded-lg px-4 py-3 flex-row items-center justify-between"
+              onPress={() => setShowFieldDropdown(true)}
+            >
+              <Text className="text-[#114F99] font-medium">
+                {selectedFieldId === null
+                  ? "Tất cả sân"
+                  : `Sân ${ownerFields.find((f) => f.id === selectedFieldId)?.size || ""}`}
+              </Text>
+              <Ionicons name="chevron-down" size={20} color="#114F99" />
+            </TouchableOpacity>
+
+            <Modal visible={showFieldDropdown} transparent animationType="fade">
+              <TouchableOpacity
+                className="flex-1 bg-black/30"
+                activeOpacity={1}
+                onPress={() => setShowFieldDropdown(false)}
+              >
+                <View className="flex-1 justify-center items-center">
+                  <View className="bg-white rounded-2xl w-80 max-h-72 overflow-hidden">
+                    <View className="px-4 py-3 border-b border-gray-200 flex-row items-center justify-between">
+                      <Text className="text-lg font-bold text-[#1E232C]">Chọn sân</Text>
+                      <TouchableOpacity onPress={() => setShowFieldDropdown(false)}>
+                        <Ionicons name="close" size={24} color="#1E232C" />
+                      </TouchableOpacity>
+                    </View>
+                    <ScrollView showsVerticalScrollIndicator={false}>
+                      <TouchableOpacity
+                        className={`px-4 py-3 border-b border-gray-100 ${
+                          selectedFieldId === null ? "bg-[#eef4ff]" : ""
+                        }`}
+                        onPress={() => {
+                          setSelectedFieldId(null);
+                          setShowFieldDropdown(false);
+                          setTimeout(() => fetchBookings(true), 0);
+                        }}
+                      >
+                        <View className="flex-row items-center justify-between">
+                          <Text className={`font-medium ${
+                            selectedFieldId === null ? "text-[#114F99]" : "text-[#1E232C]"
+                          }`}>
+                            Tất cả sân
+                          </Text>
+                          {selectedFieldId === null && (
+                            <Ionicons name="checkmark" size={20} color="#114F99" />
+                          )}
+                        </View>
+                      </TouchableOpacity>
+                      {ownerFields.map((field) => (
+                        <TouchableOpacity
+                          key={field.id}
+                          className={`px-4 py-3 border-b border-gray-100 ${
+                            selectedFieldId === field.id ? "bg-[#eef4ff]" : ""
+                          }`}
+                          onPress={() => {
+                            setSelectedFieldId(field.id);
+                            setShowFieldDropdown(false);
+                            setTimeout(() => fetchBookings(true), 0);
+                          }}
+                        >
+                          <View className="flex-row items-center justify-between">
+                            <Text className={`font-medium ${
+                              selectedFieldId === field.id ? "text-[#114F99]" : "text-[#1E232C]"
+                            }`}>
+                              Sân {field.size}
+                            </Text>
+                            {selectedFieldId === field.id && (
+                              <Ionicons name="checkmark" size={20} color="#114F99" />
+                            )}
+                          </View>
+                        </TouchableOpacity>
+                      ))}
+                    </ScrollView>
+                  </View>
+                </View>
+              </TouchableOpacity>
+            </Modal>
+            </View>
+          ) : null}
+
+          {/* Status Filter Buttons */}
+          <View className="flex-row flex-wrap justify-center gap-2 px-4 mt-4 mb-3">
+            {[
+              { label: "Tất cả", value: "All", activeBg: "#114F99", activeText: "#ffffff", border: "#114F99" },
+              { label: "Chờ duyệt", value: "Chờ duyệt", activeBg: "#F59E0B", activeText: "#ffffff", border: "#F59E0B" },
+              { label: "Đã xác nhận", value: "Đã xác nhận", activeBg: "#16A34A", activeText: "#ffffff", border: "#16A34A" },
+              { label: "Chờ thanh toán", value: "Chờ thanh toán", activeBg: "#0B8FAC", activeText: "#ffffff", border: "#0B8FAC" },
+              { label: "Hoàn thành", value: "Hoàn thành", activeBg: "#8B5CF6", activeText: "#ffffff", border: "#8B5CF6" },
+              { label: "Đã hủy", value: "Đã hủy", activeBg: "#DC2626", activeText: "#ffffff", border: "#DC2626" },
+            ].map((item) => {
+              const active = filter === item.value;
+              return (
+                <TouchableOpacity
+                  key={item.value}
+                  className="px-3 py-2 rounded-full items-center border"
+                  style={{
+                    backgroundColor: active ? item.activeBg : "#ffffff",
+                    borderColor: item.border,
+                    minWidth: 78,
+                    paddingHorizontal: 10,
+                    justifyContent: "center",
+                  }}
+                  onPress={() => {
+                    setFilter(item.value);
+                    setTimeout(() => fetchBookings(true), 0);
+                  }}
+                >
+                  <Text
+                    className="text-xs font-semibold"
+                    numberOfLines={1}
+                    ellipsizeMode="tail"
+                    style={{ color: active ? item.activeText : item.border, textAlign: "center" }}
+                  >
+                    {item.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </>
+      )}
 
       {loading ? (
         <View className="flex-1 items-center justify-center">
@@ -464,7 +820,7 @@ export default function BookingManagement() {
                 <View className="flex-row justify-between items-start">
                   <View className="flex-1">
                     <Text className="text-lg font-bold text-gray-900">{booking.displayId}</Text>
-                    <Text className="text-sm text-gray-700 mt-1">CLB: {booking.clubName}</Text>
+                    
                     <Text className="text-sm text-gray-700">Sân: {booking.field}</Text>
                     <View className="flex-row items-center mt-1">
                       <Ionicons name="time-outline" size={16} color="#374151" />
@@ -478,13 +834,15 @@ export default function BookingManagement() {
                       <Text
                         className={`text-sm font-semibold ${
                           booking.status === "Đã xác nhận"
-                            ? "text-[#16A34A]"
+                            ? "text-[#10B981]"
                             : booking.status === "Hoàn thành"
-                            ? "text-[#114F99]"
+                            ? "text-[#8B5CF6]"
                             : booking.status === "Chờ duyệt"
                             ? "text-[#F59E0B]"
                             : booking.status === "Chờ thanh toán"
                             ? "text-[#0B8FAC]"
+                                                        : booking.status === "Đã hủy"
+                                                        ? "text-[#DC2626]"
                             : "text-gray-500"
                         }`}
                       >
@@ -555,7 +913,7 @@ export default function BookingManagement() {
             <Text className="text-gray-600 text-sm mt-1">
               {cluster.payment_count} giao dịch
             </Text>
-            <Text className="text-[#0B8FAC] text-xs mt-2 font-semibold">Nhấn để xem danh sách payment</Text>
+                <Text className="text-[#0B8FAC] text-xs mt-2 font-semibold">Nhấn để xem giao dịch</Text>
           </TouchableOpacity>
         ))
       )}
@@ -570,7 +928,7 @@ export default function BookingManagement() {
           <View className="bg-white rounded-t-3xl p-4 max-h-[82%]">
             <View className="flex-row items-center justify-between mb-2">
               <Text className="text-[#1E232C] font-bold text-base">
-                Payment - {selectedRevenueCluster?.cluster_name || "Cụm sân"}
+                Thanh toán — {selectedRevenueCluster?.cluster_name || "Cụm sân"}
               </Text>
               <TouchableOpacity
                 className="px-3 py-2 rounded-full bg-gray-100"
@@ -592,7 +950,7 @@ export default function BookingManagement() {
             ) : clusterPayments.length === 0 ? (
               <View className="bg-[#f9fafb] rounded-xl border border-gray-200 p-4">
                 <Text className="text-gray-500">
-                  Chưa tìm thấy payment nào của cụm này trong danh sách owner payments hiện tại.
+                  Chưa tìm thấy giao dịch nào của cụm này trong danh sách thanh toán hiện tại.
                 </Text>
               </View>
             ) : (
@@ -602,9 +960,14 @@ export default function BookingManagement() {
                     key={payment.id}
                     className="bg-white border border-[#dbe3f0] rounded-xl p-3 mb-2"
                   >
-                    <View className="flex-row items-center justify-between">
-                      <Text className="text-[#1E232C] font-bold">Payment #{payment.id}</Text>
-                      <Text className="text-xs font-semibold text-[#114F99]">
+                    <View className="flex-row items-center justify-between gap-2">
+                      <Text className="text-[#1E232C] font-bold flex-1 shrink" numberOfLines={1}>
+                        Giao dịch #{payment.id}
+                      </Text>
+                      <Text
+                        className="text-xs font-semibold text-[#114F99] shrink-0 text-right"
+                        numberOfLines={2}
+                      >
                         {formatPaymentStatus(payment.status)}
                       </Text>
                     </View>
@@ -612,8 +975,8 @@ export default function BookingManagement() {
                     <Text className="text-[#114F99] font-bold mt-2">
                       {formatCurrency(Number(payment.amount || 0))}
                     </Text>
-                    <Text className="text-gray-600 text-xs mt-1">Booking ID: {payment.booking_id}</Text>
-                    <Text className="text-gray-600 text-xs">Tournament ID: {payment.tournament_id ?? "--"}</Text>
+                    <Text className="text-gray-600 text-xs mt-1">Mã đặt sân: {payment.booking_id}</Text>
+                    <Text className="text-gray-600 text-xs">Mã giải: {payment.tournament_id ?? "—"}</Text>
                     <Text className="text-gray-600 text-xs">Loại: {payment.payment_type}</Text>
                     <Text className="text-gray-600 text-xs mt-1">
                       Tạo lúc: {new Date(payment.created_at).toLocaleString("vi-VN")}
@@ -635,28 +998,38 @@ export default function BookingManagement() {
       showsVerticalScrollIndicator={false}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
     >
-      <View className="flex-row flex-wrap mb-3">
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        className="mb-3 grow-0"
+        contentContainerStyle={{ flexDirection: "row", alignItems: "center", paddingRight: 8 }}
+      >
         {[
-          { key: "confirmed", label: "Đã duyệt" },
           { key: "pending", label: "Chờ duyệt" },
-          { key: "payment_required", label: "Chờ thanh toán" },
+          { key: "confirmed", label: "Chờ thanh toán" },
+          { key: "completed", label: "Hoàn thành" },
+          { key: "canceled", label: "Đã hủy" },
         ].map((item) => {
           const active = tournamentStatusFilter === (item.key as TournamentOwnerBookingStatus);
           return (
             <TouchableOpacity
               key={item.key}
-              className={`mr-2 mb-2 px-3 py-2 rounded-full border ${
+              style={{ flexShrink: 0 }}
+              className={`mr-2 px-3 py-2 rounded-full border ${
                 active ? "bg-[#114F99] border-[#114F99]" : "bg-white border-gray-300"
               }`}
               onPress={() => setTournamentStatusFilter(item.key as TournamentOwnerBookingStatus)}
             >
-              <Text className={`text-xs font-semibold ${active ? "text-white" : "text-gray-700"}`}>
+              <Text
+                className={`text-xs font-semibold ${active ? "text-white" : "text-gray-700"}`}
+                numberOfLines={1}
+              >
                 {item.label}
               </Text>
             </TouchableOpacity>
           );
         })}
-      </View>
+      </ScrollView>
 
       <Text className="text-[#1E232C] text-lg font-bold mb-3">Danh sách giải đấu</Text>
 
@@ -670,17 +1043,24 @@ export default function BookingManagement() {
         </View>
       ) : (
         ownerTournaments.map((item) => {
-          const approving = approvingTournamentId === item.id;
-          const suggestedConfirmCount = Math.max(1, Number(item.pending_bookings_count || 1));
+          const tournamentStatus =
+            (item as OwnerTournamentItem & { status?: TournamentOwnerBookingStatus }).status ??
+            tournamentStatusFilter;
 
           return (
             <View key={item.id} className="bg-white rounded-2xl border border-gray-200 p-4 mb-3">
               <View className="flex-row justify-between items-start">
                 <View className="flex-1 pr-3">
                   <Text className="text-[#111827] font-bold text-base">#{item.id} - {item.name}</Text>
-                  <Text className="text-gray-600 text-sm mt-1">Môn: {item.sport_type} • Hình thức: {item.mode}</Text>
-                  <Text className="text-gray-600 text-sm mt-1">Organizer ID: {item.organizer_id}</Text>
-                  <Text className="text-gray-600 text-sm mt-1">Lượt đặt sân chờ duyệt: {item.pending_bookings_count}</Text>
+                  <Text className="text-gray-600 text-sm mt-1">
+                    Môn: {toVietnameseSportType(item.sport_type)}
+                  </Text>
+                  <Text className="text-gray-600 text-sm mt-1">
+                    Số khung thời gian đã đặt: {item.pending_bookings_count}
+                  </Text>
+                  <Text className="text-gray-600 text-sm mt-1">
+                    Mã người tổ chức: {item.organizer_id}
+                  </Text>
                   <Text className="text-gray-600 text-sm mt-1">
                     Tạo lúc: {new Date(item.created_at).toLocaleString("vi-VN")}
                   </Text>
@@ -688,7 +1068,7 @@ export default function BookingManagement() {
 
                 <View className="px-3 py-1 rounded-full bg-[#eef4ff]">
                   <Text className="text-xs font-semibold text-[#114F99]">
-                    {getTournamentFilterLabel(tournamentStatusFilter)}
+                    {getTournamentFilterLabel(tournamentStatus)}
                   </Text>
                 </View>
               </View>
@@ -696,13 +1076,13 @@ export default function BookingManagement() {
               <TouchableOpacity
                 className="mt-3 bg-[#0B8FAC] rounded-xl py-3 items-center"
                 onPress={() =>
-                  handleConfirmTournament(item.id, suggestedConfirmCount, buildDefaultExpiresAt())
+                  router.push({
+                    pathname: "/(owners)/(booking)/tournament-detail",
+                    params: { id: String(item.id), source: "owner" },
+                  })
                 }
-                disabled={approving}
               >
-                <Text className="text-white font-semibold">
-                  {approving ? "Đang duyệt..." : "Duyệt giải đấu"}
-                </Text>
+                <Text className="text-white font-semibold">Xem chi tiết</Text>
               </TouchableOpacity>
             </View>
           );

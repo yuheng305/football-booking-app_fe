@@ -49,7 +49,7 @@ class AuthService {
       );
 
       if (!response.data?.access_token) {
-        throw new Error("No access token received from server");
+        throw new Error("Máy chủ không trả về access token");
       }
 
       // Extract user data
@@ -98,14 +98,12 @@ class AuthService {
         data
       );
 
+      // Backend returns { data: null } on successful signup
       const signupData = this.unwrapData<SignupResponse["data"]>(response);
 
-      if (!signupData?.email) {
-        throw new Error("Invalid signup response");
-      }
-
+      // Signup success even if data is null
       console.log("[AUTH][SIGNUP] Request success", {
-        email: signupData.email,
+        email: data?.email,
       });
 
       return {
@@ -212,19 +210,26 @@ class AuthService {
   /**
    * Change password
    */
-  async changePassword(data: ChangePasswordRequest): Promise<boolean> {
+  async changePassword(data: ChangePasswordRequest): Promise<string> {
     try {
+      console.log("[AUTH][CHANGE_PASSWORD] Request start");
+
       const response = await apiClient.patch<ChangePasswordResponse>(
         API_CONFIG.AUTH_ENDPOINTS.UPDATE_PASSWORD,
         data
       );
 
-      if (!response.data) {
-        throw new Error("Failed to change password");
+      const payload = response.data;
+      
+      if (payload === true) {
+        const message = "Đổi mật khẩu thành công!";
+        console.log("[AUTH][CHANGE_PASSWORD] Request success", { message });
+        return message;
       }
 
-      return response.data;
+      throw new Error("Không thể đổi mật khẩu");
     } catch (error) {
+      console.error("[AUTH][CHANGE_PASSWORD] Request failed", { error });
       throw error;
     }
   }
@@ -243,26 +248,26 @@ class AuthService {
         data
       );
 
-      const payload = response.data?.data;
+      const payload = response.data;
       let message = "";
 
       if (payload === true) {
         message =
-          "Email dat lai mat khau da duoc gui. Vui long kiem tra hop thu den va ca thu muc spam.";
+          "Email đặt lại mật khẩu đã được gửi. Vui lòng kiểm tra hộp thư đến và cả thư mục spam.";
       } else if (typeof payload === "object" && payload?.message) {
         message = payload.message;
       }
 
-      if (!message) {
-        throw new Error("Khong the gui email dat lai mat khau");
+      // API returns true for success, so if payload is true, it's a success
+      if (payload === true || message) {
+        console.log("[AUTH][FORGOT_PASSWORD] Request success", {
+          email: data?.email,
+          message,
+        });
+        return message || "Email đặt lại mật khẩu đã được gửi. Vui lòng kiểm tra hộp thư đến.";
       }
 
-      console.log("[AUTH][FORGOT_PASSWORD] Request success", {
-        email: data?.email,
-        message,
-      });
-
-      return message;
+      throw new Error("Không thể gửi email đặt lại mật khẩu");
     } catch (error) {
       console.error("[AUTH][FORGOT_PASSWORD] Request failed", {
         email: data?.email,
@@ -285,7 +290,7 @@ class AuthService {
       );
 
       if (!response.data?.message) {
-        throw new Error("Failed to resend verification email");
+        throw new Error("Không gửi lại được email xác thực");
       }
 
       return response.data.message;
@@ -304,7 +309,32 @@ class AuthService {
       );
 
       if (!response.data) {
-        throw new Error("Failed to get user profile");
+        throw new Error("Không tải được hồ sơ người dùng");
+      }
+
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  /**
+   * Update current user profile
+   */
+  async updateMe(data: {
+    first_name: string;
+    last_name: string;
+    phone_number: string;
+    age: number;
+  }): Promise<UserProfile> {
+    try {
+      const response = await apiClient.patch<GetMeResponse>(
+        API_CONFIG.AUTH_ENDPOINTS.ME,
+        data
+      );
+
+      if (!response.data) {
+        throw new Error("Không cập nhật được hồ sơ người dùng");
       }
 
       return response.data;

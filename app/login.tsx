@@ -88,7 +88,7 @@ const Login: React.FC = () => {
             <TextInput
               value={emailOrUsername}
               onChangeText={setEmailOrUsername}
-              placeholder="Email"
+              placeholder="Nhập email"
               placeholderTextColor="gray"
               className="flex-1 text-white"
               keyboardType="email-address"

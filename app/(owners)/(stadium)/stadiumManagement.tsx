@@ -16,6 +16,7 @@ import HeaderOwner from "@/component/HeaderOwner";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { fieldService } from "@/src/services/field.service";
 import { legacyApiService } from "@/src/services/legacy-api.service";
+import { toVietnameseSportType } from "@/src/utils/sport-type.util";
 
 const TEMP_OWNER_CLUSTER_ID = 3;
 
@@ -75,7 +76,7 @@ export default function StadiumManagement() {
         status: field.status === "active" ? "Đang hoạt động" : "Bảo trì",
         size: field.size,
         clusterId: field.cluster_id,
-        sportTypeName: field.sport_type?.name || "Chưa phân loại",
+        sportTypeName: toVietnameseSportType(field.sport_type?.name) || "Chưa phân loại",
         description: field.description || "Chưa có mô tả",
         pricePerHour: field.price_per_hour || 0,
       }));
@@ -114,7 +115,7 @@ export default function StadiumManagement() {
     if (state.error) {
       Alert.alert("Lỗi", state.error, [
         {
-          text: "OK",
+          text: "Đồng ý",
           onPress: () => {
             if (state.error?.includes("đăng nhập")) {
               router.replace("/login");
@@ -290,7 +291,12 @@ export default function StadiumManagement() {
         <View className="flex-row items-center gap-2">
           <TouchableOpacity
             className="bg-[#0B8FAC] py-2 px-3 rounded-lg items-center"
-            onPress={() => router.push("/(owners)/(stadium)/addField")}
+            onPress={() =>
+              router.push({
+                pathname: "/(owners)/(stadium)/addField",
+                params: { clusterId: String(routeClusterId) },
+              })
+            }
           >
             <Text className="text-white text-xs font-semibold">Thêm sân</Text>
           </TouchableOpacity>
@@ -381,18 +387,6 @@ export default function StadiumManagement() {
               </View>
 
               <View className="flex-row items-center gap-2 mt-4">
-                <TouchableOpacity
-                  className="flex-1 bg-white border border-gray-300 rounded-xl py-3 items-center"
-                  onPress={() =>
-                    router.push({
-                      pathname: "/(owners)/(stadium)/editField",
-                      params: { stadiumName: stadium.name },
-                    })
-                  }
-                >
-                  <Text className="text-gray-700 text-sm font-semibold">Chỉnh giờ</Text>
-                </TouchableOpacity>
-
                 {stadium.status === "Đang hoạt động" ? (
                   <TouchableOpacity
                     className="flex-1 bg-white border border-gray-300 rounded-xl py-3 items-center"

@@ -1,7 +1,13 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { Level2FlowDraft, Level2RoundSelection, Level2TournamentRound } from "../types/tournament.types";
+import {
+  Level2FlowDraft,
+  Level2RoundSelection,
+  Level2SetupDraft,
+  Level2TournamentRound,
+} from "../types/tournament.types";
 
 const TOURNAMENT_LEVEL_2_DRAFT_KEY = "tournamentLevel2FlowDraft";
+const TOURNAMENT_LEVEL_2_SETUP_KEY = "tournamentLevel2SetupDraft";
 
 const emptyDraft: Level2FlowDraft = {
   rounds: [],
@@ -35,6 +41,34 @@ class TournamentLevel2DraftService {
 
   async resetDraft(): Promise<void> {
     await AsyncStorage.removeItem(TOURNAMENT_LEVEL_2_DRAFT_KEY);
+  }
+
+  async getSetupDraft(): Promise<Level2SetupDraft | null> {
+    const raw = await AsyncStorage.getItem(TOURNAMENT_LEVEL_2_SETUP_KEY);
+    if (!raw) return null;
+    try {
+      const parsed = JSON.parse(raw) as Level2SetupDraft;
+      if (
+        !parsed?.name ||
+        !parsed?.sport_type ||
+        typeof parsed.size !== "number" ||
+        !Array.isArray(parsed.teams) ||
+        parsed.teams.length !== parsed.size
+      ) {
+        return null;
+      }
+      return parsed;
+    } catch {
+      return null;
+    }
+  }
+
+  async setSetupDraft(draft: Level2SetupDraft): Promise<void> {
+    await AsyncStorage.setItem(TOURNAMENT_LEVEL_2_SETUP_KEY, JSON.stringify(draft));
+  }
+
+  async clearSetupDraft(): Promise<void> {
+    await AsyncStorage.removeItem(TOURNAMENT_LEVEL_2_SETUP_KEY);
   }
 
   async setCreatedTournament(payload: {

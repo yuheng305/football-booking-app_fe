@@ -42,7 +42,7 @@ const CreateClub = () => {
 
       Alert.alert("Thành công", "Tạo câu lạc bộ thành công!", [
         {
-          text: "OK",
+          text: "Đồng ý",
           onPress: () => router.back(),
         },
       ]);
