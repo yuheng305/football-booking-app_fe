@@ -275,7 +275,7 @@ export default function TournamentLevel2RoundConfigScreen() {
     <SafeAreaView className="flex-1 bg-white" edges={["top"]}>
       <HeaderUser
         title="Cấu hình các vòng"
-        subtitle="Bước 2/2: Địa điểm và khung thời gian từng vòng"
+        subtitle="Địa điểm và khung thời gian"
         showBackButton
         onBackPress={() => goBackOrReplace(navigation, "/(tabs)/tournament/level2-create")}
       />
@@ -307,7 +307,7 @@ export default function TournamentLevel2RoundConfigScreen() {
               onPress={() => setShowClusterPicker(true)}
             >
               <Text className={sharedClusterName ? "text-gray-800" : "text-gray-400"}>
-                {sharedClusterName || "Chọn khu sân"}
+                {sharedClusterName || "Chọn cụm sân"}
               </Text>
             </TouchableOpacity>
 
@@ -415,9 +415,9 @@ export default function TournamentLevel2RoundConfigScreen() {
             >
               <Text className="text-white font-semibold">{creating ? "Đang tạo..." : "Tạo giải đấu"}</Text>
             </TouchableOpacity>
-            <Text className="text-xs text-gray-500 text-center mb-2">
+            {/* <Text className="text-xs text-gray-500 text-center mb-2">
               Sau khi tạo, hệ thống tự xếp lịch trận. Màn hình kế tiếp chỉ để xem lại tóm tắt giải.
-            </Text>
+            </Text> */}
           </ScrollView>
 
           <Modal
@@ -428,7 +428,7 @@ export default function TournamentLevel2RoundConfigScreen() {
           >
             <View className="flex-1 bg-black/35 justify-end">
               <View className="bg-white rounded-t-3xl p-4 max-h-[70%]">
-                <Text className="text-base font-semibold text-gray-900 mb-3">Chọn khu sân</Text>
+                <Text className="text-base font-semibold text-gray-900 mb-3">Chọn cụm sân</Text>
                 {loadingClusters ? (
                   <View className="py-8 items-center">
                     <ActivityIndicator size="small" color="#4f46e5" />
@@ -436,7 +436,7 @@ export default function TournamentLevel2RoundConfigScreen() {
                 ) : (
                   <ScrollView>
                     {clusters.length === 0 ? (
-                      <Text className="text-sm text-gray-500">Không có khu sân phù hợp.</Text>
+                      <Text className="text-sm text-gray-500">Không có cụm sân phù hợp.</Text>
                     ) : (
                       clusters.map((cluster) => (
                         <TouchableOpacity

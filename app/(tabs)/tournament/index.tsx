@@ -96,7 +96,7 @@ export default function Tournament() {
 
     const description = isStandard
       ? "Bạn tự chọn sân và khung giờ theo lịch mong muốn. Phù hợp khi muốn chủ động toàn bộ lịch đấu."
-      : "Giải chia nhiều vòng loại trực tiếp: bạn chọn khu sân và khung thời gian từng vòng; hệ thống tự xếp lịch trận.";
+      : "Giải chia nhiều vòng loại trực tiếp: bạn chọn cụm sân và khung thời gian từng vòng; hệ thống tự xếp lịch trận.";
 
     const steps = isStandard
       ? [

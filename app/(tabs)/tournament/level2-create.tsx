@@ -91,7 +91,7 @@ export default function TournamentLevel2CreateScreen() {
     <SafeAreaView className="flex-1 bg-white" edges={["top"]}>
       <HeaderUser
         title="Tạo giải đấu theo vòng"
-        subtitle="Bước 1/2: Thông tin giải và danh sách đội"
+        subtitle="Thông tin giải và danh sách đội"
         showBackButton
         onBackPress={() => goBackOrReplace(navigation, "/(tabs)/tournament")}
       />
@@ -100,7 +100,7 @@ export default function TournamentLevel2CreateScreen() {
         <View className="border border-indigo-200 bg-indigo-50 rounded-2xl p-3 mb-4">
           <Text className="text-indigo-900 font-semibold">Giải đấu loại trực tiếp</Text>
           <Text className="text-indigo-800 text-xs mt-1">
-            Điền tên từng đội theo đúng số đội đã nhập. Bước sau bạn chọn khu sân và khung ngày giờ từng vòng; lịch trận sẽ do hệ thống tự sắp.
+            Điền tên từng đội theo đúng số đội đã nhập. Bước sau bạn chọn cụm sân và khung ngày giờ từng vòng; lịch trận sẽ do hệ thống tự sắp.
           </Text>
         </View>
 
@@ -169,7 +169,7 @@ export default function TournamentLevel2CreateScreen() {
           disabled={!canContinue || saving}
           className={`rounded-xl py-3 items-center mb-2 ${!canContinue || saving ? "bg-gray-300" : "bg-emerald-600"}`}
         >
-          <Text className="text-white font-semibold">{saving ? "Đang lưu..." : "Tiếp theo: khu sân & khung thời gian"}</Text>
+          <Text className="text-white font-semibold">{saving ? "Đang lưu..." : "Tiếp theo: cụm sân & khung thời gian"}</Text>
         </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>

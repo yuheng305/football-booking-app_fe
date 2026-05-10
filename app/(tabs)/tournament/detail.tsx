@@ -15,7 +15,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
-import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
+import { router, useFocusEffect, useLocalSearchParams, useSegments } from "expo-router";
 import HeaderUser from "@/component/HeaderUser";
 import PickMatchWinnerModal from "@/component/PickMatchWinnerModal";
 import ContactActions from "@/component/ContactActions";
@@ -229,9 +229,11 @@ const statusClasses = (status?: string) => {
 
 export default function TournamentDetailScreen() {
   const navigation = useNavigation();
-  const params = useLocalSearchParams<{ id?: string; paymentStatus?: string; source?: string }>();
+  const params = useLocalSearchParams<{ id?: string; paymentStatus?: string; source?: string; openRoundId?: string }>();
   const tournamentId = Number(params.id);
-  const isOwnerView = params.source === "owner";
+  const segments = useSegments() as string[];
+  // consider owner view when route is under owners or explicit source=owner param is present
+  const isOwnerView = params.source === "owner" || (segments && segments.includes("(owners)"));
   const backRoute = params.source === "owner"
     ? "/(owners)/(booking)/ownerBookingManagement"
     : "/(tabs)/tournament";
@@ -421,6 +423,16 @@ export default function TournamentDetailScreen() {
   const rounds = useMemo(() => {
     return (detail?.rounds || []).slice().sort((a, b) => a.round_number - b.round_number);
   }, [detail?.rounds]);
+
+  useEffect(() => {
+    if (!detail) return;
+    const openId = params.openRoundId ? Number(params.openRoundId) : null;
+    if (!openId) return;
+    const target = rounds.find((r) => Number(r.id) === openId);
+    if (!target) return;
+    // toggleRound will load matches and expand UI; safe to call after render
+    toggleRound(target as any);
+  }, [detail, params.openRoundId, rounds]);
 
   useEffect(() => {
     (async () => {
@@ -1283,6 +1295,7 @@ export default function TournamentDetailScreen() {
             </View>
           )}
 
+          {!isOwnerView && (
           <View className="border border-indigo-200 bg-indigo-50 rounded-xl p-3 mb-3">
             <Text className="text-indigo-900 text-base font-semibold">Cụm sân</Text>
             <Text className="text-indigo-800 mt-2 text-sm font-medium">{clusterDisplayName}</Text>
@@ -1294,14 +1307,15 @@ export default function TournamentDetailScreen() {
               <Text className="text-indigo-700 mt-1 text-xs">Đang tải địa chỉ cụm...</Text>
             ) : null}
           </View>
+          )}
 
-          {detail.level === 1 ? (
+          {detail.level === 1 && !isOwnerView ? (
             <View className="border border-gray-200 rounded-xl p-3 mb-3">
               <Text className="text-gray-900 text-base font-semibold mb-1">
                 Khung giờ đã chọn
               </Text>
               <Text className="text-gray-500 text-xs mb-3">
-                Danh sách khung giờ và sân đã chọn. Địa chỉ khu sân nằm trong ô «Cụm sân» phía trên.
+                Danh sách khung giờ và sân đã chọn. Địa chỉ cụm sân nằm trong ô «Cụm sân» phía trên.
               </Text>
               {level1BookingsLoading ? (
                 <View className="py-4 items-center">
@@ -1354,6 +1368,7 @@ export default function TournamentDetailScreen() {
             </View>
           ) : null}
 
+          {!isOwnerView && (
           <View className="border border-gray-200 rounded-xl p-3 mb-3">
             <TouchableOpacity
               className="flex-row items-center justify-between"
@@ -1403,7 +1418,9 @@ export default function TournamentDetailScreen() {
               </View>
             )}
           </View>
+          )}
 
+          {!isOwnerView && (
           <View className="border border-gray-200 rounded-xl p-3">
             <TouchableOpacity
               className="flex-row items-center justify-between"
@@ -1610,6 +1627,7 @@ export default function TournamentDetailScreen() {
               </View>
             )}
           </View>
+          )}
         </ScrollView>
 
         <Modal
