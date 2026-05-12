@@ -11,6 +11,9 @@ export type BookingStatus =
   | "success"
   | "completed"
   | "canceled"
+  | "cancelled"
+  | "expired"
+  | "failed"
   | "rejected";
 
 export interface Club {

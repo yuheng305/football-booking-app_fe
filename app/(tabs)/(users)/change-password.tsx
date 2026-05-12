@@ -10,7 +10,6 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import HeaderOne from "@/component/HeaderOne";
 import authService from "../../../src/services/auth.service";
 
 const ChangePassword = () => {
@@ -21,6 +20,10 @@ const ChangePassword = () => {
   const [showOldPassword, setShowOldPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+  const handleBackToAccount = () => {
+    router.replace("/(tabs)/account");
+  };
 
   const handleChange = async () => {
     // Validate inputs
@@ -63,13 +66,13 @@ const ChangePassword = () => {
       });
 
       if (result) {
-        Alert.alert("Thành công", "Đổi mật khẩu thành công!");
         // Reset form
         setOldPassword("");
         setNewPassword("");
         setConfirmPassword("");
-        // Go back
-        router.back();
+        Alert.alert("Thành công", "Đổi mật khẩu thành công!", [
+          { text: "OK", onPress: handleBackToAccount },
+        ]);
       }
     } catch (error: unknown) {
       console.error("Error changing password:", error);
@@ -95,7 +98,21 @@ const ChangePassword = () => {
   return (
     <SafeAreaView className="flex-1 bg-white" edges={['top']}>
       <View className="flex-1">
-        <HeaderOne title="Đổi mật khẩu" />
+        <View className="flex-row items-center px-4 pt-4 pb-2 bg-white">
+          <TouchableOpacity
+            className="w-10 h-10 bg-white border border-gray-200 rounded-xl items-center justify-center"
+            onPress={handleBackToAccount}
+            activeOpacity={0.9}
+            disabled={isLoading}
+          >
+            <Ionicons name="arrow-back" size={20} color="#1E232C" />
+          </TouchableOpacity>
+
+          <Text className="flex-1 text-center text-[24px] font-bold text-[#1E232C] mr-10">
+            Đổi mật khẩu
+          </Text>
+        </View>
+
         <View className="px-6 mt-6 space-y-6">
           {/* Old Password */}
           <View>

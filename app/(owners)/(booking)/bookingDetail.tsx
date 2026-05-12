@@ -4,8 +4,6 @@ import {
   Image,
   TouchableOpacity,
   ScrollView,
-  Modal,
-  StyleSheet,
   Alert,
   ActivityIndicator,
   Linking,
@@ -18,6 +16,7 @@ import { bookingService } from "@/src/services/booking.service";
 import type { Booking as BookingType } from "@/src/types/booking.types";
 import { imageService } from "@/src/services/image.service";
 import ContactActions from "@/component/ContactActions";
+import AppPopup from "@/component/AppPopup";
 
 interface DisplayBooking {
   id: number;
@@ -39,8 +38,6 @@ export default function BookingDetail() {
   const { id } = useLocalSearchParams();
   const [booking, setBooking] = useState<DisplayBooking | null>(null);
   const [loading, setLoading] = useState(true);
-  const [approveModalVisible, setApproveModalVisible] = useState(false);
-  const [rejectModalVisible, setRejectModalVisible] = useState(false);
   const [confirmRejectModalVisible, setConfirmRejectModalVisible] =
     useState(false);
   const [submittingAction, setSubmittingAction] = useState(false);
@@ -144,7 +141,7 @@ export default function BookingDetail() {
   if (!booking) {
     return (
       <SafeAreaView className="flex-1 bg-white items-center justify-center">
-        <Text>Không tìm thấy booking</Text>
+        <Text>Không tìm thấy đặt sân</Text>
       </SafeAreaView>
     );
   }
@@ -164,10 +161,10 @@ export default function BookingDetail() {
             }
           : prev
       );
-      setApproveModalVisible(true);
+      router.replace("/(owners)/(booking)/ownerBookingManagement");
     } catch (error: any) {
       console.error("[BOOKING DETAIL] Error approving booking:", error);
-      Alert.alert("Lỗi", error?.message || "Không thể phê duyệt booking");
+      Alert.alert("Lỗi", error?.message || "Không thể phê duyệt đặt sân");
     } finally {
       setSubmittingAction(false);
     }
@@ -196,23 +193,13 @@ export default function BookingDetail() {
       );
 
       setConfirmRejectModalVisible(false);
-      setRejectModalVisible(true);
+      router.replace("/(owners)/(booking)/ownerBookingManagement");
     } catch (error) {
       console.error("[BOOKING DETAIL] Error rejecting booking:", error);
-      Alert.alert("Lỗi", "Không thể từ chối booking. Vui lòng thử lại!");
+      Alert.alert("Lỗi", "Không thể từ chối đặt sân. Vui lòng thử lại!");
     } finally {
       setSubmittingAction(false);
     }
-  };
-
-  const closeApproveModal = () => {
-    setApproveModalVisible(false);
-    router.push("/(owners)/(booking)/ownerBookingManagement");
-  };
-
-  const closeRejectModal = () => {
-    setRejectModalVisible(false);
-    router.push("/(owners)/(booking)/ownerBookingManagement");
   };
 
   const closeConfirmRejectModal = () => {
@@ -229,7 +216,7 @@ export default function BookingDetail() {
       pathname: "/chat",
       params: {
         receiverId: String(playerId),
-        name: playerInfo?.fullName || "Player",
+        name: playerInfo?.fullName || "Người đặt",
       },
     } as any);
   };
@@ -250,7 +237,7 @@ export default function BookingDetail() {
         <View className="w-[41px] h-[41px]" />
       </View>
 
-      <ScrollView className="flex-1 px-4 mt-4">
+      <ScrollView className="flex-1 px-4 mt-4" contentContainerStyle={{ paddingBottom: 120 }}>
         {/* Club info hidden per owner request */}
 
         <View className="bg-blue-50 border border-blue-200 rounded-xl mb-4 overflow-hidden">
@@ -288,10 +275,10 @@ export default function BookingDetail() {
                   </Text>
                   <Text className="text-gray-700 mt-1">SĐT: {playerInfo?.phone || "Không có dữ liệu"}</Text>
                   <ContactActions receiverId={playerInfo?.id || playerId} name={playerInfo?.fullName} phone={playerInfo?.phone} />
-                  <Text className="text-gray-700 mt-1">User ID: {playerInfo?.id || playerId || "--"}</Text>
+                  <Text className="text-gray-700 mt-1">Mã người đặt: {playerInfo?.id || playerId || "--"}</Text>
 
                   <View className="mt-3 pt-3 border-t border-blue-200">
-                    <Text className="text-blue-900 font-semibold mb-2">QR nhận tiền của user</Text>
+                    <Text className="text-blue-900 font-semibold mb-2">Mã QR nhận tiền của người đặt</Text>
                     {playerQrUrl ? (
                       <>
                         <Image
@@ -304,7 +291,7 @@ export default function BookingDetail() {
                             className="bg-blue-600 px-4 py-2 rounded-lg mr-2"
                             onPress={() => setShowQrPreview(true)}
                           >
-                            <Text className="text-white font-semibold">Preview</Text>
+                            <Text className="text-white font-semibold">Xem trước</Text>
                           </TouchableOpacity>
                           <TouchableOpacity
                             className="bg-white border border-blue-600 px-4 py-2 rounded-lg"
@@ -315,10 +302,10 @@ export default function BookingDetail() {
                         </View>
                       </>
                     ) : (
-                      <Text className="text-amber-700">User chưa cập nhật QR nhận tiền.</Text>
+                      <Text className="text-amber-700">Người đặt chưa cập nhật mã QR nhận tiền.</Text>
                     )}
                     <Text className="text-xs text-gray-600 mt-2">
-                      Chỉ dùng QR này khi cần hoàn tiền/chuyển khoản xử lý sự cố booking.
+                      Chỉ dùng mã QR này khi cần hoàn tiền hoặc chuyển khoản xử lý sự cố đặt sân.
                     </Text>
                   </View>
                 </>
@@ -411,111 +398,53 @@ export default function BookingDetail() {
         )}
       </ScrollView>
 
-      <Modal
-        animationType="fade"
-        transparent={true}
-        visible={approveModalVisible}
-        onRequestClose={closeApproveModal}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContainer}>
-            <TouchableOpacity
-              style={styles.closeButton}
-              onPress={closeApproveModal}
-            >
-              <Ionicons name="close" size={18} color="#FFFFFF" />
-            </TouchableOpacity>
-            <View style={styles.checkmarkContainer}>
-              <Ionicons
-                name="checkmark-circle-outline"
-                size={60}
-                color="#119916"
-              />
-            </View>
-            <Text style={styles.successText}>Xác nhận thành công</Text>
-          </View>
-        </View>
-      </Modal>
-
-      <Modal
-        animationType="fade"
-        transparent={true}
-        visible={rejectModalVisible}
-        onRequestClose={closeRejectModal}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalRejectContainer}>
-            <TouchableOpacity
-              style={styles.closeButton}
-              onPress={closeRejectModal}
-            >
-              <Ionicons name="close" size={18} color="#FFFFFF" />
-            </TouchableOpacity>
-            <View style={styles.iconContainer}>
-              <Ionicons name="close-circle-outline" size={60} color="#FF0000" />
-            </View>
-            <Text style={styles.rejectSuccessText}>Từ chối thành công</Text>
-          </View>
-        </View>
-      </Modal>
-
-      <Modal
-        animationType="fade"
-        transparent={true}
+      <AppPopup
         visible={confirmRejectModalVisible}
-        onRequestClose={closeConfirmRejectModal}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalRejectContainer}>
-            <Text style={styles.confirmText}>
-              Bạn có chắc chắn muốn từ chối booking này?
-            </Text>
-            <View style={styles.buttonContainer}>
-              <TouchableOpacity
-                style={styles.cancelButton}
-                onPress={closeConfirmRejectModal}
-              >
-                <Text style={styles.buttonText}>Hủy</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.confirmButton}
-                onPress={confirmReject}
-                disabled={submittingAction}
-              >
-                <Text style={styles.buttonText}>Xác nhận</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
+        title="Từ chối đặt sân?"
+        message="Đặt sân này sẽ được chuyển sang trạng thái đã hủy. Hành động này không nên thực hiện nếu bạn vẫn có thể phục vụ khung giờ đó."
+        tone="danger"
+        onClose={closeConfirmRejectModal}
+        dismissible={!submittingAction}
+        actions={[
+          {
+            label: "Quay lại",
+            variant: "secondary",
+            onPress: closeConfirmRejectModal,
+            disabled: submittingAction,
+          },
+          {
+            label: "Từ chối",
+            variant: "danger",
+            onPress: confirmReject,
+            loading: submittingAction,
+          },
+        ]}
+      />
 
-      <Modal
-        animationType="fade"
-        transparent={true}
+      <AppPopup
         visible={showQrPreview}
-        onRequestClose={() => setShowQrPreview(false)}
+        title="Mã QR nhận tiền"
+        tone="info"
+        icon="qr-code-outline"
+        onClose={() => setShowQrPreview(false)}
+        actions={[
+          {
+            label: "Đóng",
+            variant: "primary",
+            onPress: () => setShowQrPreview(false),
+          },
+        ]}
       >
-        <View style={styles.modalOverlay}>
-          <View className="bg-white rounded-2xl p-4 items-center" style={{ width: 320 }}>
-            <Text className="text-lg font-bold text-gray-900 mb-3">QR nhận tiền</Text>
-            {playerQrUrl ? (
-              <Image
-                source={{ uri: playerQrUrl }}
-                style={{ width: 280, height: 280, borderRadius: 12 }}
-                resizeMode="cover"
-              />
-            ) : (
-              <Text className="text-gray-500">Không có QR</Text>
-            )}
-            <TouchableOpacity
-              className="mt-4 bg-blue-600 px-4 py-3 rounded-xl w-full items-center"
-              onPress={() => setShowQrPreview(false)}
-            >
-              <Text className="text-white font-semibold">Đóng preview</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
+        {playerQrUrl ? (
+          <Image
+            source={{ uri: playerQrUrl }}
+            style={{ width: 260, height: 260, borderRadius: 14 }}
+            resizeMode="cover"
+          />
+        ) : (
+          <Text style={{ color: "#6b7280" }}>Không có mã QR</Text>
+        )}
+      </AppPopup>
 
       <TouchableOpacity
         className="absolute right-5 bottom-6 w-14 h-14 rounded-full bg-blue-600 items-center justify-center shadow"
@@ -526,113 +455,3 @@ export default function BookingDetail() {
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  modalContainer: {
-    width: 384,
-    height: 252,
-    backgroundColor: "#E3FFE2",
-    borderRadius: 20,
-    shadowColor: "#000",
-    shadowOffset: { width: 5, height: 5 },
-    shadowOpacity: 0.25,
-    shadowRadius: 10,
-    elevation: 5,
-  },
-  modalRejectContainer: {
-    width: 384,
-    height: 252,
-    backgroundColor: "#FFE2E2", // Màu đỏ nhạt cho cả hai modal từ chối
-    borderRadius: 20,
-    shadowColor: "#000",
-    shadowOffset: { width: 5, height: 5 },
-    shadowOpacity: 0.25,
-    shadowRadius: 10,
-    elevation: 5,
-    padding: 20,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  closeButton: {
-    position: "absolute",
-    top: 18,
-    right: 18,
-    width: 38,
-    height: 38,
-    backgroundColor: "#808080",
-    borderRadius: 30,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  checkmarkContainer: {
-    position: "absolute",
-    top: 66,
-    left: 162,
-    width: 60,
-    height: 60,
-  },
-  iconContainer: {
-    marginBottom: 20,
-  },
-  successText: {
-    position: "absolute",
-    top: 153,
-    left: 80,
-    width: 225,
-    height: 28,
-    fontFamily: "Exo",
-    fontWeight: "700",
-    fontSize: 24,
-    lineHeight: 28,
-    textAlign: "center",
-    letterSpacing: -1,
-    color: "#119916",
-  },
-  rejectSuccessText: {
-    fontFamily: "Exo",
-    fontWeight: "700",
-    fontSize: 24,
-    lineHeight: 28,
-    textAlign: "center",
-    letterSpacing: -1,
-    color: "#FF0000", // Màu đỏ đậm cho văn bản
-  },
-  confirmText: {
-    fontSize: 18,
-    fontWeight: "bold",
-    textAlign: "center",
-    marginBottom: 30,
-    color: "#1E232C",
-  },
-  buttonContainer: {
-    flexDirection: "row",
-    justifyContent: "space-around",
-    width: "100%",
-  },
-  cancelButton: {
-    backgroundColor: "#808080",
-    paddingVertical: 12,
-    paddingHorizontal: 30,
-    borderRadius: 10,
-    elevation: 3,
-  },
-  confirmButton: {
-    backgroundColor: "#FF0000",
-    paddingVertical: 12,
-    paddingHorizontal: 30,
-    borderRadius: 10,
-    elevation: 3,
-  },
-  buttonText: {
-    color: "#FFFFFF",
-    fontSize: 16,
-    fontWeight: "bold",
-    textAlign: "center",
-  },
-});

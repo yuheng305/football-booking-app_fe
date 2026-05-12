@@ -473,7 +473,7 @@ const User = () => {
           <View className="w-full bg-white rounded-2xl p-4">
             <Text className="text-lg font-bold text-gray-900 mb-2">QR nhận tiền là gì?</Text>
             <Text className="text-gray-700 leading-6">
-              Đây là mã QR để nhận chuyển khoản khi có sự cố phát sinh trong booking. Chủ sân chỉ nên dùng để hoàn tiền hoặc xử lý thanh toán bổ sung theo thỏa thuận.
+              Đây là mã QR để nhận chuyển khoản khi có sự cố phát sinh khi đặt sân hoặc tạo giải đấu. Chủ sân chỉ nên dùng để hoàn tiền hoặc xử lý thanh toán bổ sung theo thỏa thuận.
             </Text>
             <TouchableOpacity
               className="mt-4 bg-blue-600 rounded-xl py-3 items-center"

@@ -270,7 +270,7 @@ const HistoryDetail = () => {
             className="border border-gray-300 rounded-full py-3 mt-4"
           >
             <Text className="text-center text-gray-800 font-semibold">
-              QR CODE
+              Mã QR
             </Text>
           </TouchableOpacity>
 

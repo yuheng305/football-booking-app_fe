@@ -106,6 +106,7 @@ export interface OwnerConfirmTournamentResult {
 }
 
 export type TournamentOwnerBookingStatus =
+  | "all"
   | "pending"
   | "confirmed"
   | "payment_required"

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, RefreshControl, Image, Alert, Modal, TextInput } from "react-native";
+import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, RefreshControl, Image, Alert, Modal, TextInput, FlatList } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -10,8 +10,39 @@ import type { Cluster, UpdateClusterRequest } from "@/src/types/cluster.types";
 import type { ImageItem } from "@/src/types/image.types";
 import { formatSportDisplay, SPORT_TYPE_PICKER_OPTIONS } from "@/src/utils/sport-type.util";
 
-const TEMP_OWNER_CLUSTER_ID = 3;
 const SPORT_TYPE_OPTIONS = SPORT_TYPE_PICKER_OPTIONS;
+interface Province {
+  code: number;
+  name: string;
+  districts?: District[];
+}
+
+interface District {
+  code: number;
+  name: string;
+  province_code: number;
+  wards?: Ward[];
+}
+
+interface Ward {
+  code: number;
+  name: string;
+  district_code: number;
+}
+
+const MAJOR_PROVINCES: Province[] = [
+  { code: 79, name: "Thành phố Hồ Chí Minh" },
+  { code: 1, name: "Thành phố Hà Nội" },
+  { code: 48, name: "Thành phố Đà Nẵng" },
+  { code: 92, name: "Thành phố Cần Thơ" },
+  { code: 31, name: "Thành phố Hải Phòng" },
+  { code: 46, name: "Tỉnh Thừa Thiên Huế" },
+  { code: 56, name: "Tỉnh Khánh Hòa" },
+  { code: 77, name: "Tỉnh Bà Rịa - Vũng Tàu" },
+  { code: 74, name: "Tỉnh Bình Dương" },
+  { code: 75, name: "Tỉnh Đồng Nai" },
+];
+
 const TIME_OPTIONS: string[] = Array.from({ length: 48 }).map((_, index) => {
   const totalMinutes = index * 30;
   const hour = String(Math.floor(totalMinutes / 60)).padStart(2, "0");
@@ -19,13 +50,37 @@ const TIME_OPTIONS: string[] = Array.from({ length: 48 }).map((_, index) => {
   return `${hour}:${minute}:00`;
 });
 
+const getApprovalBadge = (isAccepted: boolean | null) => {
+  if (isAccepted === true) {
+    return {
+      label: "Admin đã phê duyệt",
+      containerClass: "bg-emerald-50 border-emerald-200",
+      textClass: "text-emerald-700",
+    };
+  }
+
+  if (isAccepted === false) {
+    return {
+      label: "Admin đã từ chối",
+      containerClass: "bg-red-50 border-red-200",
+      textClass: "text-red-700",
+    };
+  }
+
+  return {
+    label: "Chưa được duyệt",
+    containerClass: "bg-amber-50 border-amber-200",
+    textClass: "text-amber-700",
+  };
+};
+
 export default function OwnerClusterDetail() {
   const router = useRouter();
   const params = useLocalSearchParams<{ id?: string }>();
   const selectedClusterId = Number(params.id);
   const routeClusterId = Number.isFinite(selectedClusterId) && selectedClusterId > 0
     ? selectedClusterId
-    : TEMP_OWNER_CLUSTER_ID;
+    : null;
   const [cluster, setCluster] = useState<Cluster | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -36,6 +91,19 @@ export default function OwnerClusterDetail() {
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [savingUpdate, setSavingUpdate] = useState(false);
   const [timePickerTarget, setTimePickerTarget] = useState<"open" | "close" | null>(null);
+  const [editProvinceCode, setEditProvinceCode] = useState("");
+  const [editAreaDistrictCode, setEditAreaDistrictCode] = useState("");
+  const [editAreaDistrictName, setEditAreaDistrictName] = useState("");
+  const [editDistricts, setEditDistricts] = useState<District[]>([]);
+  const [editWards, setEditWards] = useState<Ward[]>([]);
+  const [loadingEditDistricts, setLoadingEditDistricts] = useState(false);
+  const [loadingEditWards, setLoadingEditWards] = useState(false);
+  const [showEditProvinceModal, setShowEditProvinceModal] = useState(false);
+  const [showEditDistrictModal, setShowEditDistrictModal] = useState(false);
+  const [showEditWardModal, setShowEditWardModal] = useState(false);
+  const [editProvinceSearch, setEditProvinceSearch] = useState("");
+  const [editDistrictSearch, setEditDistrictSearch] = useState("");
+  const [editWardSearch, setEditWardSearch] = useState("");
   const [editForm, setEditForm] = useState({
     name: "",
     street: "",
@@ -79,10 +147,94 @@ export default function OwnerClusterDetail() {
     [editForm.sport_type_ids]
   );
 
+  useEffect(() => {
+    if (!editProvinceCode) {
+      setEditDistricts([]);
+      setEditAreaDistrictCode("");
+      setEditAreaDistrictName("");
+      setEditWards([]);
+      return;
+    }
+
+    const fetchDistricts = async () => {
+      try {
+        setLoadingEditDistricts(true);
+        const response = await fetch(
+          `https://provinces.open-api.vn/api/p/${editProvinceCode}?depth=2`
+        );
+        const data: Province = await response.json();
+        setEditDistricts(data.districts || []);
+      } catch {
+        setEditDistricts([]);
+        Alert.alert("Lỗi", "Không thể tải danh sách quận/huyện. Vui lòng thử lại.");
+      } finally {
+        setLoadingEditDistricts(false);
+      }
+    };
+
+    fetchDistricts();
+  }, [editProvinceCode]);
+
+  useEffect(() => {
+    if (!editAreaDistrictCode) {
+      setEditWards([]);
+      return;
+    }
+
+    const fetchWards = async () => {
+      try {
+        setLoadingEditWards(true);
+        const response = await fetch(
+          `https://provinces.open-api.vn/api/d/${editAreaDistrictCode}?depth=2`
+        );
+        const data: District = await response.json();
+        setEditWards(data.wards || []);
+      } catch {
+        setEditWards([]);
+        Alert.alert("Lỗi", "Không thể tải danh sách phường/xã. Vui lòng thử lại.");
+      } finally {
+        setLoadingEditWards(false);
+      }
+    };
+
+    fetchWards();
+  }, [editAreaDistrictCode]);
+
+  const filteredEditProvinces = useMemo(() => {
+    const keyword = editProvinceSearch.trim().toLowerCase();
+    if (!keyword) return MAJOR_PROVINCES;
+    return MAJOR_PROVINCES.filter((item) =>
+      item.name.toLowerCase().includes(keyword)
+    );
+  }, [editProvinceSearch]);
+
+  const filteredEditDistricts = useMemo(() => {
+    const keyword = editDistrictSearch.trim().toLowerCase();
+    if (!keyword) return editDistricts;
+    return editDistricts.filter((item) =>
+      item.name.toLowerCase().includes(keyword)
+    );
+  }, [editDistrictSearch, editDistricts]);
+
+  const filteredEditWards = useMemo(() => {
+    const keyword = editWardSearch.trim().toLowerCase();
+    if (!keyword) return editWards;
+    return editWards.filter((item) =>
+      item.name.toLowerCase().includes(keyword)
+    );
+  }, [editWardSearch, editWards]);
+
   const loadCluster = useCallback(async (isRefresh = false) => {
     try {
       if (!isRefresh) setLoading(true);
       setError(null);
+
+      if (!routeClusterId) {
+        setCluster(null);
+        setClusterImages([]);
+        setError("Không tìm thấy mã cụm sân.");
+        return;
+      }
 
       const data = await clusterService.getCluster(routeClusterId);
       setCluster(data);
@@ -105,6 +257,10 @@ export default function OwnerClusterDetail() {
     loadCluster();
   }, [loadCluster]);
 
+  const handleBackToClusterList = () => {
+    router.replace("/(owners)/(stadium)/clusterList");
+  };
+
   const onRefresh = () => {
     setRefreshing(true);
     loadCluster(true);
@@ -112,6 +268,10 @@ export default function OwnerClusterDetail() {
 
   const openEditModal = () => {
     if (!cluster) return;
+    const matchedProvince = MAJOR_PROVINCES.find(
+      (province) => province.name.toLowerCase() === (cluster.city ?? "").toLowerCase()
+    );
+
     setEditForm({
       name: cluster.name ?? "",
       street: cluster.street ?? "",
@@ -122,6 +282,13 @@ export default function OwnerClusterDetail() {
       status: cluster.status ?? "active",
       sport_type_ids: cluster.sport_types?.map((sport) => sport.id) ?? [],
     });
+    setEditProvinceCode(matchedProvince ? String(matchedProvince.code) : "");
+    setEditAreaDistrictCode("");
+    setEditAreaDistrictName("");
+    setEditWards([]);
+    setEditProvinceSearch("");
+    setEditDistrictSearch("");
+    setEditWardSearch("");
     setEditModalVisible(true);
   };
 
@@ -137,10 +304,47 @@ export default function OwnerClusterDetail() {
     });
   };
 
+  const handleSelectEditProvince = (province: Province) => {
+    setEditProvinceCode(String(province.code));
+    setEditAreaDistrictCode("");
+    setEditAreaDistrictName("");
+    setEditWards([]);
+    setEditForm((prev) => ({
+      ...prev,
+      city: province.name,
+      district: "",
+    }));
+    setEditProvinceSearch("");
+    setEditDistrictSearch("");
+    setEditWardSearch("");
+    setShowEditProvinceModal(false);
+  };
+
+  const handleSelectEditDistrict = (district: District) => {
+    setEditAreaDistrictCode(String(district.code));
+    setEditAreaDistrictName(district.name);
+    setEditForm((prev) => ({
+      ...prev,
+      district: "",
+    }));
+    setEditDistrictSearch("");
+    setEditWardSearch("");
+    setShowEditDistrictModal(false);
+  };
+
+  const handleSelectEditWard = (ward: Ward) => {
+    setEditForm((prev) => ({
+      ...prev,
+      district: ward.name,
+    }));
+    setEditWardSearch("");
+    setShowEditWardModal(false);
+  };
+
   const validateUpdate = (): string | null => {
     if (!editForm.name.trim()) return "Vui lòng nhập tên cụm sân.";
     if (!editForm.street.trim()) return "Vui lòng nhập số nhà, đường.";
-    if (!editForm.district.trim()) return "Vui lòng nhập quận/huyện.";
+    if (!editForm.district.trim()) return "Vui lòng chọn phường/xã.";
     if (!editForm.city.trim()) return "Vui lòng nhập tỉnh/thành phố.";
     if (editForm.sport_type_ids.length === 0) return "Vui lòng chọn ít nhất 1 môn thể thao.";
     const openMinutes = parseTimeToMinutes(editForm.open_time);
@@ -169,10 +373,11 @@ export default function OwnerClusterDetail() {
     };
     try {
       setSavingUpdate(true);
-      await clusterService.updateCluster(cluster.id, payload);
+      const updatedCluster = await clusterService.updateCluster(cluster.id, payload);
+      setCluster(updatedCluster);
       setEditModalVisible(false);
+      await loadCluster(true);
       Alert.alert("Thành công", "Đã cập nhật thông tin cụm sân.");
-      loadCluster(true);
     } catch (updateError: any) {
       Alert.alert("Lỗi", updateError?.message || "Không thể cập nhật cụm sân");
     } finally {
@@ -196,6 +401,10 @@ export default function OwnerClusterDetail() {
       setUploadingImage(true);
       const asset = result.assets[0];
       const targetClusterId = cluster?.id ?? routeClusterId;
+      if (!targetClusterId) {
+        Alert.alert("Lỗi", "Không tìm thấy mã cụm sân để tải ảnh.");
+        return;
+      }
       const uploaded = await imageService.uploadImage(
         "cluster",
         asset.uri,
@@ -236,6 +445,10 @@ export default function OwnerClusterDetail() {
         onPress: async () => {
           try {
             const targetClusterId = cluster?.id ?? routeClusterId;
+            if (!targetClusterId) {
+              Alert.alert("Lỗi", "Không tìm thấy mã cụm sân để xóa ảnh.");
+              return;
+            }
             setDeletingImageId(image.id as number);
             await imageService.deleteImage("cluster", image.id as number, targetClusterId);
 
@@ -275,12 +488,15 @@ export default function OwnerClusterDetail() {
     );
   }
 
+  const approvalBadge = getApprovalBadge(cluster.is_accepted);
+  const isRejectedCluster = cluster.is_accepted === false;
+
   return (
     <SafeAreaView className="flex-1 bg-[#F6F8FC]">
       <View className="flex-row items-center px-4 pt-4 pb-2 bg-white">
         <TouchableOpacity
           className="w-10 h-10 bg-white border border-gray-200 rounded-xl items-center justify-center"
-          onPress={() => router.back()}
+          onPress={handleBackToClusterList}
         >
           <Ionicons name="arrow-back" size={20} color="#1E232C" />
         </TouchableOpacity>
@@ -292,6 +508,7 @@ export default function OwnerClusterDetail() {
 
       <ScrollView
         className="flex-1 px-4 pt-4"
+        contentContainerStyle={{ paddingBottom: 24 }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
         <View className="bg-white rounded-2xl p-4 mb-4 border border-gray-100">
@@ -305,34 +522,48 @@ export default function OwnerClusterDetail() {
           </View>
           <Text className="text-gray-500 mt-1">Mã cụm sân: #{cluster.id}</Text>
           <View
-            className={`mt-3 self-start px-3 py-1 rounded-full border ${
-              cluster.is_accepted ? "bg-emerald-50 border-emerald-200" : "bg-amber-50 border-amber-200"
-            }`}
+            className={`mt-3 self-start px-3 py-1 rounded-full border ${approvalBadge.containerClass}`}
           >
-            <Text
-              className={`text-xs font-semibold ${
-                cluster.is_accepted ? "text-emerald-700" : "text-amber-700"
-              }`}
-            >
-              {cluster.is_accepted ? "Admin đã phê duyệt" : "Chờ admin phê duyệt"}
+            <Text className={`text-xs font-semibold ${approvalBadge.textClass}`}>
+              {approvalBadge.label}
             </Text>
           </View>
+
+          {isRejectedCluster ? (
+            <View className="mt-4 bg-red-50 border border-red-200 rounded-xl p-3">
+              <Text className="text-red-700 font-semibold">Cụm sân đã bị từ chối</Text>
+              <Text className="text-red-600 text-xs mt-1">
+                Bạn không thể cập nhật thông tin, tải ảnh hoặc quản lý sân con cho cụm sân này.
+              </Text>
+            </View>
+          ) : null}
+
           <TouchableOpacity
-            className="mt-4 bg-[#114F99] py-2 rounded-lg items-center"
+            className={`mt-4 py-2 rounded-lg items-center ${
+              isRejectedCluster ? "bg-gray-300" : "bg-[#114F99]"
+            }`}
             onPress={openEditModal}
+            disabled={isRejectedCluster}
           >
-            <Text className="text-white font-semibold">Cập nhật thông tin cụm sân</Text>
+            <Text className={`font-semibold ${isRejectedCluster ? "text-gray-600" : "text-white"}`}>
+              Cập nhật thông tin cụm sân
+            </Text>
           </TouchableOpacity>
           <TouchableOpacity
-            className="mt-3 bg-white border border-[#114F99] py-2 rounded-lg items-center"
+            className={`mt-3 bg-white border py-2 rounded-lg items-center ${
+              isRejectedCluster ? "border-gray-300" : "border-[#114F99]"
+            }`}
             onPress={() =>
               router.push({
                 pathname: "/(owners)/(stadium)/stadiumManagement",
                 params: { clusterId: String(cluster.id) },
               })
             }
+            disabled={isRejectedCluster}
           >
-            <Text className="text-[#114F99] font-semibold">Xem danh sách sân con</Text>
+            <Text className={`font-semibold ${isRejectedCluster ? "text-gray-500" : "text-[#114F99]"}`}>
+              Xem danh sách sân con
+            </Text>
           </TouchableOpacity>
         </View>
 
@@ -340,11 +571,13 @@ export default function OwnerClusterDetail() {
           <View className="flex-row items-center justify-between mb-3">
             <Text className="text-lg font-bold text-[#1E232C]">Ảnh cụm sân</Text>
             <TouchableOpacity
-              className={`px-3 py-2 rounded-lg ${uploadingImage ? "bg-gray-300" : "bg-[#114F99]"}`}
+              className={`px-3 py-2 rounded-lg ${
+                uploadingImage || isRejectedCluster ? "bg-gray-300" : "bg-[#114F99]"
+              }`}
               onPress={handleUploadClusterImage}
-              disabled={uploadingImage}
+              disabled={uploadingImage || isRejectedCluster}
             >
-              <Text className="text-white font-semibold">
+              <Text className={`font-semibold ${isRejectedCluster ? "text-gray-600" : "text-white"}`}>
                 {uploadingImage ? "Đang tải..." : "Tải lên/Cập nhật"}
               </Text>
             </TouchableOpacity>
@@ -359,9 +592,11 @@ export default function OwnerClusterDetail() {
                     resizeMode="cover"
                   />
                   <TouchableOpacity
-                    className={`absolute top-1 right-1 w-7 h-7 rounded-full items-center justify-center ${deletingImageId === image.id ? "bg-gray-400" : "bg-red-500"}`}
+                    className={`absolute top-1 right-1 w-7 h-7 rounded-full items-center justify-center ${
+                      deletingImageId === image.id || isRejectedCluster ? "bg-gray-400" : "bg-red-500"
+                    }`}
                     onPress={() => handleDeleteClusterImage(image)}
-                    disabled={deletingImageId === image.id || !image.id}
+                    disabled={deletingImageId === image.id || !image.id || isRejectedCluster}
                   >
                     {deletingImageId === image.id ? (
                       <ActivityIndicator size="small" color="#fff" />
@@ -462,21 +697,89 @@ export default function OwnerClusterDetail() {
                 editable={!savingUpdate}
               />
 
-              <Text className="text-black text-[15px] font-medium mb-2">Quận/Huyện</Text>
-              <TextInput
-                className="bg-gray-100 border border-gray-300 rounded-lg p-3 text-black text-[15px] mb-3"
-                value={editForm.district}
-                onChangeText={(value) => setEditForm((prev) => ({ ...prev, district: value }))}
-                editable={!savingUpdate}
-              />
-
               <Text className="text-black text-[15px] font-medium mb-2">Tỉnh/Thành phố</Text>
-              <TextInput
-                className="bg-gray-100 border border-gray-300 rounded-lg p-3 text-black text-[15px] mb-3"
-                value={editForm.city}
-                onChangeText={(value) => setEditForm((prev) => ({ ...prev, city: value }))}
-                editable={!savingUpdate}
-              />
+              <TouchableOpacity
+                className="bg-gray-100 border border-gray-300 rounded-lg p-3 mb-3 flex-row items-center justify-between"
+                onPress={() => setShowEditProvinceModal(true)}
+                disabled={savingUpdate}
+              >
+                <Text
+                  className={`text-[15px] ${
+                    editForm.city ? "text-black font-semibold" : "text-gray-400"
+                  }`}
+                >
+                  {editForm.city || "Chọn tỉnh/thành phố"}
+                </Text>
+                <Ionicons name="chevron-down" size={20} color="#667085" />
+              </TouchableOpacity>
+
+              <Text className="text-black text-[15px] font-medium mb-2">Quận/Huyện</Text>
+              <TouchableOpacity
+                className={`border rounded-lg p-3 mb-3 flex-row items-center justify-between ${
+                  editProvinceCode ? "bg-gray-100 border-gray-300" : "bg-gray-50 border-gray-200"
+                }`}
+                onPress={() => setShowEditDistrictModal(true)}
+                disabled={savingUpdate || !editProvinceCode || loadingEditDistricts}
+              >
+                <View className="flex-1 pr-3">
+                  <Text
+                    className={`text-[15px] ${
+                      editAreaDistrictName
+                        ? "text-black font-semibold"
+                        : editProvinceCode
+                          ? "text-gray-400"
+                          : "text-gray-400"
+                    }`}
+                  >
+                    {editAreaDistrictName ||
+                      (editProvinceCode
+                        ? "Chọn quận/huyện"
+                        : "Chọn tỉnh/thành phố trước")}
+                  </Text>
+                  {loadingEditDistricts ? (
+                    <Text className="text-xs text-gray-500 mt-1">Đang tải quận/huyện...</Text>
+                  ) : null}
+                </View>
+                {loadingEditDistricts ? (
+                  <ActivityIndicator size="small" color="#114F99" />
+                ) : (
+                  <Ionicons name="chevron-down" size={20} color="#667085" />
+                )}
+              </TouchableOpacity>
+
+              <Text className="text-black text-[15px] font-medium mb-2">Phường/Xã</Text>
+              <TouchableOpacity
+                className={`border rounded-lg p-3 mb-3 flex-row items-center justify-between ${
+                  editAreaDistrictCode ? "bg-gray-100 border-gray-300" : "bg-gray-50 border-gray-200"
+                }`}
+                onPress={() => setShowEditWardModal(true)}
+                disabled={savingUpdate || !editAreaDistrictCode || loadingEditWards}
+              >
+                <View className="flex-1 pr-3">
+                  <Text
+                    className={`text-[15px] ${
+                      editForm.district
+                        ? "text-black font-semibold"
+                        : editAreaDistrictCode
+                          ? "text-gray-400"
+                          : "text-gray-400"
+                    }`}
+                  >
+                    {editForm.district ||
+                      (editAreaDistrictCode
+                        ? "Chọn phường/xã"
+                        : "Chọn quận/huyện trước")}
+                  </Text>
+                  {loadingEditWards ? (
+                    <Text className="text-xs text-gray-500 mt-1">Đang tải phường/xã...</Text>
+                  ) : null}
+                </View>
+                {loadingEditWards ? (
+                  <ActivityIndicator size="small" color="#114F99" />
+                ) : (
+                  <Ionicons name="chevron-down" size={20} color="#667085" />
+                )}
+              </TouchableOpacity>
 
               <Text className="text-black text-[15px] font-medium mb-2">Trạng thái</Text>
               <View className="flex-row mb-3">
@@ -555,6 +858,234 @@ export default function OwnerClusterDetail() {
                 )}
               </TouchableOpacity>
             </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={showEditProvinceModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowEditProvinceModal(false)}
+      >
+        <View className="flex-1 bg-black/40 justify-end">
+          <View className="bg-white rounded-t-3xl max-h-[70%]">
+            <View className="flex-row items-center justify-between p-4 border-b border-gray-200">
+              <Text className="text-base font-semibold text-black">Chọn Tỉnh/Thành phố</Text>
+              <TouchableOpacity onPress={() => setShowEditProvinceModal(false)}>
+                <Ionicons name="close" size={22} color="#667085" />
+              </TouchableOpacity>
+            </View>
+
+            <View className="px-4 py-3">
+              <View className="h-11 flex-row items-center bg-gray-100 rounded-lg px-3">
+                <Ionicons name="search" size={18} color="#667085" />
+                <TextInput
+                  className="flex-1 ml-2 text-[15px] text-black"
+                  placeholder="Tìm tỉnh/thành phố..."
+                  placeholderTextColor="#8391A1"
+                  value={editProvinceSearch}
+                  onChangeText={setEditProvinceSearch}
+                  autoFocus
+                />
+                {editProvinceSearch ? (
+                  <TouchableOpacity onPress={() => setEditProvinceSearch("")}>
+                    <Ionicons name="close-circle" size={18} color="#98A2B3" />
+                  </TouchableOpacity>
+                ) : null}
+              </View>
+            </View>
+
+            <FlatList
+              data={filteredEditProvinces}
+              keyExtractor={(item) => item.code.toString()}
+              keyboardShouldPersistTaps="handled"
+              renderItem={({ item }) => {
+                const active = item.name === editForm.city;
+                return (
+                  <TouchableOpacity
+                    className="px-4 py-4 border-b border-gray-100 flex-row items-center justify-between"
+                    onPress={() => handleSelectEditProvince(item)}
+                  >
+                    <Text
+                      className={`text-[15px] ${
+                        active ? "text-[#114F99] font-semibold" : "text-gray-800"
+                      }`}
+                    >
+                      {item.name}
+                    </Text>
+                    {active ? (
+                      <Ionicons name="checkmark-circle" size={20} color="#114F99" />
+                    ) : null}
+                  </TouchableOpacity>
+                );
+              }}
+              ListEmptyComponent={
+                <Text className="text-center text-gray-500 py-6">
+                  Không tìm thấy tỉnh/thành phố phù hợp.
+                </Text>
+              }
+            />
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={showEditDistrictModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowEditDistrictModal(false)}
+      >
+        <View className="flex-1 bg-black/40 justify-end">
+          <View className="bg-white rounded-t-3xl max-h-[70%]">
+            <View className="flex-row items-center justify-between p-4 border-b border-gray-200">
+              <View className="flex-1 pr-3">
+                <Text className="text-base font-semibold text-black">Chọn Quận/Huyện</Text>
+                <Text className="text-xs text-gray-500 mt-1">
+                  {editForm.city || "Chưa chọn tỉnh/thành phố"}
+                </Text>
+              </View>
+              <TouchableOpacity onPress={() => setShowEditDistrictModal(false)}>
+                <Ionicons name="close" size={22} color="#667085" />
+              </TouchableOpacity>
+            </View>
+
+            <View className="px-4 py-3">
+              <View className="h-11 flex-row items-center bg-gray-100 rounded-lg px-3">
+                <Ionicons name="search" size={18} color="#667085" />
+                <TextInput
+                  className="flex-1 ml-2 text-[15px] text-black"
+                  placeholder="Tìm quận/huyện..."
+                  placeholderTextColor="#8391A1"
+                  value={editDistrictSearch}
+                  onChangeText={setEditDistrictSearch}
+                  autoFocus
+                />
+                {editDistrictSearch ? (
+                  <TouchableOpacity onPress={() => setEditDistrictSearch("")}>
+                    <Ionicons name="close-circle" size={18} color="#98A2B3" />
+                  </TouchableOpacity>
+                ) : null}
+              </View>
+            </View>
+
+            {loadingEditDistricts ? (
+              <View className="items-center py-8">
+                <ActivityIndicator size="large" color="#114F99" />
+                <Text className="text-gray-600 mt-3">Đang tải quận/huyện...</Text>
+              </View>
+            ) : (
+              <FlatList
+                data={filteredEditDistricts}
+                keyExtractor={(item) => item.code.toString()}
+                keyboardShouldPersistTaps="handled"
+                renderItem={({ item }) => {
+                  const active = item.name === editAreaDistrictName;
+                  return (
+                    <TouchableOpacity
+                      className="px-4 py-4 border-b border-gray-100 flex-row items-center justify-between"
+                      onPress={() => handleSelectEditDistrict(item)}
+                    >
+                      <Text
+                        className={`text-[15px] ${
+                          active ? "text-[#114F99] font-semibold" : "text-gray-800"
+                        }`}
+                      >
+                        {item.name}
+                      </Text>
+                      {active ? (
+                        <Ionicons name="checkmark-circle" size={20} color="#114F99" />
+                      ) : null}
+                    </TouchableOpacity>
+                  );
+                }}
+                ListEmptyComponent={
+                  <Text className="text-center text-gray-500 py-6">
+                    Không tìm thấy quận/huyện phù hợp.
+                  </Text>
+                }
+              />
+            )}
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={showEditWardModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowEditWardModal(false)}
+      >
+        <View className="flex-1 bg-black/40 justify-end">
+          <View className="bg-white rounded-t-3xl max-h-[70%]">
+            <View className="flex-row items-center justify-between p-4 border-b border-gray-200">
+              <View className="flex-1 pr-3">
+                <Text className="text-base font-semibold text-black">Chọn Phường/Xã</Text>
+                <Text className="text-xs text-gray-500 mt-1">
+                  {editAreaDistrictName || "Chưa chọn quận/huyện"}
+                </Text>
+              </View>
+              <TouchableOpacity onPress={() => setShowEditWardModal(false)}>
+                <Ionicons name="close" size={22} color="#667085" />
+              </TouchableOpacity>
+            </View>
+
+            <View className="px-4 py-3">
+              <View className="h-11 flex-row items-center bg-gray-100 rounded-lg px-3">
+                <Ionicons name="search" size={18} color="#667085" />
+                <TextInput
+                  className="flex-1 ml-2 text-[15px] text-black"
+                  placeholder="Tìm phường/xã..."
+                  placeholderTextColor="#8391A1"
+                  value={editWardSearch}
+                  onChangeText={setEditWardSearch}
+                  autoFocus
+                />
+                {editWardSearch ? (
+                  <TouchableOpacity onPress={() => setEditWardSearch("")}>
+                    <Ionicons name="close-circle" size={18} color="#98A2B3" />
+                  </TouchableOpacity>
+                ) : null}
+              </View>
+            </View>
+
+            {loadingEditWards ? (
+              <View className="items-center py-8">
+                <ActivityIndicator size="large" color="#114F99" />
+                <Text className="text-gray-600 mt-3">Đang tải phường/xã...</Text>
+              </View>
+            ) : (
+              <FlatList
+                data={filteredEditWards}
+                keyExtractor={(item) => item.code.toString()}
+                keyboardShouldPersistTaps="handled"
+                renderItem={({ item }) => {
+                  const active = item.name === editForm.district;
+                  return (
+                    <TouchableOpacity
+                      className="px-4 py-4 border-b border-gray-100 flex-row items-center justify-between"
+                      onPress={() => handleSelectEditWard(item)}
+                    >
+                      <Text
+                        className={`text-[15px] ${
+                          active ? "text-[#114F99] font-semibold" : "text-gray-800"
+                        }`}
+                      >
+                        {item.name}
+                      </Text>
+                      {active ? (
+                        <Ionicons name="checkmark-circle" size={20} color="#114F99" />
+                      ) : null}
+                    </TouchableOpacity>
+                  );
+                }}
+                ListEmptyComponent={
+                  <Text className="text-center text-gray-500 py-6">
+                    Không tìm thấy phường/xã phù hợp.
+                  </Text>
+                }
+              />
+            )}
           </View>
         </View>
       </Modal>

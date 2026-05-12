@@ -2,7 +2,6 @@ import React, { useState } from "react";
 import { View, Text, TextInput, TouchableOpacity, Alert } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
-import HeaderOne from "@/component/HeaderOne";
 import authService from "@/src/services/auth.service";
 import { Ionicons } from "@expo/vector-icons";
 
@@ -13,6 +12,10 @@ const ChangePassword = () => {
   const [showOldPassword, setShowOldPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+  const handleBackToAccount = () => {
+    router.replace("/(owners)/(account)/account");
+  };
 
   const handleChange = async () => {
     // Kiểm tra mật khẩu mới và xác nhận mật khẩu có khớp không
@@ -36,8 +39,9 @@ const ChangePassword = () => {
 
       const message = await authService.changePassword(requestBody);
 
-      Alert.alert("Thành công", message);
-      router.back();
+      Alert.alert("Thành công", message, [
+        { text: "OK", onPress: handleBackToAccount },
+      ]);
     } catch (error: unknown) {
       console.error("Lỗi khi đổi mật khẩu:", error);
       const errorMsg = error instanceof Error ? error.message : String(error);
@@ -49,7 +53,20 @@ const ChangePassword = () => {
     <SafeAreaView className="flex-1 bg-white">
       {/* Nội dung chính chiếm không gian còn lại */}
       <View className="flex-1">
-        <HeaderOne title="Đổi mật khẩu" />
+        <View className="flex-row items-center px-4 pt-4 pb-2 bg-white">
+          <TouchableOpacity
+            className="w-10 h-10 bg-white border border-gray-200 rounded-xl items-center justify-center"
+            onPress={handleBackToAccount}
+            activeOpacity={0.9}
+          >
+            <Ionicons name="arrow-back" size={20} color="#1E232C" />
+          </TouchableOpacity>
+
+          <Text className="flex-1 text-center text-[24px] font-bold text-[#1E232C] mr-10">
+            Đổi mật khẩu
+          </Text>
+        </View>
+
         <View className="px-6 mt-6 space-y-6">
           <View>
             <Text className="mb-2 text-gray-600">Mật khẩu cũ</Text>

@@ -330,9 +330,11 @@ class TournamentService {
     offset?: number;
     limit?: number;
   }): Promise<OwnerTournamentListData> {
-    const bookingStatus = params?.bookingStatus || "confirmed";
+    const bookingStatus = params?.bookingStatus;
     const offset = params?.offset ?? 0;
     const limit = params?.limit ?? 20;
+    const bookingStatusParam =
+      bookingStatus && bookingStatus !== "all" ? bookingStatus : undefined;
 
     const localUrl =
       process.env.EXPO_PUBLIC_OWNER_TOURNAMENT_LIST_URL?.trim() ||
@@ -342,12 +344,14 @@ class TournamentService {
       try {
         const token = await AsyncStorage.getItem("authToken");
         const query = new URLSearchParams({
-          booking_status: bookingStatus,
           offset: String(offset),
           limit: String(limit),
-        }).toString();
+        });
+        if (bookingStatusParam) {
+          query.set("booking_status", bookingStatusParam);
+        }
 
-        const response = await fetch(`${localUrl}?${query}`, {
+        const response = await fetch(`${localUrl}?${query.toString()}`, {
           method: "GET",
           headers: {
             accept: "application/json",
@@ -371,7 +375,7 @@ class TournamentService {
       OwnerTournamentListData | ApiEnvelope<OwnerTournamentListData>
     >(API_CONFIG.TOURNAMENT_ENDPOINTS.OWNER_LIST, {
       params: {
-        booking_status: bookingStatus,
+        ...(bookingStatusParam ? { booking_status: bookingStatusParam } : {}),
         offset,
         limit,
       },

@@ -284,7 +284,7 @@ const Owner = () => {
               <Text className="text-2xl font-bold text-gray-800">********</Text>
             </View>
             <TouchableOpacity
-              onPress={() => router.push("/changePassword")}
+              onPress={() => router.push("/(owners)/(account)/changePassword")}
               className="bg-blue-500 px-3 py-1 rounded"
             >
               <Text className="text-white font-semibold text-xl">Đổi</Text>

@@ -3,8 +3,6 @@ import {
   Text,
   TouchableOpacity,
   TextInput,
-  Modal,
-  StyleSheet,
   Alert,
   ActivityIndicator,
 } from "react-native";
@@ -15,6 +13,7 @@ import { useEffect, useState } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { fieldService } from "@/src/services/field.service";
 import { SPORT_TYPE_PICKER_OPTIONS } from "@/src/utils/sport-type.util";
+import AppPopup from "@/component/AppPopup";
 
 const SPORT_TYPE_OPTIONS = SPORT_TYPE_PICKER_OPTIONS;
 
@@ -232,82 +231,20 @@ export default function AddField() {
         </TouchableOpacity>
       </View>
 
-      <Modal
-        animationType="fade"
-        transparent={true}
+      <AppPopup
         visible={successModalVisible}
-        onRequestClose={closeSuccessModal}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContainer}>
-            <TouchableOpacity
-              style={styles.closeButton}
-              onPress={closeSuccessModal}
-            >
-              <Ionicons name="close" size={18} color="#FFFFFF" />
-            </TouchableOpacity>
-            <View style={styles.checkmarkContainer}>
-              <Ionicons
-                name="checkmark-circle-outline"
-                size={60}
-                color="#119916"
-              />
-            </View>
-            <Text style={styles.successText}>Thêm sân thành công</Text>
-          </View>
-        </View>
-      </Modal>
+        title="Thêm sân thành công"
+        message="Sân mới đã được thêm vào cụm sân hiện tại."
+        tone="success"
+        onClose={closeSuccessModal}
+        actions={[
+          {
+            label: "Quay về danh sách sân",
+            variant: "primary",
+            onPress: closeSuccessModal,
+          },
+        ]}
+      />
     </SafeAreaView>
   );
 }
-const styles = StyleSheet.create({
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  modalContainer: {
-    width: 384,
-    height: 252,
-    backgroundColor: "#E3FFE2",
-    borderRadius: 20,
-    shadowColor: "#000",
-    shadowOffset: { width: 5, height: 5 },
-    shadowOpacity: 0.25,
-    shadowRadius: 10,
-    elevation: 5,
-  },
-  closeButton: {
-    position: "absolute",
-    top: 18,
-    left: 332,
-    width: 38,
-    height: 38,
-    backgroundColor: "#808080",
-    borderRadius: 30,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  checkmarkContainer: {
-    position: "absolute",
-    top: 66,
-    left: 162,
-    width: 60,
-    height: 60,
-  },
-  successText: {
-    position: "absolute",
-    top: 153,
-    left: 80,
-    width: 225,
-    height: 28,
-    fontFamily: "Exo",
-    fontWeight: "700",
-    fontSize: 24,
-    lineHeight: 28,
-    textAlign: "center",
-    letterSpacing: -1,
-    color: "#119916",
-  },
-});

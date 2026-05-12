@@ -95,7 +95,7 @@ const BookingDetail = () => {
 
       const bookingIdNumber = Number(bookingId);
       if (!Number.isFinite(bookingIdNumber)) {
-        throw new Error("Booking ID không hợp lệ");
+        throw new Error("Mã đặt sân không hợp lệ");
       }
 
       console.log("[USER BOOKING DETAIL] Calling bookingService.getBookingById", {
@@ -122,7 +122,7 @@ const BookingDetail = () => {
 
       setBooking({
         id: String(data.id),
-        clusterName: data.field?.cluster?.name || "N/A",
+        clusterName: data.field?.cluster?.name || "Không rõ cụm sân",
         fieldName: data.field?.size ? `Sân ${data.field.size}` : "Sân",
         date: formatBookingDate(data.booking_date),
         time: `${formatBookingTime(data.start_time)} - ${formatBookingTime(data.end_time)}`,
@@ -225,21 +225,6 @@ const BookingDetail = () => {
 
   const handleGoHome = () => {
     router.push("/(tabs)/home");
-  };
-
-  const handleOpenChat = () => {
-    if (!ownerChatId) {
-      Alert.alert("Thông báo", "Không tìm thấy chủ sân để liên hệ");
-      return;
-    }
-
-    router.push({
-      pathname: "/chat",
-      params: {
-        receiverId: String(ownerChatId),
-        name: booking?.clusterName || "Chủ sân",
-      },
-    } as any);
   };
 
   if (loading) {
@@ -502,12 +487,6 @@ const BookingDetail = () => {
         </View>
       </ScrollView>
 
-      <TouchableOpacity
-        className="absolute right-5 bottom-6 w-14 h-14 rounded-full bg-blue-600 items-center justify-center shadow"
-        onPress={handleOpenChat}
-      >
-        <Ionicons name="chatbubble-ellipses" size={24} color="#fff" />
-      </TouchableOpacity>
     </SafeAreaView>
   );
 };

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   RefreshControl,
@@ -9,6 +9,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
+import { useFocusEffect } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { clusterService } from "@/src/services/cluster.service";
@@ -17,6 +18,30 @@ import type { Cluster } from "@/src/types/cluster.types";
 const formatTime = (value?: string) => {
   if (!value) return "--:--";
   return value.slice(0, 5);
+};
+
+const getApprovalBadge = (isAccepted: boolean | null) => {
+  if (isAccepted === true) {
+    return {
+      label: "Admin đã phê duyệt",
+      containerClass: "bg-emerald-50 border-emerald-200",
+      textClass: "text-emerald-700",
+    };
+  }
+
+  if (isAccepted === false) {
+    return {
+      label: "Admin đã từ chối",
+      containerClass: "bg-red-50 border-red-200",
+      textClass: "text-red-700",
+    };
+  }
+
+  return {
+    label: "Chưa được duyệt",
+    containerClass: "bg-amber-50 border-amber-200",
+    textClass: "text-amber-700",
+  };
 };
 
 const resolveUserId = (rawData: string | null, rawProfile: string | null) => {
@@ -75,9 +100,11 @@ export default function OwnerClusterListScreen() {
     }
   }, []);
 
-  useEffect(() => {
-    loadClusters();
-  }, [loadClusters]);
+  useFocusEffect(
+    useCallback(() => {
+      loadClusters(true);
+    }, [loadClusters])
+  );
 
   const subtitle = useMemo(() => {
     if (!ownerId) return "Không tìm thấy mã chủ sân";
@@ -119,6 +146,7 @@ export default function OwnerClusterListScreen() {
 
       <ScrollView
         className="flex-1 px-4 pt-4"
+        contentContainerStyle={{ paddingBottom: 24 }}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -137,18 +165,21 @@ export default function OwnerClusterListScreen() {
             </Text>
           </View>
         ) : (
-          clusters.map((cluster) => (
-            <TouchableOpacity
-              key={cluster.id}
-              className="bg-white rounded-2xl p-4 border border-gray-100 mb-3"
-              activeOpacity={0.9}
-              onPress={() =>
-                router.push({
-                  pathname: "/(owners)/(stadium)/clusterDetail",
-                  params: { id: String(cluster.id) },
-                })
-              }
-            >
+          clusters.map((cluster) => {
+            const approvalBadge = getApprovalBadge(cluster.is_accepted);
+
+            return (
+              <TouchableOpacity
+                key={cluster.id}
+                className="bg-white rounded-2xl p-4 border border-gray-100 mb-3"
+                activeOpacity={0.9}
+                onPress={() =>
+                  router.push({
+                    pathname: "/(owners)/(stadium)/clusterDetail",
+                    params: { id: String(cluster.id) },
+                  })
+                }
+              >
               <View className="flex-row items-start justify-between">
                 <View className="flex-1 pr-3">
                   <Text className="text-[#1E232C] font-bold text-base">{cluster.name}</Text>
@@ -170,16 +201,10 @@ export default function OwnerClusterListScreen() {
               </View>
 
               <View
-                className={`mt-3 self-start px-3 py-1 rounded-full border ${
-                  cluster.is_accepted ? "bg-emerald-50 border-emerald-200" : "bg-amber-50 border-amber-200"
-                }`}
+                className={`mt-3 self-start px-3 py-1 rounded-full border ${approvalBadge.containerClass}`}
               >
-                <Text
-                  className={`text-xs font-semibold ${
-                    cluster.is_accepted ? "text-emerald-700" : "text-amber-700"
-                  }`}
-                >
-                  {cluster.is_accepted ? "Admin đã phê duyệt" : "Chờ admin phê duyệt"}
+                <Text className={`text-xs font-semibold ${approvalBadge.textClass}`}>
+                  {approvalBadge.label}
                 </Text>
               </View>
 
@@ -190,8 +215,9 @@ export default function OwnerClusterListScreen() {
               <Text className="text-gray-600 text-xs mt-2">
                 Giờ hoạt động: {formatTime(cluster.open_time)} - {formatTime(cluster.close_time)}
               </Text>
-            </TouchableOpacity>
-          ))
+              </TouchableOpacity>
+            );
+          })
         )}
       </ScrollView>
     </SafeAreaView>

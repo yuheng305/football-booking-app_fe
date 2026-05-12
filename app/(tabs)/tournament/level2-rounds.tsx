@@ -195,7 +195,7 @@ export default function TournamentLevel2RoundsScreen() {
             {!draft.owner_confirmed ? (
               <Text className="text-xs text-indigo-700 mt-2">Chủ sân chưa xác nhận lịch. Vui lòng đợi chủ sân xác nhận trước khi thanh toán.</Text>
             ) : (
-              <Text className="text-xs text-indigo-700 mt-2">Nếu chủ sân đã xác nhận nhưng thanh toán lỗi, backend sẽ trả lỗi — thử lại sau.</Text>
+              <Text className="text-xs text-indigo-700 mt-2">Nếu chủ sân đã xác nhận nhưng thanh toán lỗi, hệ thống sẽ báo chi tiết. Vui lòng thử lại sau.</Text>
             )}
           </View>
         )}

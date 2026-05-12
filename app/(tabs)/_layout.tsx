@@ -1,8 +1,9 @@
-import { Tabs } from "expo-router";
+import { Tabs, usePathname, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { Text } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useEffect, useMemo, useState } from "react";
+import { resolveTabPressResetHref } from "@/src/utils/tab-navigation.util";
 
 const resolveUserRole = async (): Promise<string | null> => {
   try {
@@ -40,6 +41,8 @@ const resolveUserRole = async (): Promise<string | null> => {
 
 export default function TabLayout() {
   const [userRole, setUserRole] = useState<string | null>(null);
+  const pathname = usePathname();
+  const router = useRouter();
 
   useEffect(() => {
     let mounted = true;
@@ -60,6 +63,21 @@ export default function TabLayout() {
 
   const isPlayer = useMemo(() => userRole === "player", [userRole]);
   const isOrganizer = useMemo(() => userRole === "owner", [userRole]);
+
+  const buildTabResetListeners = (routeName: string) => ({
+    tabPress: (event: { preventDefault: () => void }) => {
+      const href = resolveTabPressResetHref({
+        layout: "player",
+        routeName,
+        pathname,
+      });
+
+      if (!href) return;
+
+      event.preventDefault();
+      router.replace(href as never);
+    },
+  });
 
   const hiddenScreens = [
     "tournament/create",
@@ -118,6 +136,7 @@ export default function TabLayout() {
     >
       <Tabs.Screen
         name="home"
+        listeners={buildTabResetListeners("home")}
         options={{
           title: "Trang chủ",
           tabBarLabel: ({ focused, color }) => (
@@ -129,6 +148,7 @@ export default function TabLayout() {
       />
       <Tabs.Screen
         name="stadium"
+        listeners={buildTabResetListeners("stadium")}
         options={{
           href: isPlayer ? undefined : null,
           title: "Đặt sân",
@@ -141,6 +161,7 @@ export default function TabLayout() {
       />
       <Tabs.Screen
         name="tournament"
+        listeners={buildTabResetListeners("tournament")}
         options={{
           href: isOrganizer ? undefined : null,
           title: "Giải đấu",
@@ -153,6 +174,7 @@ export default function TabLayout() {
       />
       <Tabs.Screen
         name="account"
+        listeners={buildTabResetListeners("account")}
         options={{
           title: "Tài khoản",
           tabBarLabel: ({ focused, color }) => (
@@ -164,6 +186,7 @@ export default function TabLayout() {
       />
       <Tabs.Screen
         name="payment"
+        listeners={buildTabResetListeners("payment")}
         options={{
           title: "Thanh toán",
           tabBarLabel: ({ focused, color }) => (

@@ -46,6 +46,9 @@ export const getBookingStatusMeta = (status?: string | null): BookingStatusMeta 
         badgeClass: "bg-green-100 text-green-700",
       };
     case "canceled":
+    case "cancelled":
+    case "expired":
+    case "failed":
     case "rejected":
       return {
         normalized,

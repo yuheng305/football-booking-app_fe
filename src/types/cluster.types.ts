@@ -11,13 +11,13 @@ export interface Cluster {
     created_at?: string;
   }[];
   street: string;
-  district: string;
+  district: string; // BE field name; app stores ward/commune name here.
   city: string;
   status: "active" | "inactive";
   open_time: string; // HH:MM:SS
   close_time: string; // HH:MM:SS
   owner_id: number;
-  is_accepted: boolean;
+  is_accepted: boolean | null;
   accepted_by: number | null;
   approval_token?: string;
   created_at: string;
@@ -28,7 +28,7 @@ export interface CreateClusterRequest {
   name: string;
   sport_type_ids: number[];
   street: string;
-  district: string;
+  district: string; // ward/commune name, kept as "district" for BE compatibility.
   city: string;
   open_time: string;
   close_time: string;
@@ -38,7 +38,7 @@ export interface UpdateClusterRequest {
   name?: string;
   sport_type_ids?: number[];
   street?: string;
-  district?: string;
+  district?: string; // ward/commune name, kept as "district" for BE compatibility.
   city?: string;
   open_time?: string;
   close_time?: string;
@@ -84,6 +84,10 @@ export interface GetClustersQuery {
 export interface SearchClustersQuery {
   search?: string;
   sport_type_id?: number;
+  min_price?: number;
+  max_price?: number;
+  from_time?: string;
+  to_time?: string;
   offset?: number;
   limit?: number;
 }

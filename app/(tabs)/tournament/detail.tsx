@@ -302,7 +302,7 @@ export default function TournamentDetailScreen() {
     if (status === "paid") return "Đã thanh toán";
     if (status === "pending") return "Chờ chủ sân duyệt";
     if (status === "confirmed") return "Chờ thanh toán";
-    if (status === "no_bookings") return "Chưa có booking";
+    if (status === "no_bookings") return "Chưa có lượt đặt sân";
     return status || "Không rõ";
   };
 
@@ -1412,7 +1412,7 @@ export default function TournamentDetailScreen() {
                   </Text>
                 ) : paymentStatus === "no_bookings" ? (
                   <Text className="text-gray-600 text-sm">
-                    Chưa có booking được xác nhận nên chưa thể tạo thanh toán.
+                    Chưa có lượt đặt sân được xác nhận nên chưa thể tạo thanh toán.
                   </Text>
                 ) : null}
               </View>
@@ -1444,7 +1444,7 @@ export default function TournamentDetailScreen() {
                       })
                     }
                   >
-                    <Text className="text-white font-semibold">Preview sơ đồ nhánh đấu</Text>
+                    <Text className="text-white font-semibold">Xem trước sơ đồ nhánh đấu</Text>
                   </TouchableOpacity>
                 ) : null}
 

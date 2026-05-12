@@ -67,7 +67,7 @@ export default function Tournament() {
     if (status === "paid") return "Đã thanh toán";
     if (status === "pending") return "Chờ chủ sân duyệt";
     if (status === "confirmed") return "Chờ thanh toán";
-    if (status === "no_bookings") return "Chưa có booking";
+    if (status === "no_bookings") return "Chưa có lượt đặt sân";
     return status || "Không rõ";
   };
 
@@ -148,7 +148,7 @@ export default function Tournament() {
             <ActivityIndicator size="large" color="#3b82f6" />
           </View>
         ) : (
-          <ScrollView className="flex-1 px-4 pt-4">
+          <ScrollView className="flex-1 px-4 pt-4" contentContainerStyle={{ paddingBottom: 120 }}>
             <View className="mb-4">
               <Text className="text-base font-semibold text-gray-800 mb-2">Tạo giải đấu mới</Text>
 

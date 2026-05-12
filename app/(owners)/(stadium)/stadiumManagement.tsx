@@ -335,7 +335,7 @@ export default function StadiumManagement() {
         </View>
       </View>
 
-      <ScrollView className="flex-1 px-4 mt-4">
+      <ScrollView className="flex-1 px-4 mt-4" contentContainerStyle={{ paddingBottom: 24 }}>
         {availableSportTypes.length > 0 && (
           <View className="mb-4">
             <Text className="text-[#1E232C] font-semibold mb-2">Loại sân</Text>

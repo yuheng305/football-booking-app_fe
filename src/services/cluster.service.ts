@@ -50,6 +50,22 @@ class ClusterService {
         params.sport_type_id = query.sport_type_id;
       }
 
+      if (query.min_price !== undefined || query.max_price !== undefined) {
+        params.min_price = query.min_price ?? 0;
+      }
+
+      if (query.max_price !== undefined) {
+        params.max_price = query.max_price;
+      }
+
+      if (query.from_time) {
+        params.from_time = query.from_time;
+      }
+
+      if (query.to_time) {
+        params.to_time = query.to_time;
+      }
+
       const response = await apiClient.get<GetClustersResponse>(
         API_CONFIG.CLUSTER_ENDPOINTS.SEARCH,
         { params }

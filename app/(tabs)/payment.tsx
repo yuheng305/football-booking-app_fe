@@ -58,6 +58,11 @@ const isPaidStatus = (status: string) => {
 
 const isExpiredStatus = (status: string) => normalizeStatus(status) === "expired";
 
+const shouldShowPaymentType = (paymentType?: string | null) => {
+  const normalized = String(paymentType || "").trim().toLowerCase();
+  return normalized !== "" && normalized !== "deposit";
+};
+
 const getGroupedTournamentStatus = (items: PaymentItem[]): string => {
   if (items.length === 0) return "pending";
 
@@ -92,7 +97,7 @@ const getTournamentStatusText = (status: string) => {
     case "paid":
       return "Đã thanh toán";
     case "no_bookings":
-      return "Chưa có booking";
+      return "Chưa có lượt đặt sân";
     default:
       return status;
   }
@@ -142,7 +147,7 @@ const Payment = () => {
       }
     }
 
-    throw new Error("Không tìm thấy playerId. Vui lòng đăng nhập lại.");
+    throw new Error("Không tìm thấy thông tin người chơi. Vui lòng đăng nhập lại.");
   };
 
   const fetchPlayerPayments = useCallback(async () => {
@@ -168,7 +173,7 @@ const Payment = () => {
     );
 
     if (!Number.isFinite(organizerId) || organizerId <= 0) {
-      throw new Error("Không tìm thấy organizerId. Vui lòng đăng nhập lại.");
+      throw new Error("Không tìm thấy thông tin người tổ chức. Vui lòng đăng nhập lại.");
     }
 
     return organizerId;
@@ -456,8 +461,8 @@ const Payment = () => {
                     <View className="flex-row justify-between items-start mb-2">
                       <Text className="text-base font-bold text-[#1E232C] flex-1 pr-3">
                         {groupedPayment.isTemporaryGroup
-                          ? "Cụm thanh toán tạm"
-                          : `Giải đấu #${groupedPayment.tournamentId}${groupedPayment.tournamentName ? ` - ${groupedPayment.tournamentName}` : ""}`}
+                          ? "Thanh toán chưa liên kết giải"
+                          : `Mã giải #${groupedPayment.tournamentId}${groupedPayment.tournamentName ? ` - ${groupedPayment.tournamentName}` : ""}`}
                       </Text>
                       <View className={`px-3 py-1 rounded-full ${getTournamentStatusStyle(groupedPayment.status).split(" ")[0]}`}>
                         <Text className={`font-semibold ${getTournamentStatusStyle(groupedPayment.status).split(" ")[1]}`}>
@@ -473,7 +478,7 @@ const Payment = () => {
                       </Text>
                     </View>
                     <View className="flex-row justify-between mb-1">
-                      <Text className="text-gray-500">Số dòng cần thanh toán</Text>
+                      <Text className="text-gray-500">Số khoản cần thanh toán</Text>
                       <Text className="text-gray-800 font-semibold">{groupedPayment.itemCount}</Text>
                     </View>
                     <View className="flex-row justify-between mb-1">
@@ -500,7 +505,7 @@ const Payment = () => {
                     ) : groupedPayment.isTemporaryGroup ? (
                       <View className="bg-amber-50 mt-3 py-3 rounded-lg border border-amber-200">
                         <Text className="text-amber-700 text-center font-semibold">
-                          Chờ backend trả tournament_id để thanh toán giải
+                          Chờ hệ thống liên kết đơn với giải đấu để thanh toán
                         </Text>
                       </View>
                     ) : normalizeStatus(groupedPayment.status) === "pending" ? (
@@ -569,7 +574,7 @@ const Payment = () => {
               filteredPayments.map((payment) => (
                 <View key={payment.id} className="bg-white rounded-xl p-4 mb-3 border border-gray-100">
                   <View className="flex-row justify-between items-center mb-3">
-                    <Text className="text-base font-bold text-[#1E232C]">Đơn #{payment.id}</Text>
+                    <Text className="text-base font-bold text-[#1E232C]">Đơn thanh toán #{payment.id}</Text>
                     <View
                       className={`px-3 py-1 rounded-full ${getStatusStyle(payment.status).split(" ")[0]}`}
                     >
@@ -580,15 +585,17 @@ const Payment = () => {
                   </View>
 
                   <View className="flex-row justify-between mb-1">
-                    <Text className="text-gray-500">Booking ID</Text>
+                    <Text className="text-gray-500">Mã đặt sân</Text>
                     <Text className="text-gray-800 font-semibold">#{payment.booking_id}</Text>
                   </View>
-                  <View className="flex-row justify-between mb-1">
-                    <Text className="text-gray-500">Loại thanh toán</Text>
-                    <Text className="text-gray-800 font-semibold">
-                      {getPaymentTypeText(payment.payment_type)}
-                    </Text>
-                  </View>
+                  {shouldShowPaymentType(payment.payment_type) && (
+                    <View className="flex-row justify-between mb-1">
+                      <Text className="text-gray-500">Loại thanh toán</Text>
+                      <Text className="text-gray-800 font-semibold">
+                        {getPaymentTypeText(payment.payment_type)}
+                      </Text>
+                    </View>
+                  )}
                   <View className="flex-row justify-between mb-1">
                     <Text className="text-gray-500">Số tiền</Text>
                     <Text className="text-[#114F99] font-bold">

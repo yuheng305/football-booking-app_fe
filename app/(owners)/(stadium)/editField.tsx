@@ -5,12 +5,12 @@ import {
   TextInput,
   ScrollView,
   Modal,
-  StyleSheet,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useState } from "react";
+import AppPopup from "@/component/AppPopup";
 
 export default function EditField() {
   const router = useRouter();
@@ -594,83 +594,20 @@ export default function EditField() {
         </View>
       </Modal>
 
-      <Modal
-        animationType="fade"
-        transparent={true}
+      <AppPopup
         visible={successModalVisible}
-        onRequestClose={closeSuccessModal}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContainer}>
-            <TouchableOpacity
-              style={styles.closeButton}
-              onPress={closeSuccessModal}
-            >
-              <Ionicons name="close" size={18} color="#FFFFFF" />
-            </TouchableOpacity>
-            <View style={styles.checkmarkContainer}>
-              <Ionicons
-                name="checkmark-circle-outline"
-                size={60}
-                color="#119916"
-              />
-            </View>
-            <Text style={styles.successText}>Điều chỉnh thành công</Text>
-          </View>
-        </View>
-      </Modal>
+        title="Cập nhật thành công"
+        message="Thông tin thời gian sân đã được cập nhật."
+        tone="success"
+        onClose={closeSuccessModal}
+        actions={[
+          {
+            label: "Quay về danh sách sân",
+            variant: "primary",
+            onPress: closeSuccessModal,
+          },
+        ]}
+      />
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  modalContainer: {
-    width: 384,
-    height: 252,
-    backgroundColor: "#E3FFE2",
-    borderRadius: 20,
-    shadowColor: "#000",
-    shadowOffset: { width: 5, height: 5 },
-    shadowOpacity: 0.25,
-    shadowRadius: 10,
-    elevation: 5,
-  },
-  closeButton: {
-    position: "absolute",
-    top: 18,
-    left: 332,
-    width: 38,
-    height: 38,
-    backgroundColor: "#808080",
-    borderRadius: 30,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  checkmarkContainer: {
-    position: "absolute",
-    top: 66,
-    left: 162,
-    width: 60,
-    height: 60,
-  },
-  successText: {
-    position: "absolute",
-    top: 153,
-    left: 60,
-    width: 264,
-    height: 28,
-    fontFamily: "Exo",
-    fontWeight: "700",
-    fontSize: 24,
-    lineHeight: 28,
-    textAlign: "center",
-    letterSpacing: -1,
-    color: "#119916",
-  },
-});

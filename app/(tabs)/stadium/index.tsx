@@ -4,14 +4,14 @@ import {
   Image,
   TouchableOpacity,
   ScrollView,
-  StyleSheet,
+  Alert,
   TextInput,
   ActivityIndicator,
   Modal,
   FlatList,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useState, useEffect } from "react";
+import { useRef, useState, useEffect } from "react";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import HeaderUser from "@/component/HeaderUser";
@@ -36,7 +36,7 @@ interface Cluster {
   open_time: string;
   close_time: string;
   owner_id: number;
-  is_accepted: boolean;
+  is_accepted: boolean | null;
   accepted_by: number | null;
   created_at: string;
   updated_at: string;
@@ -90,6 +90,68 @@ const SPORT_TYPE_ID_MAP: Record<Exclude<SportFilter, "all">, number> = {
   basketball: 5,
 };
 
+const PRICE_PRESETS = [
+  { label: "Dưới 100k", min: "", max: "100000" },
+  { label: "100k - 200k", min: "100000", max: "200000" },
+  { label: "200k - 500k", min: "200000", max: "500000" },
+  { label: "Trên 500k", min: "500000", max: "" },
+];
+
+const TIME_PRESETS = [
+  { label: "Sáng", from: "06:00", to: "12:00" },
+  { label: "Chiều", from: "12:00", to: "18:00" },
+  { label: "Tối", from: "18:00", to: "22:00" },
+];
+
+const normalizePriceInput = (value: string) => value.replace(/[^\d]/g, "");
+
+const formatCompactPrice = (value: string) => {
+  const price = Number(value);
+  if (!Number.isFinite(price) || price <= 0) return "";
+  if (price >= 1000000) {
+    return `${(price / 1000000).toLocaleString("vi-VN")}tr`;
+  }
+  return `${Math.round(price / 1000).toLocaleString("vi-VN")}k`;
+};
+
+const normalizeTimeInput = (value: string) => {
+  const clean = value.trim().replace(".", ":");
+  if (!clean) return "";
+
+  const compactMatch = clean.match(/^(\d{1,2})(\d{2})$/);
+  const parts = compactMatch
+    ? [compactMatch[1], compactMatch[2], "00"]
+    : clean.split(":");
+  const [hourRaw, minuteRaw = "0", secondRaw = "0"] = parts;
+
+  if (!hourRaw || parts.length > 3) return null;
+
+  const hour = Number(hourRaw);
+  const minute = Number(minuteRaw);
+  const second = Number(secondRaw);
+
+  if (
+    !Number.isInteger(hour) ||
+    !Number.isInteger(minute) ||
+    !Number.isInteger(second) ||
+    hour < 0 ||
+    hour > 23 ||
+    minute < 0 ||
+    minute > 59 ||
+    second < 0 ||
+    second > 59
+  ) {
+    return null;
+  }
+
+  return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}:${String(second).padStart(2, "0")}`;
+};
+
+const getTimeMinutes = (time: string) => {
+  const [hour = "0", minute = "0"] = time.split(":");
+  return Number(hour) * 60 + Number(minute);
+};
+
 // Chỉ các tỉnh/thành phố lớn
 const MAJOR_PROVINCES = [
   { code: 79, name: "Thành phố Hồ Chí Minh" },
@@ -128,9 +190,15 @@ const Location = () => {
   const [selectedWard, setSelectedWard] = useState<string>("");
   const [selectedWardName, setSelectedWardName] = useState<string>("");
   const [searchText, setSearchText] = useState<string>("");
-  const [searchDraft, setSearchDraft] = useState<string>("");
-  const [showSearchModal, setShowSearchModal] = useState(false);
   const [selectedSport, setSelectedSport] = useState<SportFilter>("all");
+  const [minPrice, setMinPrice] = useState("");
+  const [maxPrice, setMaxPrice] = useState("");
+  const [fromTime, setFromTime] = useState("");
+  const [toTime, setToTime] = useState("");
+  const [minPriceDraft, setMinPriceDraft] = useState("");
+  const [maxPriceDraft, setMaxPriceDraft] = useState("");
+  const [fromTimeDraft, setFromTimeDraft] = useState("");
+  const [toTimeDraft, setToTimeDraft] = useState("");
   
   // Pagination
   const [offset, setOffset] = useState(0);
@@ -147,6 +215,7 @@ const Location = () => {
   const [provinceSearch, setProvinceSearch] = useState("");
   const [districtSearch, setDistrictSearch] = useState("");
   const [wardSearch, setWardSearch] = useState("");
+  const fetchRequestIdRef = useRef(0);
 
   // Fetch provinces from open API
   useEffect(() => {
@@ -216,9 +285,21 @@ const Location = () => {
     setClusters([]);
     setHasMore(true);
     fetchClusters(0, true);
-  }, [selectedProvince, selectedDistrict, selectedWard, searchText, selectedSport]);
+  }, [
+    selectedProvince,
+    selectedDistrict,
+    selectedWard,
+    searchText,
+    selectedSport,
+    minPrice,
+    maxPrice,
+    fromTime,
+    toTime,
+  ]);
 
   const fetchClusters = async (currentOffset: number = 0, isRefresh: boolean = false) => {
+    const requestId = ++fetchRequestIdRef.current;
+
     try {
       if (isRefresh) {
         setLoading(true);
@@ -230,17 +311,26 @@ const Location = () => {
       const result = await clusterService.searchClusters({
         offset: currentOffset,
         limit: LIMIT,
-        search: searchText || undefined,
+        search: searchText.trim() || undefined,
         sport_type_id:
           selectedSport === "all" ? undefined : SPORT_TYPE_ID_MAP[selectedSport],
+        min_price: minPrice ? Number(minPrice) : undefined,
+        max_price: maxPrice ? Number(maxPrice) : undefined,
+        from_time: fromTime || undefined,
+        to_time: toTime || undefined,
       });
+
+      if (requestId !== fetchRequestIdRef.current) {
+        return;
+      }
 
       // Apply filters
       let filteredClusters = result.clusters as Cluster[];
         
         // Filter by search text (name or address)
-        if (searchText) {
-          const searchLower = searchText.toLowerCase();
+        const normalizedSearchText = searchText.trim();
+        if (normalizedSearchText) {
+          const searchLower = normalizedSearchText.toLowerCase();
           filteredClusters = filteredClusters.filter(
             (cluster) =>
               cluster.name.toLowerCase().includes(searchLower) ||
@@ -256,14 +346,9 @@ const Location = () => {
             cluster.city.toLowerCase().includes(selectedProvinceName.toLowerCase())
           );
         }
-        if (selectedDistrictName) {
-          filteredClusters = filteredClusters.filter((cluster) =>
-            cluster.district.toLowerCase().includes(selectedDistrictName.toLowerCase())
-          );
-        }
         if (selectedWardName) {
           filteredClusters = filteredClusters.filter((cluster) =>
-            cluster.street.toLowerCase().includes(selectedWardName.toLowerCase())
+            cluster.district.toLowerCase().includes(selectedWardName.toLowerCase())
           );
         }
         
@@ -302,14 +387,24 @@ const Location = () => {
         }
       }
 
+      if (requestId !== fetchRequestIdRef.current) {
+        return;
+      }
+
       // Check if there are more items
       setHasMore(result.clusters.length === LIMIT);
       setOffset(currentOffset + LIMIT);
     } catch (error: unknown) {
       console.error("Lỗi khi lấy danh sách sân:", error);
+      if (requestId !== fetchRequestIdRef.current) {
+        return;
+      }
       const errorMsg = error instanceof Error ? error.message : String(error);
       setError(`Không thể lấy danh sách sân: ${errorMsg}`);
     } finally {
+      if (requestId !== fetchRequestIdRef.current) {
+        return;
+      }
       if (isRefresh) {
         setLoading(false);
       } else {
@@ -332,26 +427,97 @@ const Location = () => {
     setSelectedWard("");
     setSelectedWardName("");
     setSearchText("");
-    setSearchDraft("");
     setSelectedSport("all");
+    setMinPrice("");
+    setMaxPrice("");
+    setFromTime("");
+    setToTime("");
+    setMinPriceDraft("");
+    setMaxPriceDraft("");
+    setFromTimeDraft("");
+    setToTimeDraft("");
   };
+
+  const handleApplyAdvancedFilters = () => {
+    const nextMinPrice = normalizePriceInput(minPriceDraft);
+    const nextMaxPrice = normalizePriceInput(maxPriceDraft);
+    const nextFromTime = normalizeTimeInput(fromTimeDraft);
+    const nextToTime = normalizeTimeInput(toTimeDraft);
+
+    if (nextFromTime === null || nextToTime === null) {
+      Alert.alert("Thời gian chưa hợp lệ", "Vui lòng nhập theo dạng HH:mm, ví dụ 08:00 hoặc 17:30.");
+      return;
+    }
+
+    if (nextMinPrice && nextMaxPrice && Number(nextMinPrice) > Number(nextMaxPrice)) {
+      Alert.alert("Khoảng giá chưa hợp lệ", "Giá thấp nhất không được lớn hơn giá cao nhất.");
+      return;
+    }
+
+    if (
+      nextFromTime &&
+      nextToTime &&
+      getTimeMinutes(nextFromTime) >= getTimeMinutes(nextToTime)
+    ) {
+      Alert.alert("Khung giờ chưa hợp lệ", "Giờ bắt đầu cần nhỏ hơn giờ kết thúc.");
+      return;
+    }
+
+    setMinPrice(nextMinPrice);
+    setMaxPrice(nextMaxPrice);
+    setFromTime(nextFromTime);
+    setToTime(nextToTime);
+  };
+
+  const handleClearAdvancedFilters = () => {
+    setMinPrice("");
+    setMaxPrice("");
+    setFromTime("");
+    setToTime("");
+    setMinPriceDraft("");
+    setMaxPriceDraft("");
+    setFromTimeDraft("");
+    setToTimeDraft("");
+  };
+
+  const handleSelectPricePreset = (min: string, max: string) => {
+    setMinPriceDraft(min);
+    setMaxPriceDraft(max);
+  };
+
+  const handleSelectTimePreset = (from: string, to: string) => {
+    setFromTimeDraft(from);
+    setToTimeDraft(to);
+  };
+
+  const priceFilterLabel = (() => {
+    if (minPrice && maxPrice) {
+      return `${formatCompactPrice(minPrice)} - ${formatCompactPrice(maxPrice)}/giờ`;
+    }
+    if (minPrice) {
+      return `Từ ${formatCompactPrice(minPrice)}/giờ`;
+    }
+    if (maxPrice) {
+      return `Đến ${formatCompactPrice(maxPrice)}/giờ`;
+    }
+    return "";
+  })();
+
+  const timeFilterLabel =
+    fromTime || toTime
+      ? `${fromTime ? fromTime.slice(0, 5) : "--:--"} - ${toTime ? toTime.slice(0, 5) : "--:--"}`
+      : "";
 
   const hasActiveFilters =
     !!selectedProvince ||
     !!selectedDistrict ||
     !!selectedWard ||
     !!searchText ||
-    selectedSport !== "all";
-
-  const handleOpenSearch = () => {
-    setSearchDraft(searchText);
-    setShowSearchModal(true);
-  };
-
-  const handleApplySearch = () => {
-    setSearchText(searchDraft.trim());
-    setShowSearchModal(false);
-  };
+    selectedSport !== "all" ||
+    !!minPrice ||
+    !!maxPrice ||
+    !!fromTime ||
+    !!toTime;
 
   const handleSelectProvince = (province: Province) => {
     setSelectedProvince(province.code.toString());
@@ -525,25 +691,39 @@ const Location = () => {
       >
       {/* Search + Filter */}
       <View className="px-4 mb-2 flex-row items-center">
-        <TouchableOpacity
+        <View
           className="flex-1 h-12 flex-row items-center bg-white rounded-lg px-3 border border-blue-500 mr-2"
-          onPress={handleOpenSearch}
-          activeOpacity={1}
         >
           <Ionicons name="search" size={20} color="#666" />
-          <Text
-            className={`ml-2 text-base ${searchText ? "text-gray-900" : "text-gray-400"}`}
-            numberOfLines={1}
-          >
-            {searchText || "Tìm kiếm sân..."}
-          </Text>
-        </TouchableOpacity>
+          <TextInput
+            className="flex-1 ml-2 text-base text-gray-900"
+            placeholder="Tìm kiếm sân..."
+            placeholderTextColor="#9ca3af"
+            value={searchText}
+            onChangeText={setSearchText}
+            returnKeyType="search"
+            autoCapitalize="none"
+          />
+          {searchText !== "" && (
+            <TouchableOpacity onPress={() => setSearchText("")} hitSlop={8}>
+              <Ionicons name="close-circle" size={20} color="#9ca3af" />
+            </TouchableOpacity>
+          )}
+        </View>
 
         <TouchableOpacity
           className={`h-12 w-12 rounded-lg items-center justify-center border ${
             showFilters ? "bg-blue-500 border-blue-500" : "bg-white border-blue-500"
           }`}
-          onPress={() => setShowFilters(!showFilters)}
+          onPress={() => {
+            if (!showFilters) {
+              setMinPriceDraft(minPrice);
+              setMaxPriceDraft(maxPrice);
+              setFromTimeDraft(fromTime ? fromTime.slice(0, 5) : "");
+              setToTimeDraft(toTime ? toTime.slice(0, 5) : "");
+            }
+            setShowFilters(!showFilters);
+          }}
           activeOpacity={1}
         >
           <Ionicons
@@ -595,6 +775,26 @@ const Location = () => {
 
       {hasActiveFilters && (
         <View className="px-4 mb-2">
+          {priceFilterLabel || timeFilterLabel ? (
+            <View className="flex-row flex-wrap mb-2">
+              {priceFilterLabel ? (
+                <View className="mr-2 mb-2 flex-row items-center rounded-full bg-emerald-50 border border-emerald-200 px-3 py-1">
+                  <Ionicons name="cash-outline" size={14} color="#047857" />
+                  <Text className="text-emerald-700 text-xs font-semibold ml-1">
+                    {priceFilterLabel}
+                  </Text>
+                </View>
+              ) : null}
+              {timeFilterLabel ? (
+                <View className="mr-2 mb-2 flex-row items-center rounded-full bg-amber-50 border border-amber-200 px-3 py-1">
+                  <Ionicons name="time-outline" size={14} color="#b45309" />
+                  <Text className="text-amber-700 text-xs font-semibold ml-1">
+                    {timeFilterLabel}
+                  </Text>
+                </View>
+              ) : null}
+            </View>
+          ) : null}
           <TouchableOpacity
             className="self-start flex-row items-center bg-gray-200 px-3 py-2 rounded-lg"
             onPress={handleClearFilters}
@@ -607,8 +807,12 @@ const Location = () => {
 
       {/* Filters */}
       {showFilters && (
-        <View className="px-4 mb-2 bg-white py-3 mx-4 rounded-lg border border-blue-200">
-          <Text className="font-semibold text-base mb-2 text-blue-700">Lọc theo địa điểm</Text>
+        <View
+          className="px-4 mb-2 bg-white py-3 mx-4 rounded-lg border border-blue-200"
+          style={{ maxHeight: 430 }}
+        >
+          <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+          <Text className="font-semibold text-base mb-2 text-blue-700">Bộ lọc nâng cao</Text>
           
           {/* Province Selector */}
           <View className="mb-3">
@@ -657,66 +861,163 @@ const Location = () => {
               </TouchableOpacity>
             </View>
           )}
-        </View>
-      )}
-      </View>
 
-      {/* Search Modal */}
-      <Modal
-        visible={showSearchModal}
-        animationType="slide"
-        transparent={true}
-        onRequestClose={() => setShowSearchModal(false)}
-      >
-        <View className="flex-1 bg-black/50 justify-center px-5">
-          <View className="bg-white rounded-2xl p-4">
-            <View className="flex-row items-center justify-between mb-4">
-              <Text className="text-lg font-semibold">Tìm kiếm sân</Text>
-              <TouchableOpacity onPress={() => setShowSearchModal(false)}>
-                <Ionicons name="close" size={24} color="#666" />
-              </TouchableOpacity>
-            </View>
+          <View className="h-px bg-blue-100 my-3" />
 
-            <View className="h-12 flex-row items-center bg-gray-100 rounded-lg px-3 border border-gray-300">
-              <Ionicons name="search" size={20} color="#666" />
-              <TextInput
-                className="flex-1 ml-2 text-base"
-                placeholder="Nhập tên sân, đường, quận..."
-                value={searchDraft}
-                onChangeText={setSearchDraft}
-                autoFocus
-                returnKeyType="search"
-                onSubmitEditing={handleApplySearch}
-              />
-              {searchDraft !== "" && (
-                <TouchableOpacity onPress={() => setSearchDraft("")}>
-                  <Ionicons name="close-circle" size={20} color="#666" />
+          <View className="mb-3">
+            <View className="flex-row items-center justify-between mb-2">
+              <Text className="font-semibold text-sm text-gray-800">Giá sân / giờ</Text>
+              {(minPriceDraft || maxPriceDraft) && (
+                <TouchableOpacity onPress={() => handleSelectPricePreset("", "")}>
+                  <Text className="text-blue-600 text-xs font-semibold">Xóa giá</Text>
                 </TouchableOpacity>
               )}
             </View>
 
-            <View className="flex-row mt-4">
-              <TouchableOpacity
-                className="flex-1 h-11 rounded-lg border border-gray-300 items-center justify-center mr-2"
-                onPress={() => {
-                  setSearchDraft("");
-                  setSearchText("");
-                  setShowSearchModal(false);
-                }}
-              >
-                <Text className="text-gray-700 font-semibold">Xóa</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                className="flex-1 h-11 rounded-lg bg-blue-500 items-center justify-center"
-                onPress={handleApplySearch}
-                activeOpacity={1}
-              >
-                <Text className="text-white font-semibold">Tìm kiếm</Text>
-              </TouchableOpacity>
+            <View className="flex-row mb-2">
+              <View className="flex-1 mr-2">
+                <Text className="text-xs text-gray-500 mb-1">Từ</Text>
+                <View className="h-11 flex-row items-center bg-gray-50 border border-gray-300 rounded-lg px-3">
+                  <TextInput
+                    className="flex-1 text-gray-900"
+                    placeholder="100000"
+                    keyboardType="numeric"
+                    value={minPriceDraft}
+                    onChangeText={(value) => setMinPriceDraft(normalizePriceInput(value))}
+                  />
+                  <Text className="text-gray-400 text-xs">đ</Text>
+                </View>
+              </View>
+
+              <View className="flex-1 ml-2">
+                <Text className="text-xs text-gray-500 mb-1">Đến</Text>
+                <View className="h-11 flex-row items-center bg-gray-50 border border-gray-300 rounded-lg px-3">
+                  <TextInput
+                    className="flex-1 text-gray-900"
+                    placeholder="500000"
+                    keyboardType="numeric"
+                    value={maxPriceDraft}
+                    onChangeText={(value) => setMaxPriceDraft(normalizePriceInput(value))}
+                  />
+                  <Text className="text-gray-400 text-xs">đ</Text>
+                </View>
+              </View>
             </View>
+
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              {PRICE_PRESETS.map((preset) => {
+                const active = minPriceDraft === preset.min && maxPriceDraft === preset.max;
+                return (
+                  <TouchableOpacity
+                    key={preset.label}
+                    className={`mr-2 px-3 py-2 rounded-full border ${
+                      active ? "bg-emerald-600 border-emerald-600" : "bg-white border-gray-300"
+                    }`}
+                    onPress={() => handleSelectPricePreset(preset.min, preset.max)}
+                  >
+                    <Text
+                      className={`text-xs font-semibold ${
+                        active ? "text-white" : "text-gray-700"
+                      }`}
+                    >
+                      {preset.label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
           </View>
+
+          <View className="mb-3">
+            <View className="flex-row items-center justify-between mb-2">
+              <Text className="font-semibold text-sm text-gray-800">Khung giờ trống</Text>
+              {(fromTimeDraft || toTimeDraft) && (
+                <TouchableOpacity onPress={() => handleSelectTimePreset("", "")}>
+                  <Text className="text-blue-600 text-xs font-semibold">Xóa giờ</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+
+            <View className="flex-row mb-2">
+              <View className="flex-1 mr-2">
+                <Text className="text-xs text-gray-500 mb-1">Từ giờ</Text>
+                <View className="h-11 flex-row items-center bg-gray-50 border border-gray-300 rounded-lg px-3">
+                  <Ionicons name="time-outline" size={16} color="#64748b" />
+                  <TextInput
+                    className="flex-1 ml-2 text-gray-900"
+                    placeholder="08:00"
+                    keyboardType="numbers-and-punctuation"
+                    value={fromTimeDraft}
+                    onChangeText={setFromTimeDraft}
+                    maxLength={8}
+                  />
+                </View>
+              </View>
+
+              <View className="flex-1 ml-2">
+                <Text className="text-xs text-gray-500 mb-1">Đến giờ</Text>
+                <View className="h-11 flex-row items-center bg-gray-50 border border-gray-300 rounded-lg px-3">
+                  <Ionicons name="time-outline" size={16} color="#64748b" />
+                  <TextInput
+                    className="flex-1 ml-2 text-gray-900"
+                    placeholder="17:30"
+                    keyboardType="numbers-and-punctuation"
+                    value={toTimeDraft}
+                    onChangeText={setToTimeDraft}
+                    maxLength={8}
+                  />
+                </View>
+              </View>
+            </View>
+
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              {TIME_PRESETS.map((preset) => {
+                const active = fromTimeDraft === preset.from && toTimeDraft === preset.to;
+                return (
+                  <TouchableOpacity
+                    key={preset.label}
+                    className={`mr-2 px-3 py-2 rounded-full border flex-row items-center ${
+                      active ? "bg-amber-500 border-amber-500" : "bg-white border-gray-300"
+                    }`}
+                    onPress={() => handleSelectTimePreset(preset.from, preset.to)}
+                  >
+                    <Ionicons
+                      name="sunny-outline"
+                      size={14}
+                      color={active ? "white" : "#374151"}
+                    />
+                    <Text
+                      className={`text-xs font-semibold ml-1 ${
+                        active ? "text-white" : "text-gray-700"
+                      }`}
+                    >
+                      {preset.label} {preset.from}-{preset.to}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </View>
+
+          <View className="flex-row">
+            <TouchableOpacity
+              className="flex-1 h-11 rounded-lg border border-gray-300 items-center justify-center mr-2"
+              onPress={handleClearAdvancedFilters}
+            >
+              <Text className="text-gray-700 font-semibold">Xóa giá/giờ</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              className="flex-1 h-11 rounded-lg bg-blue-600 items-center justify-center ml-2"
+              onPress={handleApplyAdvancedFilters}
+              activeOpacity={1}
+            >
+              <Text className="text-white font-semibold">Áp dụng</Text>
+            </TouchableOpacity>
+          </View>
+          </ScrollView>
         </View>
-      </Modal>
+      )}
+      </View>
 
       {/* Province Modal */}
       <Modal
@@ -857,7 +1158,7 @@ const Location = () => {
       {!loading && !error && clusters.length > 0 && (
         <ScrollView
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ paddingHorizontal: 16 }}
+          contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 120 }}
           style={{ zIndex: 0, elevation: 0, backgroundColor: "#ffffff" }}
           className="flex-col mt-4"
         >

@@ -156,10 +156,16 @@ const History = () => {
                       {formattedDate} • {startTime} - {endTime}
                     </Text>
                   </View>
-                  <View className="items-end">
-                    <Text className={`text-sm font-bold ${statusMeta.textColorClass}`}>
-                      {statusMeta.label}
-                    </Text>
+                  <View className="items-end ml-3 shrink-0">
+                    <View className={`px-2.5 py-1 rounded-full ${statusMeta.badgeClass}`}>
+                      <Text
+                        className={`text-xs font-bold ${statusMeta.textColorClass}`}
+                        numberOfLines={1}
+                        allowFontScaling={false}
+                      >
+                        {statusMeta.label}
+                      </Text>
+                    </View>
                     <Text className="text-lg font-bold text-blue-600 mt-1">
                       {new Intl.NumberFormat("vi-VN", {
                         style: "currency",

@@ -213,7 +213,7 @@ export default function TournamentScheduleScreen() {
                 : "Hàng tuần"}
             </Text>
             <Text className="text-indigo-700 text-xs mt-1">
-              Khoảng: {draft.startDate ? formatDate(draft.startDate) : "N/A"} - {draft.endDate ? formatDate(draft.endDate) : "N/A"}
+              Khoảng: {draft.startDate ? formatDate(draft.startDate) : "Chưa rõ"} - {draft.endDate ? formatDate(draft.endDate) : "Chưa rõ"}
             </Text>
 
             {draft.frequency === "weekly" && (

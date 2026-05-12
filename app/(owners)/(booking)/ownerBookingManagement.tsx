@@ -81,7 +81,7 @@ export default function BookingManagement() {
   const [ownerTournaments, setOwnerTournaments] = useState<OwnerTournamentItem[]>([]);
   const [tournamentLoading, setTournamentLoading] = useState(false);
   const [tournamentStatusFilter, setTournamentStatusFilter] =
-    useState<TournamentOwnerBookingStatus>("pending");
+    useState<TournamentOwnerBookingStatus>("all");
   const [approvingTournamentId, setApprovingTournamentId] = useState<number | null>(null);
 
   /** Khớp booking.types BookingStatus + vài giá trị BE gửi thêm */
@@ -416,6 +416,17 @@ export default function BookingManagement() {
     return "Không xác định";
   };
 
+  const shouldShowPaymentType = (paymentType?: string | null) => {
+    const normalized = String(paymentType || "").trim().toLowerCase();
+    return normalized !== "" && normalized !== "deposit";
+  };
+
+  const formatPaymentType = (paymentType?: string | null) => {
+    const normalized = String(paymentType || "").trim().toLowerCase();
+    if (normalized === "remaining") return "Thanh toán còn lại";
+    return String(paymentType || "").trim();
+  };
+
   const openClusterPayments = async (cluster: OwnerRevenueClusterItem) => {
     try {
       setSelectedRevenueCluster(cluster);
@@ -479,9 +490,10 @@ export default function BookingManagement() {
 
   const getTournamentFilterLabel = (status: TournamentOwnerBookingStatus) => {
     const s = String(status ?? "").toLowerCase();
+    if (s === "all") return "Tất cả";
     if (s === "pending") return "Chờ duyệt";
     if (s === "confirmed" || s === "payment_required") return "Chờ thanh toán";
-    if (s === "completed" || s === "success") return "Hoàn thành";
+    if (s === "completed" || s === "success") return "Đã thanh toán";
     if (s === "canceled" || s === "cancelled") return "Đã hủy";
     if (s === "rejected") return "Từ chối";
     return "Không xác định";
@@ -977,7 +989,11 @@ export default function BookingManagement() {
                     </Text>
                     <Text className="text-gray-600 text-xs mt-1">Mã đặt sân: {payment.booking_id}</Text>
                     <Text className="text-gray-600 text-xs">Mã giải: {payment.tournament_id ?? "—"}</Text>
-                    <Text className="text-gray-600 text-xs">Loại: {payment.payment_type}</Text>
+                    {shouldShowPaymentType(payment.payment_type) && (
+                      <Text className="text-gray-600 text-xs">
+                        Loại: {formatPaymentType(payment.payment_type)}
+                      </Text>
+                    )}
                     <Text className="text-gray-600 text-xs mt-1">
                       Tạo lúc: {new Date(payment.created_at).toLocaleString("vi-VN")}
                     </Text>
@@ -1005,9 +1021,10 @@ export default function BookingManagement() {
         contentContainerStyle={{ flexDirection: "row", alignItems: "center", paddingRight: 8 }}
       >
         {[
+          { key: "all", label: "Tất cả" },
           { key: "pending", label: "Chờ duyệt" },
           { key: "confirmed", label: "Chờ thanh toán" },
-          { key: "completed", label: "Hoàn thành" },
+          { key: "success", label: "Đã thanh toán" },
           { key: "canceled", label: "Đã hủy" },
         ].map((item) => {
           const active = tournamentStatusFilter === (item.key as TournamentOwnerBookingStatus);

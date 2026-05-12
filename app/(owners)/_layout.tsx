@@ -1,7 +1,11 @@
-import { Tabs } from "expo-router";
+import { Tabs, usePathname, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import { resolveTabPressResetHref } from "@/src/utils/tab-navigation.util";
 
 export default function OwnerLayout() {
+  const pathname = usePathname();
+  const router = useRouter();
+
   const hiddenScreens = [
     "(account)/changePassword",
     "(stadium)/addField",
@@ -12,6 +16,21 @@ export default function OwnerLayout() {
     "(booking)/tournament-detail",
     "(stadium)/stadiumManagement",
   ];
+
+  const buildTabResetListeners = (routeName: string) => ({
+    tabPress: (event: { preventDefault: () => void }) => {
+      const href = resolveTabPressResetHref({
+        layout: "owner",
+        routeName,
+        pathname,
+      });
+
+      if (!href) return;
+
+      event.preventDefault();
+      router.replace(href as never);
+    },
+  });
 
   return (
     <Tabs
@@ -43,16 +62,26 @@ export default function OwnerLayout() {
         tabBarInactiveTintColor: "gray",
       })}
     >
-      <Tabs.Screen name="home" options={{ title: "Trang chủ" }} />
+      <Tabs.Screen
+        name="home"
+        listeners={buildTabResetListeners("home")}
+        options={{ title: "Trang chủ" }}
+      />
       <Tabs.Screen
         name="(stadium)/clusterList"
+        listeners={buildTabResetListeners("(stadium)/clusterList")}
         options={{ title: "Cụm sân" }}
       />
       <Tabs.Screen
         name="(booking)/ownerBookingManagement"
+        listeners={buildTabResetListeners("(booking)/ownerBookingManagement")}
         options={{ title: "Quản lý" }}
       />
-      <Tabs.Screen name="(account)/account" options={{ title: "Tài khoản" }} />
+      <Tabs.Screen
+        name="(account)/account"
+        listeners={buildTabResetListeners("(account)/account")}
+        options={{ title: "Tài khoản" }}
+      />
 
       {hiddenScreens.map((screenName) => (
         <Tabs.Screen
