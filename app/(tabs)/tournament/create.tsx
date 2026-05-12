@@ -50,16 +50,16 @@ export default function TournamentCreateScreen() {
   }, [name, isRepeatMode, startDate, endDate]);
 
   useEffect(() => {
-    const hydrate = async () => {
-      const draft = await tournamentDraftService.getDraft();
-      if (draft.name) setName(draft.name);
-      if (draft.sportType) setSportType(draft.sportType);
-      if (draft.frequency) setFrequency(draft.frequency);
-      if (draft.startDate) setStartDate(draft.startDate);
-      if (draft.endDate) setEndDate(draft.endDate);
+    const initNew = async () => {
+      try {
+        // Clear any previous draft when starting a new create flow
+        await tournamentDraftService.resetDraft();
+      } catch {
+        // ignore
+      }
     };
 
-    hydrate();
+    initNew();
   }, []);
 
   const handleContinue = async () => {

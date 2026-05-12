@@ -509,6 +509,39 @@ export default function TournamentVenueScreen() {
       return;
     }
 
+    if (isClusterLocked && lockedClusterId !== cluster.id) {
+      Alert.alert(
+        "Cụm sân đã cố định",
+        `Giải đấu hiện đã dùng cụm ${lockedClusterName}. Nếu đổi cụm, toàn bộ lịch đã thêm sẽ bị xóa. Bạn có muốn tiếp tục?`,
+        [
+          { text: "Hủy", style: "cancel" },
+          {
+            text: "Xóa & chọn",
+            style: "destructive",
+            onPress: async () => {
+              try {
+                await tournamentDraftService.patchDraft({
+                  scheduleItems: [],
+                  clusterId: cluster.id,
+                  clusterName: cluster.name,
+                  selectedFields: [],
+                  selectedSlots: [],
+                });
+                setScheduleItems([]);
+                setSelectedCluster(cluster);
+                setShowClusterPickerModal(false);
+                await loadAvailability(cluster.id, bookingDate || startDate);
+                scrollToSection(fieldSectionY);
+              } catch (error: any) {
+                Alert.alert("Lỗi", error?.message || "Không thể đổi cụm sân");
+              }
+            },
+          },
+        ]
+      );
+      return;
+    }
+
     setSelectedCluster(cluster);
     setShowClusterPickerModal(false);
     await loadAvailability(cluster.id, bookingDate || startDate);
@@ -548,26 +581,13 @@ export default function TournamentVenueScreen() {
           className={`mt-2 border rounded-xl px-4 py-3 ${
             isClusterLocked ? "border-gray-300 bg-gray-100" : "border-indigo-300 bg-indigo-50"
           }`}
-          onPress={() => {
-            if (isClusterLocked) {
-              Alert.alert(
-                "Cụm sân đã cố định",
-                `Bạn đang dùng cụm ${lockedClusterName}. Giải đấu này chỉ cho phép 1 cụm sân.`
-              );
-              return;
-            }
-            setShowClusterPickerModal(true);
-          }}
+          onPress={() => setShowClusterPickerModal(true)}
         >
-          <Text className={isClusterLocked ? "text-xs text-gray-500" : "text-xs text-indigo-700"}>
-            {isClusterLocked ? "Cụm sân cố định của giải" : "Cụm sân đang chọn"}
-          </Text>
-          <Text className={isClusterLocked ? "text-gray-900 font-semibold mt-1" : "text-indigo-900 font-semibold mt-1"}>
+          <Text className="text-xs text-indigo-700">Cụm sân đang chọn</Text>
+          <Text className="text-indigo-900 font-semibold mt-1">
             {selectedCluster ? selectedCluster.name : "Chưa chọn cụm sân"}
           </Text>
-          <Text className={isClusterLocked ? "text-gray-500 text-xs mt-1" : "text-indigo-700 text-xs mt-1"}>
-            {isClusterLocked ? "Đã khóa vì bạn đã thêm lịch." : "Nhấn để mở danh sách cụm sân"}
-          </Text>
+          <Text className="text-indigo-700 text-xs mt-1">Nhấn để mở danh sách cụm sân</Text>
         </TouchableOpacity>
         <View className="mt-2">
           <TouchableOpacity
