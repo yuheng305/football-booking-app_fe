@@ -64,17 +64,20 @@ export default function Tournament() {
   };
 
   const paymentStatusLabel = (status?: string) => {
-    if (status === "paid") return "Đã thanh toán";
+    if (status === "paid" || status === "success" || status === "completed") return "Đã thanh toán";
     if (status === "pending") return "Chờ chủ sân duyệt";
-    if (status === "confirmed") return "Chờ thanh toán";
+    if (status === "confirmed" || status === "payment_required" || status === "approved")
+      return "Chờ thanh toán";
     if (status === "no_bookings") return "Chưa có lượt đặt sân";
     return status || "Không rõ";
   };
 
   const paymentStatusClass = (status?: string) => {
-    if (status === "paid") return "bg-emerald-100 text-emerald-700";
+    if (status === "paid" || status === "success" || status === "completed")
+      return "bg-emerald-100 text-emerald-700";
     if (status === "pending") return "bg-sky-100 text-sky-700";
-    if (status === "confirmed") return "bg-amber-100 text-amber-700";
+    if (status === "confirmed" || status === "payment_required" || status === "approved")
+      return "bg-amber-100 text-amber-700";
     if (status === "no_bookings") return "bg-slate-100 text-slate-600";
     return "bg-slate-100 text-slate-600";
   };

@@ -11,10 +11,14 @@ import { useRouter, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useState } from "react";
 import AppPopup from "@/component/AppPopup";
+import { resolveOwnerAddFieldBackTarget } from "@/src/utils/owner-stadium-navigation.util";
 
 export default function EditField() {
   const router = useRouter();
-  const { stadiumName } = useLocalSearchParams();
+  const { stadiumName, clusterId } = useLocalSearchParams<{
+    stadiumName?: string;
+    clusterId?: string;
+  }>();
   const [startDate, setStartDate] = useState("20/04/2025");
   const [endDate, setEndDate] = useState("20/06/2025");
   const [openHour, setOpenHour] = useState(6);
@@ -94,7 +98,7 @@ export default function EditField() {
 
   const closeSuccessModal = () => {
     setSuccessModalVisible(false);
-    router.push("/stadiumManagement");
+    router.replace(resolveOwnerAddFieldBackTarget(clusterId) as never);
   };
 
   const getDaysInMonth = (month: number, year: number) => {
@@ -149,7 +153,7 @@ export default function EditField() {
       <View className="flex-row items-center px-4 pt-4">
         <TouchableOpacity
           className="w-10 h-10 bg-white border border-gray-200 rounded-xl items-center justify-center"
-          onPress={() => router.push("/stadiumManagement")}
+          onPress={() => router.replace(resolveOwnerAddFieldBackTarget(clusterId) as never)}
         >
           <Ionicons name="arrow-back" size={20} color="#1E232C" />
         </TouchableOpacity>

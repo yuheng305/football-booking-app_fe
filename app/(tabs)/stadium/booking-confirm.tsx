@@ -150,7 +150,7 @@ const BookingConfirm = () => {
       // Success
       Alert.alert(
         "Thành công",
-        "Đặt sân thành công! Vui lòng chờ chủ sân duyệt. Khi trạng thái chuyển sang Đã xác nhận, bạn mới thanh toán được.",
+        "Đặt sân thành công! Vui lòng chờ chủ sân duyệt. Khi trạng thái chuyển sang Chờ thanh toán, bạn mới thanh toán được.",
         [
           {
             text: "Đồng ý",

@@ -93,7 +93,11 @@ const getTournamentStatusText = (status: string) => {
     case "pending":
       return "Chờ chủ sân duyệt";
     case "confirmed":
+    case "payment_required":
+    case "approved":
       return "Chờ thanh toán";
+    case "success":
+    case "completed":
     case "paid":
       return "Đã thanh toán";
     case "no_bookings":
@@ -108,7 +112,11 @@ const getTournamentStatusStyle = (status: string) => {
     case "pending":
       return "bg-sky-100 text-sky-700";
     case "confirmed":
+    case "payment_required":
+    case "approved":
       return "bg-orange-100 text-orange-700";
+    case "success":
+    case "completed":
     case "paid":
       return "bg-green-100 text-green-700";
     case "no_bookings":
@@ -307,6 +315,7 @@ const Payment = () => {
         return "bg-yellow-100 text-yellow-700";
       case "confirmed":
       case "payment_required":
+      case "approved":
         return "bg-orange-100 text-orange-700";
       case "success":
       case "completed":
@@ -323,8 +332,8 @@ const Payment = () => {
       case "pending":
         return "Chờ duyệt";
       case "confirmed":
-        return "Đã xác nhận";
       case "payment_required":
+      case "approved":
         return "Chờ thanh toán";
       case "success":
       case "completed":
@@ -451,7 +460,7 @@ const Payment = () => {
             ) : (
               groupedTournamentPayments.map((groupedPayment) => {
                 const isPaying = payingTournamentId === groupedPayment.tournamentId;
-                const canPay = normalizeStatus(groupedPayment.status) === "confirmed";
+                const canPay = isPayableStatus(groupedPayment.status);
 
                 return (
                   <View

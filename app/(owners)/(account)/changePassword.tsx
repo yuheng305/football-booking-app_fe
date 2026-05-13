@@ -1,5 +1,14 @@
 import React, { useState } from "react";
-import { View, Text, TextInput, TouchableOpacity, Alert } from "react-native";
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import authService from "@/src/services/auth.service";
@@ -67,7 +76,17 @@ const ChangePassword = () => {
           </Text>
         </View>
 
-        <View className="px-6 mt-6 space-y-6">
+        <KeyboardAvoidingView
+          className="flex-1"
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          keyboardVerticalOffset={Platform.OS === "ios" ? 12 : 0}
+        >
+          <ScrollView
+            className="flex-1 px-6"
+            contentContainerStyle={{ paddingTop: 24, paddingBottom: 32, gap: 24 }}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
           <View>
             <Text className="mb-2 text-gray-600">Mật khẩu cũ</Text>
             <View className="flex-row items-center border border-black px-4 py-2 rounded">
@@ -145,7 +164,8 @@ const ChangePassword = () => {
               Xác nhận
             </Text>
           </TouchableOpacity>
-        </View>
+          </ScrollView>
+        </KeyboardAvoidingView>
       </View>
     </SafeAreaView>
   );

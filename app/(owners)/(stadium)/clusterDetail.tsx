@@ -1,5 +1,19 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, RefreshControl, Image, Alert, Modal, TextInput, FlatList } from "react-native";
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  ScrollView,
+  ActivityIndicator,
+  RefreshControl,
+  Image,
+  Alert,
+  Modal,
+  TextInput,
+  FlatList,
+  KeyboardAvoidingView,
+  Platform,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -8,6 +22,10 @@ import { clusterService } from "@/src/services/cluster.service";
 import { imageService } from "@/src/services/image.service";
 import type { Cluster, UpdateClusterRequest } from "@/src/types/cluster.types";
 import type { ImageItem } from "@/src/types/image.types";
+import {
+  ownerStadiumManagementTarget,
+  resolveOwnerClusterDetailBackTarget,
+} from "@/src/utils/owner-stadium-navigation.util";
 import { formatSportDisplay, SPORT_TYPE_PICKER_OPTIONS } from "@/src/utils/sport-type.util";
 
 const SPORT_TYPE_OPTIONS = SPORT_TYPE_PICKER_OPTIONS;
@@ -166,7 +184,7 @@ export default function OwnerClusterDetail() {
         setEditDistricts(data.districts || []);
       } catch {
         setEditDistricts([]);
-        Alert.alert("Lỗi", "Không thể tải danh sách quận/huyện. Vui lòng thử lại.");
+        Alert.alert("Lỗi", "Không thể tải danh sách khu vực. Vui lòng thử lại.");
       } finally {
         setLoadingEditDistricts(false);
       }
@@ -258,7 +276,7 @@ export default function OwnerClusterDetail() {
   }, [loadCluster]);
 
   const handleBackToClusterList = () => {
-    router.replace("/(owners)/(stadium)/clusterList");
+    router.replace(resolveOwnerClusterDetailBackTarget() as never);
   };
 
   const onRefresh = () => {
@@ -553,12 +571,7 @@ export default function OwnerClusterDetail() {
             className={`mt-3 bg-white border py-2 rounded-lg items-center ${
               isRejectedCluster ? "border-gray-300" : "border-[#114F99]"
             }`}
-            onPress={() =>
-              router.push({
-                pathname: "/(owners)/(stadium)/stadiumManagement",
-                params: { clusterId: String(cluster.id) },
-              })
-            }
+            onPress={() => router.push(ownerStadiumManagementTarget(cluster.id) as never)}
             disabled={isRejectedCluster}
           >
             <Text className={`font-semibold ${isRejectedCluster ? "text-gray-500" : "text-[#114F99]"}`}>
@@ -671,7 +684,10 @@ export default function OwnerClusterDetail() {
         animationType="slide"
         onRequestClose={() => setEditModalVisible(false)}
       >
-        <View className="flex-1 bg-black/40 justify-end">
+        <KeyboardAvoidingView
+          className="flex-1 bg-black/40 justify-end"
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+        >
           <View className="bg-white rounded-t-3xl p-4 max-h-[85%]">
             <View className="flex-row items-center justify-between mb-3">
               <Text className="text-base font-semibold text-black">Cập nhật cụm sân</Text>
@@ -680,7 +696,7 @@ export default function OwnerClusterDetail() {
               </TouchableOpacity>
             </View>
 
-            <ScrollView>
+            <ScrollView keyboardShouldPersistTaps="handled">
               <Text className="text-black text-[15px] font-medium mb-2">Tên cụm sân</Text>
               <TextInput
                 className="bg-gray-100 border border-gray-300 rounded-lg p-3 text-black text-[15px] mb-3"
@@ -713,7 +729,7 @@ export default function OwnerClusterDetail() {
                 <Ionicons name="chevron-down" size={20} color="#667085" />
               </TouchableOpacity>
 
-              <Text className="text-black text-[15px] font-medium mb-2">Quận/Huyện</Text>
+              <Text className="text-black text-[15px] font-medium mb-2">Khu vực</Text>
               <TouchableOpacity
                 className={`border rounded-lg p-3 mb-3 flex-row items-center justify-between ${
                   editProvinceCode ? "bg-gray-100 border-gray-300" : "bg-gray-50 border-gray-200"
@@ -733,11 +749,11 @@ export default function OwnerClusterDetail() {
                   >
                     {editAreaDistrictName ||
                       (editProvinceCode
-                        ? "Chọn quận/huyện"
+                        ? "Chọn khu vực"
                         : "Chọn tỉnh/thành phố trước")}
                   </Text>
                   {loadingEditDistricts ? (
-                    <Text className="text-xs text-gray-500 mt-1">Đang tải quận/huyện...</Text>
+                    <Text className="text-xs text-gray-500 mt-1">Đang tải khu vực...</Text>
                   ) : null}
                 </View>
                 {loadingEditDistricts ? (
@@ -768,7 +784,7 @@ export default function OwnerClusterDetail() {
                     {editForm.district ||
                       (editAreaDistrictCode
                         ? "Chọn phường/xã"
-                        : "Chọn quận/huyện trước")}
+                        : "Chọn khu vực trước")}
                   </Text>
                   {loadingEditWards ? (
                     <Text className="text-xs text-gray-500 mt-1">Đang tải phường/xã...</Text>
@@ -859,7 +875,7 @@ export default function OwnerClusterDetail() {
               </TouchableOpacity>
             </ScrollView>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
 
       <Modal
@@ -940,7 +956,7 @@ export default function OwnerClusterDetail() {
           <View className="bg-white rounded-t-3xl max-h-[70%]">
             <View className="flex-row items-center justify-between p-4 border-b border-gray-200">
               <View className="flex-1 pr-3">
-                <Text className="text-base font-semibold text-black">Chọn Quận/Huyện</Text>
+                <Text className="text-base font-semibold text-black">Chọn khu vực</Text>
                 <Text className="text-xs text-gray-500 mt-1">
                   {editForm.city || "Chưa chọn tỉnh/thành phố"}
                 </Text>
@@ -955,7 +971,7 @@ export default function OwnerClusterDetail() {
                 <Ionicons name="search" size={18} color="#667085" />
                 <TextInput
                   className="flex-1 ml-2 text-[15px] text-black"
-                  placeholder="Tìm quận/huyện..."
+                  placeholder="Tìm khu vực..."
                   placeholderTextColor="#8391A1"
                   value={editDistrictSearch}
                   onChangeText={setEditDistrictSearch}
@@ -972,7 +988,7 @@ export default function OwnerClusterDetail() {
             {loadingEditDistricts ? (
               <View className="items-center py-8">
                 <ActivityIndicator size="large" color="#114F99" />
-                <Text className="text-gray-600 mt-3">Đang tải quận/huyện...</Text>
+                <Text className="text-gray-600 mt-3">Đang tải khu vực...</Text>
               </View>
             ) : (
               <FlatList
@@ -1001,7 +1017,7 @@ export default function OwnerClusterDetail() {
                 }}
                 ListEmptyComponent={
                   <Text className="text-center text-gray-500 py-6">
-                    Không tìm thấy quận/huyện phù hợp.
+                    Không tìm thấy khu vực phù hợp.
                   </Text>
                 }
               />
@@ -1022,7 +1038,7 @@ export default function OwnerClusterDetail() {
               <View className="flex-1 pr-3">
                 <Text className="text-base font-semibold text-black">Chọn Phường/Xã</Text>
                 <Text className="text-xs text-gray-500 mt-1">
-                  {editAreaDistrictName || "Chưa chọn quận/huyện"}
+                  {editAreaDistrictName || "Chưa chọn khu vực"}
                 </Text>
               </View>
               <TouchableOpacity onPress={() => setShowEditWardModal(false)}>
@@ -1107,7 +1123,7 @@ export default function OwnerClusterDetail() {
               </TouchableOpacity>
             </View>
 
-            <ScrollView>
+            <ScrollView keyboardShouldPersistTaps="handled">
               {TIME_OPTIONS.map((timeValue) => {
                 const isActive =
                   (timePickerTarget === "open" && editForm.open_time === timeValue) ||

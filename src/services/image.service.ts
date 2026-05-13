@@ -40,6 +40,14 @@ const IMAGE_RULES: Record<
 };
 
 class ImageService {
+  private getBaseUrls() {
+    return [API_CONFIG.BASE_URL, ...(API_CONFIG.FALLBACK_BASE_URLS || [])];
+  }
+
+  private shouldTryNextBaseUrl(response: Response) {
+    return response.status === 408 || response.status === 429 || response.status >= 500;
+  }
+
   async getImagesByContext(type: ImageType, entityId: number): Promise<ImageItem[]> {
     const response = await apiClient.get<GetImagesResponse>("/images", {
       params: {
@@ -106,12 +114,15 @@ class ImageService {
       throw new Error(`Thiếu mã đối tượng (entity_id) hợp lệ cho loại tải ảnh: ${type}`);
     }
 
-    const formData = new FormData();
-    formData.append("file", {
-      uri: fileUri,
-      name: fileName || `upload-${Date.now()}.jpg`,
-      type: normalizedMimeType,
-    } as any);
+    const buildFormData = () => {
+      const formData = new FormData();
+      formData.append("file", {
+        uri: fileUri,
+        name: fileName || `upload-${Date.now()}.jpg`,
+        type: normalizedMimeType,
+      } as any);
+      return formData;
+    };
 
     const params = new URLSearchParams({
       type,
@@ -121,27 +132,56 @@ class ImageService {
       params.append("entity_id", String(entityId));
     }
 
-    const response = await fetch(
-      `${API_CONFIG.BASE_URL}/images?${params.toString()}`,
-      {
-        method: "POST",
-        headers: {
-          accept: "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: formData,
-      }
-    );
+    const baseUrls = this.getBaseUrls();
+    let lastError: unknown = null;
 
-    const payload = (await response.json().catch(() => ({}))) as Partial<UploadImageResponse>;
-    if (!response.ok || !payload?.data?.url) {
-      const message =
-        payload?.errors?.msg?.[0] ||
-        `Upload image failed: ${response.status} ${response.statusText}`;
-      throw new Error(message);
+    for (let index = 0; index < baseUrls.length; index++) {
+      const baseUrl = baseUrls[index].replace(/\/+$/, "");
+      try {
+        const response = await fetch(
+          `${baseUrl}/images?${params.toString()}`,
+          {
+            method: "POST",
+            headers: {
+              accept: "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: buildFormData(),
+          }
+        );
+
+        const payload = (await response.json().catch(() => ({}))) as Partial<UploadImageResponse>;
+        if (!response.ok || !payload?.data?.url) {
+          if (this.shouldTryNextBaseUrl(response) && index < baseUrls.length - 1) {
+            lastError = new Error(`Upload image failed: ${response.status} ${response.statusText}`);
+            continue;
+          }
+
+          const message =
+            payload?.errors?.msg?.[0] ||
+            `Upload image failed: ${response.status} ${response.statusText}`;
+          const terminalError = new Error(message) as Error & { skipFallback?: boolean };
+          terminalError.skipFallback = true;
+          throw terminalError;
+        }
+
+        return payload.data;
+      } catch (error) {
+        if (error instanceof Error && (error as Error & { skipFallback?: boolean }).skipFallback) {
+          throw error;
+        }
+
+        lastError = error;
+        if (index < baseUrls.length - 1) {
+          continue;
+        }
+      }
     }
 
-    return payload.data;
+    if (lastError instanceof Error) {
+      throw lastError;
+    }
+    throw new Error("Không thể tải ảnh lên");
   }
 
   async deleteImage(type: "field" | "cluster", imageId: number, entityId: number): Promise<void> {

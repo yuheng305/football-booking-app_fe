@@ -5,6 +5,9 @@ import {
   TextInput,
   Alert,
   ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -12,6 +15,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useEffect, useState } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { fieldService } from "@/src/services/field.service";
+import { resolveOwnerAddFieldBackTarget } from "@/src/utils/owner-stadium-navigation.util";
 import { SPORT_TYPE_PICKER_OPTIONS } from "@/src/utils/sport-type.util";
 import AppPopup from "@/component/AppPopup";
 
@@ -108,10 +112,7 @@ export default function AddField() {
 
   const closeSuccessModal = () => {
     setSuccessModalVisible(false);
-    router.push({
-      pathname: "/(owners)/(stadium)/stadiumManagement",
-      params: { clusterId: String(resolvedClusterId) },
-    });
+    router.replace(resolveOwnerAddFieldBackTarget(resolvedClusterId) as never);
   };
 
   if (loading) {
@@ -129,12 +130,7 @@ export default function AddField() {
       <View className="flex-row items-center px-4 pt-4">
         <TouchableOpacity
           className="w-10 h-10 bg-white border border-gray-200 rounded-xl items-center justify-center"
-          onPress={() =>
-            router.push({
-              pathname: "/(owners)/(stadium)/stadiumManagement",
-              params: { clusterId: String(resolvedClusterId) },
-            })
-          }
+          onPress={() => router.replace(resolveOwnerAddFieldBackTarget(resolvedClusterId) as never)}
         >
           <Ionicons name="arrow-back" size={20} color="#1E232C" />
         </TouchableOpacity>
@@ -146,7 +142,17 @@ export default function AddField() {
         <View className="w-10 h-10" />
       </View>
 
-      <View className="px-4 mt-8">
+      <KeyboardAvoidingView
+        className="flex-1"
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        keyboardVerticalOffset={Platform.OS === "ios" ? 12 : 0}
+      >
+        <ScrollView
+          className="flex-1 px-4"
+          contentContainerStyle={{ paddingTop: 32, paddingBottom: 32 }}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
         <View className="mb-6">
           <Text className="text-black text-[15px] font-medium mb-2">
             Tên sân / size
@@ -229,7 +235,8 @@ export default function AddField() {
         >
           <Text className="text-white text-xl font-semibold">Thêm</Text>
         </TouchableOpacity>
-      </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
 
       <AppPopup
         visible={successModalVisible}

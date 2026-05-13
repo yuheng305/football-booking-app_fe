@@ -3,7 +3,9 @@ import {
   ActivityIndicator,
   Alert,
   FlatList,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   ScrollView,
   Text,
   TextInput,
@@ -16,6 +18,10 @@ import { useRouter } from "expo-router";
 
 import { clusterService } from "@/src/services/cluster.service";
 import type { CreateClusterRequest } from "@/src/types/cluster.types";
+import {
+  ownerClusterDetailTarget,
+  resolveOwnerClusterCreateBackTarget,
+} from "@/src/utils/owner-stadium-navigation.util";
 import { SPORT_TYPE_PICKER_OPTIONS } from "@/src/utils/sport-type.util";
 
 const SPORT_TYPE_OPTIONS = SPORT_TYPE_PICKER_OPTIONS;
@@ -132,7 +138,7 @@ export default function CreateClusterScreen() {
         setDistricts(data.districts || []);
       } catch {
         setDistricts([]);
-        Alert.alert("Lỗi", "Không thể tải danh sách quận/huyện. Vui lòng thử lại.");
+        Alert.alert("Lỗi", "Không thể tải danh sách khu vực. Vui lòng thử lại.");
       } finally {
         setLoadingDistricts(false);
       }
@@ -200,7 +206,7 @@ export default function CreateClusterScreen() {
     if (!name.trim()) return "Vui lòng nhập tên cụm sân.";
     if (!street.trim()) return "Vui lòng nhập số nhà, đường.";
     if (!city.trim()) return "Vui lòng chọn tỉnh/thành phố.";
-    if (!selectedAreaDistrictCode) return "Vui lòng chọn quận/huyện để lấy danh sách phường/xã.";
+    if (!selectedAreaDistrictCode) return "Vui lòng chọn khu vực để lấy danh sách phường/xã.";
     if (!district.trim()) return "Vui lòng chọn phường/xã.";
     if (selectedSportTypeIds.length === 0) {
       return "Vui lòng chọn ít nhất 1 môn thể thao.";
@@ -245,10 +251,7 @@ export default function CreateClusterScreen() {
         {
           text: "Xem chi tiết",
           onPress: () =>
-            router.replace({
-              pathname: "/(owners)/(stadium)/clusterDetail",
-              params: { id: String(created.id) },
-            }),
+            router.replace(ownerClusterDetailTarget(created.id) as never),
         },
         {
           text: "Ở lại",
@@ -295,7 +298,7 @@ export default function CreateClusterScreen() {
       <View className="flex-row items-center px-4 pt-4">
         <TouchableOpacity
           className="w-10 h-10 bg-white border border-gray-200 rounded-xl items-center justify-center"
-          onPress={() => router.back()}
+          onPress={() => router.replace(resolveOwnerClusterCreateBackTarget() as never)}
           disabled={submitting}
         >
           <Ionicons name="arrow-back" size={20} color="#1E232C" />
@@ -306,7 +309,16 @@ export default function CreateClusterScreen() {
         </Text>
       </View>
 
-      <ScrollView className="flex-1 px-4 pt-6" contentContainerStyle={{ paddingBottom: 32 }}>
+      <KeyboardAvoidingView
+        className="flex-1"
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        keyboardVerticalOffset={Platform.OS === "ios" ? 12 : 0}
+      >
+        <ScrollView
+          className="flex-1 px-4 pt-6"
+          contentContainerStyle={{ paddingBottom: 32 }}
+          keyboardShouldPersistTaps="handled"
+        >
         <View className="mb-4">
           <Text className="text-black text-[15px] font-medium mb-2">Tên cụm sân</Text>
           <TextInput
@@ -378,7 +390,7 @@ export default function CreateClusterScreen() {
         </View>
 
         <View className="mb-4">
-          <Text className="text-black text-[15px] font-medium mb-2">Quận/Huyện</Text>
+          <Text className="text-black text-[15px] font-medium mb-2">Khu vực</Text>
           <TouchableOpacity
             className={`border rounded-lg p-4 flex-row items-center justify-between ${
               city ? "bg-gray-100 border-gray-300" : "bg-gray-50 border-gray-200"
@@ -392,10 +404,10 @@ export default function CreateClusterScreen() {
                   selectedAreaDistrictName ? "text-black font-semibold" : city ? "text-[#8391A1]" : "text-gray-400"
                 }`}
               >
-                {selectedAreaDistrictName || (city ? "Chọn quận/huyện" : "Chọn tỉnh/thành phố trước")}
+                {selectedAreaDistrictName || (city ? "Chọn khu vực" : "Chọn tỉnh/thành phố trước")}
               </Text>
               {loadingDistricts ? (
-                <Text className="text-xs text-gray-500 mt-1">Đang tải quận/huyện...</Text>
+                <Text className="text-xs text-gray-500 mt-1">Đang tải khu vực...</Text>
               ) : null}
             </View>
             {loadingDistricts ? (
@@ -421,7 +433,7 @@ export default function CreateClusterScreen() {
                   district ? "text-black font-semibold" : selectedAreaDistrictCode ? "text-[#8391A1]" : "text-gray-400"
                 }`}
               >
-                {district || (selectedAreaDistrictCode ? "Chọn phường/xã" : "Chọn quận/huyện trước")}
+                {district || (selectedAreaDistrictCode ? "Chọn phường/xã" : "Chọn khu vực trước")}
               </Text>
               {loadingWards ? (
                 <Text className="text-xs text-gray-500 mt-1">Đang tải phường/xã...</Text>
@@ -477,7 +489,8 @@ export default function CreateClusterScreen() {
             <Text className="text-white font-semibold text-base">Tạo cụm sân</Text>
           )}
         </TouchableOpacity>
-      </ScrollView>
+        </ScrollView>
+      </KeyboardAvoidingView>
 
       <Modal
         visible={showProvinceModal}
@@ -557,7 +570,7 @@ export default function CreateClusterScreen() {
           <View className="bg-white rounded-t-3xl max-h-[70%]">
             <View className="flex-row items-center justify-between p-4 border-b border-gray-200">
               <View className="flex-1 pr-3">
-                <Text className="text-base font-semibold text-black">Chọn Quận/Huyện</Text>
+                <Text className="text-base font-semibold text-black">Chọn khu vực</Text>
                 <Text className="text-xs text-gray-500 mt-1">{city || "Chưa chọn tỉnh/thành phố"}</Text>
               </View>
               <TouchableOpacity onPress={() => setShowDistrictModal(false)}>
@@ -570,7 +583,7 @@ export default function CreateClusterScreen() {
                 <Ionicons name="search" size={18} color="#667085" />
                 <TextInput
                   className="flex-1 ml-2 text-[15px] text-black"
-                  placeholder="Tìm quận/huyện..."
+                  placeholder="Tìm khu vực..."
                   placeholderTextColor="#8391A1"
                   value={districtSearch}
                   onChangeText={setDistrictSearch}
@@ -587,7 +600,7 @@ export default function CreateClusterScreen() {
             {loadingDistricts ? (
               <View className="items-center py-8">
                 <ActivityIndicator size="large" color="#114F99" />
-                <Text className="text-gray-600 mt-3">Đang tải quận/huyện...</Text>
+                <Text className="text-gray-600 mt-3">Đang tải khu vực...</Text>
               </View>
             ) : (
               <FlatList
@@ -616,7 +629,7 @@ export default function CreateClusterScreen() {
                 }}
                 ListEmptyComponent={
                   <Text className="text-center text-gray-500 py-6">
-                    Không tìm thấy quận/huyện phù hợp.
+                    Không tìm thấy khu vực phù hợp.
                   </Text>
                 }
               />
@@ -636,7 +649,7 @@ export default function CreateClusterScreen() {
             <View className="flex-row items-center justify-between p-4 border-b border-gray-200">
               <View className="flex-1 pr-3">
                 <Text className="text-base font-semibold text-black">Chọn Phường/Xã</Text>
-                <Text className="text-xs text-gray-500 mt-1">{selectedAreaDistrictName || "Chưa chọn quận/huyện"}</Text>
+                <Text className="text-xs text-gray-500 mt-1">{selectedAreaDistrictName || "Chưa chọn khu vực"}</Text>
               </View>
               <TouchableOpacity onPress={() => setShowWardModal(false)}>
                 <Ionicons name="close" size={22} color="#667085" />
@@ -720,7 +733,7 @@ export default function CreateClusterScreen() {
               </TouchableOpacity>
             </View>
 
-            <ScrollView>
+            <ScrollView keyboardShouldPersistTaps="handled">
               {TIME_OPTIONS.map((timeValue) => {
                 const isActive =
                   (timePickerTarget === "open" && openTime === timeValue) ||

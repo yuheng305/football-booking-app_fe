@@ -105,7 +105,7 @@ const CreateClub = () => {
             />
             <TextInput
               className="flex-1 ml-3 text-base text-gray-900"
-              placeholder="VD: Quận 1, TP. Hồ Chí Minh"
+              placeholder="VD: Phường Bến Nghé, TP. Hồ Chí Minh"
               value={address}
               onChangeText={setAddress}
               placeholderTextColor="#9ca3af"

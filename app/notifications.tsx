@@ -1,7 +1,7 @@
-import React from "react";
+import React, { useCallback } from "react";
 import { View, Text, ScrollView, TouchableOpacity, RefreshControl } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useRouter } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
 import HeaderWithBack from "../component/HeaderWithBack";
 import { useNotifications } from "@/src/context/notifications.context";
 import { NotificationItem } from "@/src/types/notification.types";
@@ -23,6 +23,12 @@ const formatTime = (dateValue?: string) => {
 export default function NotificationsScreen() {
   const router = useRouter();
   const { notifications, loading, refreshNotifications, markAsRead } = useNotifications();
+
+  useFocusEffect(
+    useCallback(() => {
+      refreshNotifications();
+    }, [refreshNotifications])
+  );
 
   const getCurrentUserRole = async (): Promise<string | null> => {
     try {

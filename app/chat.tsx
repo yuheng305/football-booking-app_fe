@@ -47,6 +47,51 @@ const resolveCurrentUserId = async (): Promise<number | null> => {
   }
 };
 
+const getMessageTimestamp = (message?: ChatMessage) => {
+  const date = new Date(message?.created_at || "");
+  return Number.isNaN(date.getTime()) ? null : date;
+};
+
+const isSameMessageDay = (left?: ChatMessage, right?: ChatMessage) => {
+  const leftDate = getMessageTimestamp(left);
+  const rightDate = getMessageTimestamp(right);
+  if (!leftDate || !rightDate) {
+    return false;
+  }
+
+  return (
+    leftDate.getFullYear() === rightDate.getFullYear() &&
+    leftDate.getMonth() === rightDate.getMonth() &&
+    leftDate.getDate() === rightDate.getDate()
+  );
+};
+
+const formatMessageDateHeader = (message?: ChatMessage) => {
+  const date = getMessageTimestamp(message);
+  if (!date) {
+    return "";
+  }
+
+  const today = new Date();
+  const yesterday = new Date();
+  yesterday.setDate(today.getDate() - 1);
+
+  if (isSameMessageDay({ created_at: today.toISOString() } as ChatMessage, message)) {
+    return "Hôm nay";
+  }
+
+  if (isSameMessageDay({ created_at: yesterday.toISOString() } as ChatMessage, message)) {
+    return "Hôm qua";
+  }
+
+  return date.toLocaleDateString("vi-VN", {
+    weekday: "long",
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
+};
+
 export default function ChatScreen() {
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ receiverId?: string; name?: string }>();
@@ -275,22 +320,34 @@ export default function ChatScreen() {
             keyExtractor={(item) => String(item.id)}
             contentContainerStyle={{ paddingHorizontal: 12, paddingVertical: 10, paddingBottom: 20 }}
             keyboardShouldPersistTaps="handled"
-            renderItem={({ item }) => {
+            renderItem={({ item, index }) => {
               const mine = item.sender_id === currentUserId;
+              const showDateHeader = index === 0 || !isSameMessageDay(messages[index - 1], item);
               return (
-                <View className={`mb-2 ${mine ? "items-end" : "items-start"}`}>
-                  <View
-                    className={`max-w-[82%] px-3 py-2 rounded-2xl ${mine ? "bg-blue-600" : "bg-white border border-gray-200"}`}
-                  >
-                    <Text className={`${mine ? "text-white" : "text-gray-900"}`}>
-                      {item.content}
-                    </Text>
-                    <Text className={`text-xs mt-1 ${mine ? "text-blue-100" : "text-gray-400"}`}>
-                      {new Date(item.created_at).toLocaleTimeString("vi-VN", {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
-                    </Text>
+                <View>
+                  {showDateHeader ? (
+                    <View className="items-center my-3">
+                      <View className="bg-white/90 border border-gray-200 rounded-full px-3 py-1">
+                        <Text className="text-xs font-semibold text-gray-500">
+                          {formatMessageDateHeader(item)}
+                        </Text>
+                      </View>
+                    </View>
+                  ) : null}
+                  <View className={`mb-2 ${mine ? "items-end" : "items-start"}`}>
+                    <View
+                      className={`max-w-[82%] px-3 py-2 rounded-2xl ${mine ? "bg-blue-600" : "bg-white border border-gray-200"}`}
+                    >
+                      <Text className={`${mine ? "text-white" : "text-gray-900"}`}>
+                        {item.content}
+                      </Text>
+                      <Text className={`text-xs mt-1 ${mine ? "text-blue-100" : "text-gray-400"}`}>
+                        {new Date(item.created_at).toLocaleTimeString("vi-VN", {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                      </Text>
+                    </View>
                   </View>
                 </View>
               );

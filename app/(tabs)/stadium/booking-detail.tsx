@@ -306,7 +306,7 @@ const BookingDetail = () => {
         return "Đặt sân của bạn đang chờ chủ sân xác nhận. Vui lòng đợi trước khi thanh toán.";
       case "approved":
       case "confirmed":
-        return "Đơn đã được xác nhận nhưng CHƯA thanh toán. Vui lòng thanh toán ZaloPay để hoàn tất.";
+        return "Đơn đặt sân đang chờ thanh toán. Vui lòng thanh toán ZaloPay để hoàn tất.";
       case "payment_required":
         return "Đơn đặt sân đang chờ thanh toán. Vui lòng thanh toán ZaloPay để giữ lịch.";
       case "rejected":
@@ -447,7 +447,7 @@ const BookingDetail = () => {
                   {getStatusNotice(booking.status)}
                 </Text>
                 <Text className="text-blue-700 mt-2">
-                  Quy trình: 1) Đặt sân thành công. 2) Chờ chủ sân xác nhận. 3) Khi trạng thái là Đã xác nhận hoặc Chờ thanh toán, bạn có thể bấm Thanh toán ZaloPay.
+                  Quy trình: 1) Đặt sân thành công. 2) Chờ chủ sân xác nhận. 3) Khi trạng thái là Chờ thanh toán, bạn có thể bấm Thanh toán ZaloPay.
                 </Text>
               </View>
             </View>

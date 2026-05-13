@@ -33,7 +33,7 @@ export const getBookingStatusMeta = (status?: string | null): BookingStatusMeta 
     case "approved":
       return {
         normalized,
-        label: "Cần thanh toán",
+        label: "Chờ thanh toán",
         textColorClass: "text-orange-600",
         badgeClass: "bg-orange-100 text-orange-700",
       };

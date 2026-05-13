@@ -14,6 +14,10 @@ import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { clusterService } from "@/src/services/cluster.service";
 import type { Cluster } from "@/src/types/cluster.types";
+import {
+  ownerClusterDetailTarget,
+  resolveOwnerClusterListBackTarget,
+} from "@/src/utils/owner-stadium-navigation.util";
 
 const formatTime = (value?: string) => {
   if (!value) return "--:--";
@@ -125,7 +129,7 @@ export default function OwnerClusterListScreen() {
       <View className="flex-row items-center px-4 pt-4 pb-2 bg-white">
         <TouchableOpacity
           className="w-10 h-10 bg-white border border-gray-200 rounded-xl items-center justify-center"
-          onPress={() => router.back()}
+          onPress={() => router.replace(resolveOwnerClusterListBackTarget() as never)}
         >
           <Ionicons name="arrow-back" size={20} color="#1E232C" />
         </TouchableOpacity>
@@ -173,12 +177,7 @@ export default function OwnerClusterListScreen() {
                 key={cluster.id}
                 className="bg-white rounded-2xl p-4 border border-gray-100 mb-3"
                 activeOpacity={0.9}
-                onPress={() =>
-                  router.push({
-                    pathname: "/(owners)/(stadium)/clusterDetail",
-                    params: { id: String(cluster.id) },
-                  })
-                }
+                onPress={() => router.push(ownerClusterDetailTarget(cluster.id) as never)}
               >
               <View className="flex-row items-start justify-between">
                 <View className="flex-1 pr-3">

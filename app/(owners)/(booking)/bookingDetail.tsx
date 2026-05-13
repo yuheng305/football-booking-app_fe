@@ -56,18 +56,24 @@ export default function BookingDetail() {
 
   // Map API status to display status
   const mapStatus = (status: string): string => {
-    switch (status) {
+    switch (String(status || "").toLowerCase()) {
       case "confirmed":
-        return "Đã xác nhận";
-      case "completed":
-        return "Hoàn thành";
       case "payment_required":
-      case "pending":
+      case "approved":
         return "Chờ thanh toán";
+      case "pending":
+        return "Chờ duyệt";
+      case "success":
+      case "completed":
+        return "Đã thanh toán";
       case "canceled":
+      case "cancelled":
+      case "expired":
+      case "failed":
+      case "rejected":
         return "Đã hủy";
       default:
-        return status;
+        return "Không xác định";
     }
   };
 
@@ -365,10 +371,14 @@ export default function BookingDetail() {
             className={`text-base font-bold ${
               booking.status === "payment_required"
                 ? "text-[#FF9500]"
-                : booking.status === "confirmed"
+              : booking.status === "confirmed"
+                ? "text-[#FF9500]"
+                : booking.status === "pending"
+                ? "text-[#F59E0B]"
+                : booking.status === "success" || booking.status === "completed"
                 ? "text-[#119916]"
-                : booking.status === "completed"
-                ? "text-[#114F99]"
+                : ["canceled", "cancelled", "expired", "failed", "rejected"].includes(booking.status)
+                ? "text-[#DC2626]"
                 : "text-gray-500"
             }`}
           >
@@ -376,7 +386,7 @@ export default function BookingDetail() {
           </Text>
         </View>
 
-        {(booking.status === "payment_required" || booking.status === "pending") && (
+        {booking.status === "pending" && (
           <View className="flex-row justify-between px-4 mb-6">
             <TouchableOpacity
               className="flex-1 h-12 bg-[#119916] rounded-full items-center justify-center mr-2"

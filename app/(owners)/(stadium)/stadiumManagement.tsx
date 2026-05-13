@@ -16,6 +16,10 @@ import HeaderOwner from "@/component/HeaderOwner";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { fieldService } from "@/src/services/field.service";
 import { legacyApiService } from "@/src/services/legacy-api.service";
+import {
+  ownerAddFieldTarget,
+  resolveOwnerStadiumManagementBackTarget,
+} from "@/src/utils/owner-stadium-navigation.util";
 import { toVietnameseSportType } from "@/src/utils/sport-type.util";
 
 const TEMP_OWNER_CLUSTER_ID = 3;
@@ -46,8 +50,9 @@ export default function StadiumManagement() {
   const router = useRouter();
   const params = useLocalSearchParams<{ clusterId?: string }>();
   const selectedClusterId = Number(params.clusterId);
+  const hasRouteClusterId = Number.isFinite(selectedClusterId) && selectedClusterId > 0;
   const routeClusterId =
-    Number.isFinite(selectedClusterId) && selectedClusterId > 0
+    hasRouteClusterId
       ? selectedClusterId
       : TEMP_OWNER_CLUSTER_ID;
   const [state, setState] = useState<StadiumManagementState>({
@@ -279,7 +284,11 @@ export default function StadiumManagement() {
       <View className="flex-row items-center px-4 pt-4">
         <TouchableOpacity
           className="w-10 h-10 bg-white border border-gray-200 rounded-xl items-center justify-center"
-          onPress={() => router.back()}
+          onPress={() =>
+            router.replace(
+              resolveOwnerStadiumManagementBackTarget(hasRouteClusterId ? routeClusterId : null) as never
+            )
+          }
         >
           <Ionicons name="arrow-back" size={20} color="#1E232C" />
         </TouchableOpacity>
@@ -291,12 +300,7 @@ export default function StadiumManagement() {
         <View className="flex-row items-center gap-2">
           <TouchableOpacity
             className="bg-[#0B8FAC] py-2 px-3 rounded-lg items-center"
-            onPress={() =>
-              router.push({
-                pathname: "/(owners)/(stadium)/addField",
-                params: { clusterId: String(routeClusterId) },
-              })
-            }
+            onPress={() => router.push(ownerAddFieldTarget(routeClusterId) as never)}
           >
             <Text className="text-white text-xs font-semibold">Thêm sân</Text>
           </TouchableOpacity>

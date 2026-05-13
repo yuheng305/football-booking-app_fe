@@ -52,6 +52,26 @@ describe("tab navigation reset", () => {
     ).toBe("/(owners)/(stadium)/clusterList");
   });
 
+  it("resets owner stadium tab from create cluster to cluster list", () => {
+    expect(
+      resolveTabPressResetHref({
+        layout: "owner",
+        routeName: "(stadium)/clusterList",
+        pathname: "/createCluster",
+      })
+    ).toBe("/(owners)/(stadium)/clusterList");
+  });
+
+  it("resets owner stadium tab from child field list to cluster list", () => {
+    expect(
+      resolveTabPressResetHref({
+        layout: "owner",
+        routeName: "(stadium)/clusterList",
+        pathname: "/stadiumManagement",
+      })
+    ).toBe("/(owners)/(stadium)/clusterList");
+  });
+
   it("resets owner management tab from booking detail to management root", () => {
     expect(
       resolveTabPressResetHref({

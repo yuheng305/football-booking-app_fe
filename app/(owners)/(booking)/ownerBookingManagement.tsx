@@ -92,14 +92,15 @@ export default function BookingManagement() {
         return "Chờ duyệt";
       case "confirmed":
       case "approved":
-        return "Đã xác nhận";
       case "payment_required":
         return "Chờ thanh toán";
       case "completed":
       case "success":
-        return "Hoàn thành";
+        return "Đã thanh toán";
       case "canceled":
       case "cancelled":
+      case "expired":
+      case "failed":
       case "rejected":
         return "Đã hủy";
       default:
@@ -110,17 +111,15 @@ export default function BookingManagement() {
   /** Ánh xạ chip UI → query BE (không dùng includes("chờ") — tránh "Chờ thanh toán" → pending). */
   const resolveOwnerBookingStatusQuery = (
     filterKey: string
-  ): BookingStatus | "done_merged" | undefined => {
+  ): BookingStatus | "payable_merged" | "done_merged" | undefined => {
     switch (filterKey) {
       case "All":
         return undefined;
       case "Chờ duyệt":
         return "pending";
-      case "Đã xác nhận":
-        return "confirmed";
       case "Chờ thanh toán":
-        return "payment_required";
-      case "Hoàn thành":
+        return "payable_merged";
+      case "Đã thanh toán":
         return "done_merged";
       case "Đã hủy":
         return "canceled";
@@ -236,14 +235,19 @@ export default function BookingManagement() {
 
       let responseBookings: BookingType[];
 
-      if (statusQuery === "done_merged") {
-        const [resSuccess, resCompleted] = await Promise.all([
-          bookingService.getOwnerBookings({ ...baseParams, status: "success" }),
-          bookingService.getOwnerBookings({ ...baseParams, status: "completed" }),
-        ]);
+      if (statusQuery === "payable_merged" || statusQuery === "done_merged") {
+        const statuses =
+          statusQuery === "payable_merged"
+            ? (["confirmed", "payment_required", "approved"] as const)
+            : (["success", "completed"] as const);
+        const responses = await Promise.all(
+          statuses.map((status) => bookingService.getOwnerBookings({ ...baseParams, status }))
+        );
         const byId = new Map<number, BookingType>();
-        for (const b of [...resSuccess.bookings, ...resCompleted.bookings]) {
-          byId.set(b.id, b);
+        for (const response of responses) {
+          for (const booking of response.bookings) {
+            byId.set(booking.id, booking);
+          }
         }
         responseBookings = Array.from(byId.values());
       } else {
@@ -405,11 +409,12 @@ export default function BookingManagement() {
 
   const formatPaymentStatus = (status: string) => {
     const normalized = String(status || "").toLowerCase();
-    if (normalized === "success" || normalized === "completed") return "Thành công";
+    if (normalized === "success" || normalized === "completed") return "Đã thanh toán";
     if (normalized === "pending") return "Đang chờ";
     if (normalized === "processing" || normalized === "in_progress" || normalized === "pending_payment")
       return "Đang xử lý";
-    if (normalized === "confirmed") return "Đã xác nhận";
+    if (normalized === "confirmed" || normalized === "payment_required" || normalized === "approved")
+      return "Chờ thanh toán";
     if (normalized === "expired") return "Hết hạn";
     if (normalized === "failed" || normalized === "canceled" || normalized === "cancelled")
       return "Thất bại";
@@ -492,7 +497,7 @@ export default function BookingManagement() {
     const s = String(status ?? "").toLowerCase();
     if (s === "all") return "Tất cả";
     if (s === "pending") return "Chờ duyệt";
-    if (s === "confirmed" || s === "payment_required") return "Chờ thanh toán";
+    if (s === "confirmed" || s === "payment_required" || s === "approved") return "Chờ thanh toán";
     if (s === "completed" || s === "success") return "Đã thanh toán";
     if (s === "canceled" || s === "cancelled") return "Đã hủy";
     if (s === "rejected") return "Từ chối";
@@ -771,9 +776,8 @@ export default function BookingManagement() {
             {[
               { label: "Tất cả", value: "All", activeBg: "#114F99", activeText: "#ffffff", border: "#114F99" },
               { label: "Chờ duyệt", value: "Chờ duyệt", activeBg: "#F59E0B", activeText: "#ffffff", border: "#F59E0B" },
-              { label: "Đã xác nhận", value: "Đã xác nhận", activeBg: "#16A34A", activeText: "#ffffff", border: "#16A34A" },
               { label: "Chờ thanh toán", value: "Chờ thanh toán", activeBg: "#0B8FAC", activeText: "#ffffff", border: "#0B8FAC" },
-              { label: "Hoàn thành", value: "Hoàn thành", activeBg: "#8B5CF6", activeText: "#ffffff", border: "#8B5CF6" },
+              { label: "Đã thanh toán", value: "Đã thanh toán", activeBg: "#16A34A", activeText: "#ffffff", border: "#16A34A" },
               { label: "Đã hủy", value: "Đã hủy", activeBg: "#DC2626", activeText: "#ffffff", border: "#DC2626" },
             ].map((item) => {
               const active = filter === item.value;
@@ -845,10 +849,8 @@ export default function BookingManagement() {
                     <View className="mt-2">
                       <Text
                         className={`text-sm font-semibold ${
-                          booking.status === "Đã xác nhận"
+                          booking.status === "Đã thanh toán"
                             ? "text-[#10B981]"
-                            : booking.status === "Hoàn thành"
-                            ? "text-[#8B5CF6]"
                             : booking.status === "Chờ duyệt"
                             ? "text-[#F59E0B]"
                             : booking.status === "Chờ thanh toán"

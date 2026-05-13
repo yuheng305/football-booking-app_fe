@@ -5,18 +5,57 @@
 
 /**
  * API Configuration
- * Read from app.json extra.API_BASE_URL or fallback to default
+ * Read from Expo public env / app.json extra.API_BASE_URL or fallback to default
  */
 
 import Constants from 'expo-constants';
 
 const DEFAULT_API_BASE_URL = "https://datn-be-9zkr.onrender.com/api/v1";
+const GOPITCH_API_BASE_URL = "https://gopitch.site/api/v1";
 
-// Get API URL from app.json extra config
-const API_BASE_URL = Constants.expoConfig?.extra?.API_BASE_URL || DEFAULT_API_BASE_URL;
+const splitBaseUrls = (value?: string) =>
+  String(value || "")
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+
+const uniqueBaseUrls = (urls: string[]) => {
+  const seen = new Set<string>();
+  return urls.filter((url) => {
+    const normalized = url.replace(/\/+$/, "");
+    if (seen.has(normalized)) return false;
+    seen.add(normalized);
+    return true;
+  });
+};
+
+const getApiBaseUrl = () => {
+  const publicEnvUrl = process.env.EXPO_PUBLIC_API_BASE_URL?.trim();
+  const extraApiUrl = Constants.expoConfig?.extra?.API_BASE_URL?.trim();
+  const extraLegacyEnvUrl = Constants.expoConfig?.extra?.EXPO_API_BASE_URL?.trim();
+
+  return publicEnvUrl || extraApiUrl || extraLegacyEnvUrl || DEFAULT_API_BASE_URL;
+};
+
+const API_BASE_URL = getApiBaseUrl();
+
+const getApiFallbackBaseUrls = () => {
+  const publicEnvUrls = splitBaseUrls(process.env.EXPO_PUBLIC_API_FALLBACK_BASE_URLS);
+  const extraFallbackUrls = splitBaseUrls(
+    Constants.expoConfig?.extra?.API_FALLBACK_BASE_URLS
+  );
+
+  return uniqueBaseUrls([
+    ...publicEnvUrls,
+    ...extraFallbackUrls,
+    GOPITCH_API_BASE_URL,
+    DEFAULT_API_BASE_URL,
+  ]).filter((url) => url.replace(/\/+$/, "") !== API_BASE_URL.replace(/\/+$/, ""));
+};
 
 export const API_CONFIG = {
   BASE_URL: API_BASE_URL,
+  FALLBACK_BASE_URLS: getApiFallbackBaseUrls(),
   LEGACY_BASE_URL: API_BASE_URL,
   AUTH_ENDPOINTS: {
     LOGIN: "/auth/login",

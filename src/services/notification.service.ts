@@ -122,11 +122,6 @@ class NotificationService {
   }
 
   async markAsRead(notificationId: number): Promise<boolean> {
-    const token = await AsyncStorage.getItem("authToken");
-    if (!token) {
-      return false;
-    }
-
     const markAsReadEndpoint = API_CONFIG.NOTIFICATION_ENDPOINTS.MARK_AS_READ.replace(
       ":id",
       String(notificationId)
@@ -137,42 +132,22 @@ class NotificationService {
       String(notificationId)
     );
 
-    const readUrl = `${API_CONFIG.BASE_URL}${markAsReadEndpoint}`;
-    const readResponse = await fetch(readUrl, {
-      method: "PUT",
-      headers: {
-        accept: "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-    });
-
-    if (readResponse.ok) {
+    try {
+      await apiClient.put(markAsReadEndpoint, undefined, {
+        headers: { accept: "application/json" },
+      });
       return true;
+    } catch (readError) {
+      if (!this.isRetryableMarkReadError(readError)) {
+        throw readError;
+      }
     }
 
     // Backward-compatible fallback for environments still using generic update endpoint.
-    const updateUrl = `${API_CONFIG.BASE_URL}${updateEndpoint}`;
-    const fallbackResponse = await fetch(updateUrl, {
-      method: "PATCH",
-      headers: {
-        accept: "application/json",
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({ status: "read" }),
+    await apiClient.patch(updateEndpoint, { status: "read" }, {
+      headers: { accept: "application/json" },
     });
-
-    if (fallbackResponse.ok) {
-      return true;
-    }
-
-    const errorData = await readResponse.json().catch(() => ({}));
-    const message =
-      errorData?.errors?.msg?.[0] ||
-      errorData?.detail ||
-      errorData?.message ||
-      `Mark notification read failed: ${readResponse.status}`;
-    throw new Error(message);
+    return true;
   }
 }
 

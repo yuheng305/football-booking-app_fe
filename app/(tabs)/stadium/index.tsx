@@ -831,14 +831,14 @@ const Location = () => {
           {/* District Selector */}
           {selectedProvince && (
             <View className="mb-3">
-              <Text className="text-sm text-gray-600 mb-1">Quận/Huyện</Text>
+              <Text className="text-sm text-gray-600 mb-1">Khu vực</Text>
               <TouchableOpacity
                 className="flex-row items-center justify-between bg-gray-50 border border-gray-300 rounded-lg px-4 py-3"
                 onPress={() => setShowDistrictModal(true)}
                 disabled={districts.length === 0}
               >
                 <Text className={selectedDistrictName ? "text-gray-900" : "text-gray-400"}>
-                  {selectedDistrictName || "Chọn quận/huyện"}
+                  {selectedDistrictName || "Chọn khu vực"}
                 </Text>
                 <Ionicons name="chevron-down" size={20} color="#666" />
               </TouchableOpacity>
@@ -1073,7 +1073,7 @@ const Location = () => {
         <View className="flex-1 bg-black/50 justify-end">
           <View className="bg-white rounded-t-3xl max-h-[70%]">
             <View className="flex-row items-center justify-between p-4 border-b border-gray-200">
-              <Text className="text-lg font-semibold">Chọn Quận/Huyện</Text>
+              <Text className="text-lg font-semibold">Chọn khu vực</Text>
               <TouchableOpacity onPress={() => setShowDistrictModal(false)}>
                 <Ionicons name="close" size={24} color="#666" />
               </TouchableOpacity>
@@ -1084,7 +1084,7 @@ const Location = () => {
                 <Ionicons name="search" size={20} color="#666" />
                 <TextInput
                   className="flex-1 ml-2 text-base"
-                  placeholder="Tìm kiếm quận/huyện..."
+                  placeholder="Tìm kiếm khu vực..."
                   value={districtSearch}
                   onChangeText={setDistrictSearch}
                 />

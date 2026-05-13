@@ -11,11 +11,13 @@ interface RequestOptions extends RequestInit {
 
 class ApiClient {
   private baseURL: string;
+  private fallbackBaseURLs: string[];
   private defaultHeaders: Record<string, string>;
   private refreshTokenPromise: Promise<string | null> | null;
 
   constructor() {
     this.baseURL = API_CONFIG.BASE_URL;
+    this.fallbackBaseURLs = API_CONFIG.FALLBACK_BASE_URLS || [];
     this.defaultHeaders = {
       "Content-Type": "application/json",
     };
@@ -58,7 +60,7 @@ class ApiClient {
     );
   }
 
-  private async tryRefreshAccessToken(): Promise<string | null> {
+  private async tryRefreshAccessToken(baseURL = this.baseURL): Promise<string | null> {
     if (this.refreshTokenPromise) {
       return this.refreshTokenPromise;
     }
@@ -69,7 +71,7 @@ class ApiClient {
         return null;
       }
 
-      const refreshUrl = this.buildURL(API_CONFIG.AUTH_ENDPOINTS.REFRESH);
+      const refreshUrl = this.buildURL(API_CONFIG.AUTH_ENDPOINTS.REFRESH, undefined, baseURL);
       const refreshResponse = await fetch(refreshUrl, {
         method: "POST",
         headers: {
@@ -117,8 +119,12 @@ class ApiClient {
   /**
    * Build full URL with query parameters
    */
-  private buildURL(endpoint: string, params?: Record<string, string | number>): string {
-    let url = `${this.baseURL}${endpoint}`;
+  private buildURL(
+    endpoint: string,
+    params?: Record<string, string | number>,
+    baseURL = this.baseURL
+  ): string {
+    let url = `${baseURL.replace(/\/+$/, "")}${endpoint}`;
     if (params) {
       const queryString = new URLSearchParams(
         Object.entries(params).map(([key, value]) => [key, String(value)])
@@ -128,6 +134,10 @@ class ApiClient {
     return url;
   }
 
+  private shouldTryNextBaseUrl(response: Response): boolean {
+    return response.status === 408 || response.status === 429 || response.status >= 500;
+  }
+
   /**
    * Generic request method
    */
@@ -135,8 +145,9 @@ class ApiClient {
     endpoint: string,
     options: RequestOptions = {}
   ): Promise<T> {
-    const url = this.buildURL(endpoint, options.params);
-    console.log(`[API] ${options.method || 'GET'} ${url}`);
+    const baseURLs = [this.baseURL, ...this.fallbackBaseURLs];
+    const method = options.method || "GET";
+    console.log(`[API] ${method} ${endpoint}`);
 
     const optionHeaders = (options.headers ?? {}) as Record<string, string>;
     const hasAuthorizationHeader =
@@ -159,53 +170,82 @@ class ApiClient {
       },
     };
 
-    try {
-      let response = await fetch(url, requestOptions);
-      console.log(`[API] Response status: ${response.status}`);
+    let lastError: unknown = null;
 
-      // 401: chuẩn hết hạn token; một số BE trả 403 cho JWT không hợp lệ / hết hạn
-      const authLooksStale =
-        (response.status === 401 || response.status === 403) &&
-        !this.shouldSkipRefresh(endpoint);
+    for (let index = 0; index < baseURLs.length; index++) {
+      const baseURL = baseURLs[index];
+      const url = this.buildURL(endpoint, options.params, baseURL);
 
-      if (authLooksStale) {
-        const refreshedAccessToken = await this.tryRefreshAccessToken();
+      try {
+        console.log(`[API] ${method} ${url}`);
+        let response = await fetch(url, requestOptions);
+        console.log(`[API] Response status: ${response.status}`);
 
-        if (refreshedAccessToken) {
-          const retryHeaders = {
-            ...(requestOptions.headers as Record<string, string>),
-            Authorization: `Bearer ${refreshedAccessToken}`,
-          };
+        // 401: chuẩn hết hạn token; một số BE trả 403 cho JWT không hợp lệ / hết hạn
+        const authLooksStale =
+          (response.status === 401 || response.status === 403) &&
+          !this.shouldSkipRefresh(endpoint);
 
-          response = await fetch(url, {
-            ...requestOptions,
-            headers: retryHeaders,
-          });
-          console.log(`[API] Retry response status: ${response.status}`);
+        if (authLooksStale) {
+          const refreshedAccessToken = await this.tryRefreshAccessToken(baseURL);
+
+          if (refreshedAccessToken) {
+            const retryHeaders = {
+              ...(requestOptions.headers as Record<string, string>),
+              Authorization: `Bearer ${refreshedAccessToken}`,
+            };
+
+            response = await fetch(url, {
+              ...requestOptions,
+              headers: retryHeaders,
+            });
+            console.log(`[API] Retry response status: ${response.status}`);
+          }
+        }
+
+        // Handle response
+        if (!response.ok) {
+          if (this.shouldTryNextBaseUrl(response) && index < baseURLs.length - 1) {
+            console.warn(
+              `[API] ${response.status} from ${baseURL}, trying fallback ${baseURLs[index + 1]}`
+            );
+            lastError = new Error(`API Error: ${response.status} ${response.statusText}`);
+            continue;
+          }
+
+          const errorData = await this.parseJson(response);
+          console.error(`[API] Error response:`, errorData);
+          const message =
+            errorData?.errors?.msg?.[0] ||
+            errorData?.detail ||
+            errorData?.message ||
+            `API Error: ${response.status} ${response.statusText}`;
+          const terminalError = new Error(message) as Error & { skipFallback?: boolean };
+          terminalError.skipFallback = true;
+          throw terminalError;
+        }
+
+        const data: T = await response.json();
+        return data;
+      } catch (error) {
+        console.error(`[API] Request failed for ${url}:`, error);
+        if (error instanceof Error && (error as Error & { skipFallback?: boolean }).skipFallback) {
+          throw new Error(error.message);
+        }
+
+        lastError = error;
+
+        if (index < baseURLs.length - 1) {
+          console.warn(`[API] Trying fallback ${baseURLs[index + 1]}`);
+          continue;
         }
       }
-
-      // Handle response
-      if (!response.ok) {
-        const errorData = await this.parseJson(response);
-        console.error(`[API] Error response:`, errorData);
-        const message =
-          errorData?.errors?.msg?.[0] ||
-          errorData?.detail ||
-          errorData?.message ||
-          `API Error: ${response.status} ${response.statusText}`;
-        throw new Error(message);
-      }
-
-      const data: T = await response.json();
-      return data;
-    } catch (error) {
-      console.error(`[API] Request failed for ${url}:`, error);
-      if (error instanceof Error) {
-        throw new Error(error.message);
-      }
-      throw new Error("Đã xảy ra lỗi không xác định");
     }
+
+    if (lastError instanceof Error) {
+      throw new Error(lastError.message);
+    }
+    throw new Error("Đã xảy ra lỗi không xác định");
   }
 
   /**

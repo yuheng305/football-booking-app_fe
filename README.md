@@ -27,20 +27,20 @@ You can start developing by editing the files inside the **app** directory. This
 `
 ## Environment variables
 
-This project reads the API base URL from environment variables. The code will use the first value available in this order:
+This project reads the API base URL from Expo public environment variables / `app.json`. The code will use the first value available in this order:
 
-- `EXPO_API_BASE_URL` (preferred for Expo builds)
-- `API_BASE_URL`
+- `EXPO_PUBLIC_API_BASE_URL` (preferred for Expo client builds)
+- `expo.extra.API_BASE_URL` in `app.json`
+- `expo.extra.EXPO_API_BASE_URL` in `app.json`
 - Fallback to the default configured in `src/config/api.config.ts`
 
 To configure locally, copy `.env.example` to `.env` and edit the values. Example:
 
 ```env
-EXPO_API_BASE_URL=https://your-api.example.com/api/v1
-API_BASE_URL=https://your-api.example.com/api/v1
+EXPO_PUBLIC_API_BASE_URL=https://your-api.example.com/api/v1
 ```
 
-If you're using CI/CD, set `EXPO_API_BASE_URL` or `API_BASE_URL` in your build environment.
+If you're using CI/CD/EAS, set `EXPO_PUBLIC_API_BASE_URL` in your build environment, or keep `expo.extra.API_BASE_URL` in `app.json`. If the API is HTTP instead of HTTPS, Android APK builds need `android.usesCleartextTraffic: true`.
 
 ## Get a fresh project
 
