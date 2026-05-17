@@ -2,7 +2,9 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   ScrollView,
   Text,
   TextInput,
@@ -69,7 +71,12 @@ const expandRangeToHalfHourSlots = (startTime: string, endTime: string): string[
   return results;
 };
 
-const toISODate = (date: Date) => date.toISOString().slice(0, 10);
+const toISODate = (date: Date): string => {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+};
 
 const addDays = (dateStr: string, days: number) => {
   const date = new Date(`${dateStr}T00:00:00`);
@@ -84,7 +91,7 @@ const QUICK_DATE_PRESETS = [
   { label: "+7 ngày", offset: 7 },
 ];
 
-const todayISO = new Date().toISOString().slice(0, 10);
+const todayISO = toISODate(new Date());
 
 const SPORT_TYPE_ID_MAP: Record<TournamentSportType, number> = {
   football: 1,
@@ -369,7 +376,7 @@ export default function TournamentVenueScreen() {
     })();
 
     if (selectedSlots.length === 0) {
-      Alert.alert("Khung giờ chưa hợp lệ", "Vui lòng chọn lại một range thời gian.");
+      Alert.alert("Khung giờ chưa hợp lệ", "Vui lòng chọn lại một khoảng thời gian.");
       return;
     }
 
@@ -445,7 +452,7 @@ export default function TournamentVenueScreen() {
     if (hasOverlap) {
       Alert.alert(
         "Trùng lịch",
-        "Có sân và khung giờ bị trùng với lịch đã thêm trước đó. Vui lòng chọn range khác."
+        "Có sân và khung giờ bị trùng với lịch đã thêm trước đó. Vui lòng chọn khoảng giờ khác."
       );
       return;
     }
@@ -598,31 +605,35 @@ export default function TournamentVenueScreen() {
             <Text className="text-base text-gray-900 font-semibold mt-1">{bookingDate || startDate || "Chưa chọn"}</Text>
           </TouchableOpacity>
           {!isRepeatMode && (
-            <View className="flex-row flex-wrap mt-2">
-              {QUICK_DATE_PRESETS.map((preset) => {
+            <View style={{ flexDirection: "row", marginTop: 8, borderRadius: 10, borderWidth: 1, borderColor: "#e5e7eb", overflow: "hidden" }}>
+              {QUICK_DATE_PRESETS.map((preset, index) => {
                 const baseDate = bookingDate || startDate;
-                const targetDate = baseDate ? addDays(baseDate, preset.offset) : "";
-                const active = targetDate && targetDate === bookingDate;
+                const targetDate = preset.offset === 0 ? todayISO : (baseDate ? addDays(baseDate, preset.offset) : "");
+                const active = !!targetDate && targetDate === bookingDate;
 
                 return (
                   <TouchableOpacity
                     key={preset.label}
-                    className={`mr-2 mb-2 px-3 py-2 rounded-full border ${
-                      active ? "border-indigo-600 bg-indigo-100" : "border-gray-300"
-                    }`}
+                    style={{
+                      flex: 1,
+                      paddingVertical: 8,
+                      alignItems: "center",
+                      backgroundColor: active ? "#4f46e5" : "#ffffff",
+                      borderLeftWidth: index > 0 ? 1 : 0,
+                      borderLeftColor: "#e5e7eb",
+                    }}
                     onPress={async () => {
-                      if (!baseDate) {
+                      if (!targetDate) {
                         Alert.alert("Thiếu ngày", "Vui lòng quay lại bước 1 để chọn ngày bắt đầu.");
                         return;
                       }
-
                       setBookingDate(targetDate);
                       if (selectedCluster) {
                         await loadAvailability(selectedCluster.id, targetDate);
                       }
                     }}
                   >
-                    <Text className={active ? "text-indigo-800 text-xs font-semibold" : "text-gray-700 text-xs"}>
+                    <Text style={{ fontSize: 12, fontWeight: active ? "700" : "400", color: active ? "#ffffff" : "#374151" }}>
                       {preset.label}
                     </Text>
                   </TouchableOpacity>
@@ -666,7 +677,7 @@ export default function TournamentVenueScreen() {
                       Giá: {toVnd(selectedField.field.price_per_hour)}/giờ
                     </Text>
                   ) : null}
-                  <Text className="text-emerald-700 text-xs mt-1">Nhấn để mở popup chọn sân</Text>
+                  <Text className="text-emerald-700 text-xs mt-1">Nhấn để mở danh sách chọn sân</Text>
                 </TouchableOpacity>
               )}
 
@@ -687,7 +698,7 @@ export default function TournamentVenueScreen() {
                 </View>
               ) : (
                 <Text className="text-xs text-gray-500">
-                  Chọn 1 sân trong popup để xem khung giờ trống.
+                  Chọn 1 sân trong danh sách để xem khung giờ trống.
                 </Text>
               )}
             </View>
@@ -705,8 +716,8 @@ export default function TournamentVenueScreen() {
                 {rangeStartKey && !rangeEndKey
                   ? "Đã chọn điểm bắt đầu, hãy chọn điểm kết thúc"
                   : rangeStartKey && rangeEndKey
-                  ? `Range đã chọn: ${selectedSlotKeys[0]?.split("-")[0]} - ${selectedSlotKeys[selectedSlotKeys.length - 1]?.split("-")[1]}`
-                  : "Chưa chọn range"}
+                  ? `Khoảng đã chọn: ${selectedSlotKeys[0]?.split("-")[0]} - ${selectedSlotKeys[selectedSlotKeys.length - 1]?.split("-")[1]}`
+                  : "Chưa chọn khoảng giờ"}
               </Text>
 
               {commonSlots.length === 0 ? (
@@ -724,7 +735,7 @@ export default function TournamentVenueScreen() {
                         setRangeEndKey(null);
                       }}
                     >
-                      <Text className="text-gray-700 text-xs font-semibold">Đặt lại range</Text>
+                      <Text className="text-gray-700 text-xs font-semibold">Đặt lại khoảng giờ</Text>
                     </TouchableOpacity>
                   </View>
 
@@ -845,9 +856,9 @@ export default function TournamentVenueScreen() {
           <View className="bg-white rounded-2xl p-4">
             <Text className="text-gray-900 text-lg font-semibold">Cách chọn nhanh</Text>
             <Text className="text-gray-700 text-sm mt-2">1) Mỗi giải chỉ dùng duy nhất 1 cụm sân.</Text>
-            <Text className="text-gray-700 text-sm mt-1">2) Chọn cụm sân trước, sau đó chọn 1 sân con trong popup.</Text>
-            <Text className="text-gray-700 text-sm mt-1">3) Chọn giờ theo range: chạm điểm bắt đầu rồi chạm điểm kết thúc.</Text>
-            <Text className="text-gray-700 text-sm mt-1">4) Range liền nhau sẽ lưu thành 1 khung giờ liên tục.</Text>
+            <Text className="text-gray-700 text-sm mt-1">2) Chọn cụm sân trước, sau đó chọn 1 sân con trong danh sách.</Text>
+            <Text className="text-gray-700 text-sm mt-1">3) Chọn giờ theo khoảng: chạm điểm bắt đầu rồi chạm điểm kết thúc.</Text>
+            <Text className="text-gray-700 text-sm mt-1">4) Khoảng giờ liền nhau sẽ lưu thành 1 khung giờ liên tục.</Text>
             <TouchableOpacity
               onPress={() => setShowHelpModal(false)}
               className="mt-4 border border-gray-300 rounded-xl py-3 items-center"
@@ -859,50 +870,59 @@ export default function TournamentVenueScreen() {
       </Modal>
 
       <Modal visible={showClusterPickerModal} transparent animationType="slide">
-        <View className="flex-1 justify-end bg-black/40">
-          <View className="bg-white rounded-t-2xl p-4 max-h-[70%]">
-            <View className="flex-row items-center justify-between mb-3">
-              <Text className="text-base font-semibold">Chọn cụm sân</Text>
-              <TouchableOpacity onPress={() => setShowClusterPickerModal(false)}>
-                <Text className="text-indigo-700 font-semibold">Đóng</Text>
-              </TouchableOpacity>
-            </View>
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+        >
+          <View className="flex-1 justify-end bg-black/40">
+            <View className="bg-white rounded-t-2xl p-4 max-h-[70%]">
+              <View className="flex-row items-center justify-between mb-3">
+                <Text className="text-base font-semibold">Chọn cụm sân</Text>
+                <TouchableOpacity onPress={() => setShowClusterPickerModal(false)}>
+                  <Text className="text-indigo-700 font-semibold">Đóng</Text>
+                </TouchableOpacity>
+              </View>
 
-            <View className="flex-row mb-3">
-              <TextInput
-                value={search}
-                onChangeText={setSearch}
-                placeholder="Tìm cụm sân..."
-                className="flex-1 border border-gray-300 rounded-xl px-4 py-3 mr-2"
-              />
-              <TouchableOpacity onPress={handleSearch} className="bg-indigo-600 rounded-xl px-4 justify-center">
-                <Text className="text-white font-semibold">Tìm</Text>
-              </TouchableOpacity>
-            </View>
+              <View className="flex-row mb-3">
+                <TextInput
+                  value={search}
+                  onChangeText={setSearch}
+                  placeholder="Tìm cụm sân..."
+                  placeholderTextColor="#9ca3af"
+                  style={{ color: "#111827" }}
+                  className="flex-1 border border-gray-300 rounded-xl px-4 py-3 mr-2"
+                  returnKeyType="search"
+                  onSubmitEditing={handleSearch}
+                />
+                <TouchableOpacity onPress={handleSearch} className="bg-indigo-600 rounded-xl px-4 justify-center">
+                  <Text className="text-white font-semibold">Tìm</Text>
+                </TouchableOpacity>
+              </View>
 
-            <ScrollView>
-              {clusters.map((cluster) => {
-                const active = selectedCluster?.id === cluster.id;
-                return (
-                  <TouchableOpacity
-                    key={cluster.id}
-                    className={`border rounded-xl p-3 mb-2 ${
-                      active ? "border-indigo-600 bg-indigo-50" : "border-gray-300"
-                    }`}
-                    onPress={() => handleSelectCluster(cluster)}
-                  >
-                    <Text className={active ? "text-indigo-700 font-semibold" : "text-gray-900 font-medium"}>
-                      {cluster.name}
-                    </Text>
-                    <Text className="text-xs text-gray-500 mt-1">
-                      {cluster.street}, {cluster.district}, {cluster.city}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </ScrollView>
+              <ScrollView keyboardShouldPersistTaps="handled">
+                {clusters.map((cluster) => {
+                  const active = selectedCluster?.id === cluster.id;
+                  return (
+                    <TouchableOpacity
+                      key={cluster.id}
+                      className={`border rounded-xl p-3 mb-2 ${
+                        active ? "border-indigo-600 bg-indigo-50" : "border-gray-300"
+                      }`}
+                      onPress={() => handleSelectCluster(cluster)}
+                    >
+                      <Text className={active ? "text-indigo-700 font-semibold" : "text-gray-900 font-medium"}>
+                        {cluster.name}
+                      </Text>
+                      <Text className="text-xs text-gray-500 mt-1">
+                        {cluster.street}, {cluster.district}, {cluster.city}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+            </View>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
 
       <Modal visible={showFieldPickerModal} transparent animationType="slide">

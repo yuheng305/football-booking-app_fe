@@ -5,6 +5,56 @@
 import API_CONFIG from "../config/api.config";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
+const ERROR_CODE_MAP: Record<string, string> = {
+  EMAIL_NOT_VERIFIED: "Email chưa được xác thực. Vui lòng kiểm tra hộp thư và xác thực tài khoản!",
+  INVALID_CREDENTIALS: "Email hoặc mật khẩu không đúng!",
+  USER_NOT_FOUND: "Không tìm thấy người dùng!",
+  EMAIL_ALREADY_EXISTS: "Email đã được sử dụng!",
+  USERNAME_ALREADY_EXISTS: "Tên đăng nhập đã được sử dụng!",
+  TOKEN_EXPIRED: "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại!",
+  INVALID_TOKEN: "Phiên đăng nhập không hợp lệ. Vui lòng đăng nhập lại!",
+  UNAUTHORIZED: "Bạn không có quyền thực hiện thao tác này!",
+  FORBIDDEN: "Bạn không có quyền truy cập!",
+  NOT_FOUND: "Không tìm thấy dữ liệu!",
+  VALIDATION_ERROR: "Dữ liệu không hợp lệ. Vui lòng kiểm tra lại!",
+  BOOKING_NOT_AVAILABLE: "Khung giờ này đã được đặt hoặc không khả dụng!",
+  PAYMENT_FAILED: "Thanh toán thất bại. Vui lòng thử lại!",
+  INTERNAL_SERVER_ERROR: "Đã xảy ra lỗi máy chủ. Vui lòng thử lại sau!",
+  RATE_LIMIT_EXCEEDED: "Bạn thực hiện quá nhiều yêu cầu. Vui lòng thử lại sau!",
+};
+
+const ERROR_MSG_MAP: Array<[string, string]> = [
+  ["email is not verified", "Email chưa được xác thực. Vui lòng kiểm tra hộp thư và xác thực tài khoản!"],
+  ["invalid credentials", "Email hoặc mật khẩu không đúng!"],
+  ["invalid email or password", "Email hoặc mật khẩu không đúng!"],
+  ["user not found", "Không tìm thấy người dùng!"],
+  ["email already exists", "Email đã được sử dụng!"],
+  ["email already taken", "Email đã được sử dụng!"],
+  ["username already exists", "Tên đăng nhập đã được sử dụng!"],
+  ["token has expired", "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại!"],
+  ["token expired", "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại!"],
+  ["invalid token", "Phiên đăng nhập không hợp lệ. Vui lòng đăng nhập lại!"],
+  ["unauthorized", "Bạn không có quyền thực hiện thao tác này!"],
+  ["forbidden", "Bạn không có quyền truy cập!"],
+  ["not found", "Không tìm thấy dữ liệu!"],
+  ["validation error", "Dữ liệu không hợp lệ. Vui lòng kiểm tra lại!"],
+  ["internal server error", "Đã xảy ra lỗi máy chủ. Vui lòng thử lại sau!"],
+  ["network request failed", "Không thể kết nối đến máy chủ. Vui lòng kiểm tra kết nối mạng!"],
+];
+
+function translateApiError(code?: string, msg?: string): string | null {
+  if (code && ERROR_CODE_MAP[code]) {
+    return ERROR_CODE_MAP[code];
+  }
+  if (msg) {
+    const lower = msg.toLowerCase();
+    for (const [pattern, translation] of ERROR_MSG_MAP) {
+      if (lower.includes(pattern)) return translation;
+    }
+  }
+  return null;
+}
+
 interface RequestOptions extends RequestInit {
   params?: Record<string, string | number>;
 }
@@ -215,11 +265,15 @@ class ApiClient {
 
           const errorData = await this.parseJson(response);
           console.error(`[API] Error response:`, errorData);
-          const message =
+          const rawCode: string | undefined = errorData?.errors?.code;
+          const rawMsg: string | undefined =
             errorData?.errors?.msg?.[0] ||
             errorData?.detail ||
-            errorData?.message ||
-            `API Error: ${response.status} ${response.statusText}`;
+            errorData?.message;
+          const message =
+            translateApiError(rawCode, rawMsg) ||
+            rawMsg ||
+            `Lỗi ${response.status}. Vui lòng thử lại!`;
           const terminalError = new Error(message) as Error & { skipFallback?: boolean };
           terminalError.skipFallback = true;
           throw terminalError;

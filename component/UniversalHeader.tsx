@@ -1,5 +1,5 @@
 import React from "react";
-import { View, TouchableOpacity, Image, Text, StatusBar } from "react-native";
+import { View, TouchableOpacity, Image, Text, StatusBar, Platform } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -44,6 +44,10 @@ const UniversalHeader: React.FC<UniversalHeaderProps> = ({
   const insets = useSafeAreaInsets();
   const { unreadCount } = useNotifications();
 
+  const topInset = Platform.OS === "android"
+    ? Math.max(insets.top, StatusBar.currentHeight ?? 0)
+    : insets.top;
+
   const handleLogoPress = () => {
     if (onLogoPress) {
       onLogoPress();
@@ -85,8 +89,8 @@ const UniversalHeader: React.FC<UniversalHeaderProps> = ({
       <View
         style={{
           backgroundColor: HEADER_THEME.backgroundColor,
-          paddingTop: insets.top,
-          marginTop: -insets.top,
+          paddingTop: topInset,
+          marginTop: -topInset,
         }}
       >
         <View

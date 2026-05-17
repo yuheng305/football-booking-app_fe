@@ -1,24 +1,19 @@
 import { router } from "expo-router";
 
-/** Chỉ dùng canGoBack/goBack — tương thích Expo Router RootParamList (không ép NavigationProp<ParamListBase>). */
-type MinimalNavigationBack = {
-  canGoBack(): boolean;
-  goBack(): void;
-};
-
 /**
- * Nút quay lại: ưu tiên `pop` — không còn màn trong stack thì `replace` tới `fallbackHref`.
+ * Nút quay lại: ưu tiên `router.back()` (Expo Router) — không còn màn trong stack thì
+ * `replace` tới `fallbackHref`.
  *
- * Luồng nhiều bước (đặt sân, tạo giải): **bước tiếp theo nên dùng `router.push`**, không dùng
- * `router.replace` giữa các bước. `replace` xóa bước trước khỏi stack → `goBack()` nhảy thẳng về
- * màn dưới (thường là tab / list), không quay về bước liền kề.
+ * Dùng `router.canGoBack()` thay cho `navigation.canGoBack()` vì trong kiến trúc
+ * Stack-bên-trong-Tabs, `useNavigation()` trả về Tab navigator nên `canGoBack()` của nó
+ * luôn `false` dù stack vẫn còn lịch sử → rơi vào fallback và nhảy về Home.
  */
 export function goBackOrReplace(
-  navigation: MinimalNavigationBack,
+  _navigation: unknown,
   fallbackHref: string
 ): void {
-  if (navigation.canGoBack()) {
-    navigation.goBack();
+  if (router.canGoBack()) {
+    router.back();
     return;
   }
   router.replace(fallbackHref as never);

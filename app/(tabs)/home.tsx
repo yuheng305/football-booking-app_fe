@@ -14,6 +14,36 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const { width } = Dimensions.get("window");
 
+const CARD_SIZE = 160;
+const CARD_PAD_H = 12;
+const CARD_PAD_TOP = 12;
+const CARD_PAD_BOTTOM = 8;
+
+const cardStyle = {
+  width: CARD_SIZE,
+  height: CARD_SIZE,
+  backgroundColor: "white",
+  borderRadius: 16,
+  borderWidth: 2,
+  borderColor: "#3b82f6",
+  marginRight: 16,
+  paddingHorizontal: CARD_PAD_H,
+  paddingTop: CARD_PAD_TOP,
+  paddingBottom: CARD_PAD_BOTTOM,
+};
+
+const cardImageWrapper = {
+  flex: 1,
+  width: CARD_SIZE - CARD_PAD_H * 2,
+  alignItems: "center" as const,
+  justifyContent: "center" as const,
+};
+
+const cardImageStyle = {
+  width: CARD_SIZE - CARD_PAD_H * 2,
+  height: CARD_SIZE - CARD_PAD_TOP - CARD_PAD_BOTTOM - 28,
+};
+
 const resolveUserRole = async (): Promise<string | null> => {
   try {
     const [profileRaw, userDataRaw, legacyRole] = await Promise.all([
@@ -102,19 +132,21 @@ export default function Home() {
         >
           {isPlayer && (
             <TouchableOpacity
-              className="w-40 h-40 bg-white rounded-2xl items-center justify-center p-3 border-2 border-blue-500 mr-4"
+              style={cardStyle}
               onPress={() => router.push("/(tabs)/stadium")}
             >
-              {bookingIconFailed ? (
-                <MaterialCommunityIcons name="soccer-field" size={62} color="#1d4ed8" />
-              ) : (
-                <Image
-                  source={require("../../assets/images/book.png")}
-                  className="w-full h-full"
-                  resizeMode="contain"
-                  onError={() => setBookingIconFailed(true)}
-                />
-              )}
+              <View style={cardImageWrapper}>
+                {bookingIconFailed ? (
+                  <MaterialCommunityIcons name="soccer-field" size={62} color="#1d4ed8" />
+                ) : (
+                  <Image
+                    source={require("../../assets/images/book.png")}
+                    style={cardImageStyle}
+                    resizeMode="contain"
+                    onError={() => setBookingIconFailed(true)}
+                  />
+                )}
+              </View>
               <Text className="text-[#060b28] font-semibold text-center">
                 Đặt sân
               </Text>
@@ -123,14 +155,16 @@ export default function Home() {
 
           {isOrganizer && (
             <TouchableOpacity
-              className="w-40 h-40 bg-white rounded-2xl items-center justify-center p-4 border-2 border-blue-500 mr-4"
+              style={cardStyle}
               onPress={() => router.push("/(tabs)/tournament")}
             >
-              <Image
-                source={require("../../assets/images/tournament.png")}
-                className="w-full h-full"
-                resizeMode="contain"
-              />
+              <View style={cardImageWrapper}>
+                <Image
+                  source={require("../../assets/images/tournament.png")}
+                  style={cardImageStyle}
+                  resizeMode="contain"
+                />
+              </View>
               <Text className="text-[#060b28] font-semibold text-center">
                 Giải đấu
               </Text>
@@ -139,14 +173,16 @@ export default function Home() {
 
           {/* Card: Tài khoản */}
           <TouchableOpacity
-            className="w-40 h-40 bg-white rounded-2xl items-center justify-center p-4 border-2 border-blue-500 mr-4"
+            style={cardStyle}
             onPress={() => router.push("/(tabs)/account")}
           >
-            <Image
-              source={require("../../assets/images/account.png")}
-              className="w-full h-full"
-              resizeMode="contain"
-            />
+            <View style={cardImageWrapper}>
+              <Image
+                source={require("../../assets/images/account.png")}
+                style={cardImageStyle}
+                resizeMode="contain"
+              />
+            </View>
             <Text className="text-[#060b28] font-semibold text-center">
               Tài khoản
             </Text>
@@ -154,14 +190,16 @@ export default function Home() {
 
           {/* Card: Thanh toán */}
           <TouchableOpacity
-            className="w-40 h-40 bg-white rounded-2xl items-center justify-center p-4 border-2 border-blue-500 mr-4"
+            style={cardStyle}
             onPress={() => router.push("/(tabs)/payment")}
           >
-            <Image
-              source={require("../../assets/images/payment.png")}
-              className="w-full h-full"
-              resizeMode="contain"
-            />
+            <View style={cardImageWrapper}>
+              <Image
+                source={require("../../assets/images/payment.png")}
+                style={cardImageStyle}
+                resizeMode="contain"
+              />
+            </View>
             <Text className="text-[#060b28] font-semibold text-center">
               Thanh toán
             </Text>
@@ -170,14 +208,16 @@ export default function Home() {
           {/* Card: Lịch sử đặt */}
           {isPlayer && (
             <TouchableOpacity
-              className="w-40 h-40 bg-white rounded-2xl items-center justify-center p-4 border-2 border-blue-500 mr-4"
+              style={cardStyle}
               onPress={() => router.push("/(tabs)/(users)/history")}
             >
-              <Image
-                source={require("../../assets/images/bookinghistory.png")}
-                className="w-full h-full"
-                resizeMode="contain"
-              />
+              <View style={cardImageWrapper}>
+                <Image
+                  source={require("../../assets/images/bookinghistory.png")}
+                  style={cardImageStyle}
+                  resizeMode="contain"
+                />
+              </View>
               <Text className="text-[#060b28] font-semibold text-center">
                 Lịch sử đặt
               </Text>

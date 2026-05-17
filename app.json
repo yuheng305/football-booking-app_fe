@@ -9,7 +9,11 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.yuheng305.something",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -34,7 +38,11 @@
           "resizeMode": "contain",
           "backgroundColor": "#ffffff"
         }
-      ]
+      ],
+      "expo-secure-store"
+    ],
+    "assetBundlePatterns": [
+      "**/*"
     ],
     "experiments": {
       "typedRoutes": true
@@ -53,7 +61,8 @@
       "policy": "appVersion"
     },
     "updates": {
-      "url": "https://u.expo.dev/4a27d556-89a4-42f9-9483-0aaba9f5c55a"
+      "url": "https://u.expo.dev/4a27d556-89a4-42f9-9483-0aaba9f5c55a",
+      "checkAutomatically": "NEVER"
     }
   }
 }

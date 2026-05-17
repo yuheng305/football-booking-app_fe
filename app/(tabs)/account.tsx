@@ -33,9 +33,7 @@ const User = () => {
   const [imageUri, setImageUri] = useState<ImageSourcePropType>(
     require("../../assets/images/user_placeholder.jpg")
   );
-  const [qrImageUri, setQrImageUri] = useState<ImageSourcePropType>(
-    require("../../assets/images/qr.png")
-  );
+  const [qrImageUri, setQrImageUri] = useState<ImageSourcePropType | null>(null);
   const [qrRemoteUrl, setQrRemoteUrl] = useState<string | null>(null);
   const [showQrManager, setShowQrManager] = useState(false);
   const [showQrInfo, setShowQrInfo] = useState(false);
@@ -499,8 +497,15 @@ const User = () => {
             </Text>
 
             <View className="items-center mt-4">
-              <View className="w-56 h-56 rounded-2xl overflow-hidden border-2 border-blue-300 bg-white items-center justify-center">
-                <Image source={qrImageUri} className="w-full h-full" resizeMode="cover" />
+              <View className="w-56 h-56 rounded-2xl overflow-hidden border-2 border-blue-300 bg-gray-50 items-center justify-center">
+                {qrImageUri ? (
+                  <Image source={qrImageUri} className="w-full h-full" resizeMode="cover" />
+                ) : (
+                  <View className="items-center px-4">
+                    <Ionicons name="qr-code-outline" size={48} color="#93c5fd" />
+                    <Text className="text-gray-400 text-xs text-center mt-2">Chưa có QR</Text>
+                  </View>
+                )}
               </View>
             </View>
 

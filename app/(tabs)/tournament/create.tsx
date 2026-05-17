@@ -24,7 +24,10 @@ const SPORTS: Array<{ key: TournamentSportType; label: string; icon: string }> =
   { key: "basketball", label: "Bóng rổ", icon: "🏀" },
 ];
 
-const todayISO = new Date().toISOString().slice(0, 10);
+const todayISO = (() => {
+  const t = new Date();
+  return `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, "0")}-${String(t.getDate()).padStart(2, "0")}`;
+})();
 
 const formatDate = (iso: string) => {
   const [year, month, day] = iso.split("-");
@@ -109,6 +112,8 @@ export default function TournamentCreateScreen() {
           value={name}
           onChangeText={setName}
           placeholder="VD: Giải nội bộ đội A"
+          placeholderTextColor="#9ca3af"
+          style={{ color: "#111827" }}
           className="border border-gray-300 rounded-xl px-4 py-3 text-base mb-4"
         />
 

@@ -1,5 +1,6 @@
 import React, { useCallback } from "react";
 import { View, Text, ScrollView, TouchableOpacity, RefreshControl } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect, useRouter } from "expo-router";
 import HeaderWithBack from "../component/HeaderWithBack";
@@ -321,7 +322,7 @@ export default function NotificationsScreen() {
   };
 
   return (
-    <View className="flex-1 bg-white">
+    <SafeAreaView className="flex-1 bg-white" edges={["top"]}>
       <HeaderWithBack title="Thông báo" />
 
       <ScrollView
@@ -368,6 +369,6 @@ export default function NotificationsScreen() {
           ))
         )}
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }

@@ -80,16 +80,6 @@ export default function TabLayout() {
   });
 
   const hiddenScreens = [
-    "tournament/create",
-    "tournament/venue",
-    "tournament/schedule",
-    "tournament/review",
-    "tournament/detail",
-    "tournament/level2-create",
-    "tournament/level2-round-config",
-    "tournament/level2-bracket",
-    "tournament/level2-rounds",
-    "tournament/level2-slots",
     "(users)/change-password",
     "(users)/historyDetails",
     "(users)/history",
@@ -97,16 +87,6 @@ export default function TabLayout() {
     "(users)/create-club",
     "(users)/join-club",
     "(users)/club-details",
-    "stadium/locationTime",
-    "stadium/time-select",
-    "stadium/service",
-    "stadium/club-select",
-    "stadium/field-select",
-    "stadium/date-select",
-    "stadium/booking-confirm",
-    "stadium/booking-detail",
-    "stadium/booking-payment",
-    "stadium/booking-success",
   ];
 
   return (

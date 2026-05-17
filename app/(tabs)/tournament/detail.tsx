@@ -14,7 +14,6 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useNavigation } from "@react-navigation/native";
 import { router, useFocusEffect, useLocalSearchParams, useSegments } from "expo-router";
 import HeaderUser from "@/component/HeaderUser";
 import PickMatchWinnerModal from "@/component/PickMatchWinnerModal";
@@ -36,7 +35,6 @@ import {
   Level2AvailableSlot,
   Level2AvailableSlotsResult,
 } from "@/src/types/tournament.types";
-import { goBackOrReplace } from "@/src/utils/navigation.helper";
 import {
   resolveInheritedWinnerSlots,
   winnerPickSlotLabels,
@@ -229,7 +227,6 @@ const statusClasses = (status?: string) => {
 };
 
 export default function TournamentDetailScreen() {
-  const navigation = useNavigation();
   const params = useLocalSearchParams<{ id?: string; paymentStatus?: string; source?: string; openRoundId?: string }>();
   const tournamentId = Number(params.id);
   const segments = useSegments() as string[];
@@ -238,6 +235,7 @@ export default function TournamentDetailScreen() {
   const backRoute = params.source === "owner"
     ? "/(owners)/(booking)/ownerBookingManagement"
     : "/(tabs)/tournament";
+
 
   const [detail, setDetail] = useState<TournamentDetailData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -316,6 +314,17 @@ export default function TournamentDetailScreen() {
       return "bg-amber-100 text-amber-700";
     if (status === "no_bookings") return "bg-slate-100 text-slate-600";
     return "bg-slate-100 text-slate-600";
+  };
+
+  const ownerActionStatusMessage = (status?: string) => {
+    const s = String(status ?? "").toLowerCase();
+    if (s === "confirmed" || s === "payment_required" || s === "approved")
+      return "Giải đã được duyệt — đang chờ thanh toán";
+    if (s === "success" || s === "completed") return "Giải đấu đã được thanh toán";
+    if (s === "canceled" || s === "cancelled") return "Giải đấu đã bị hủy";
+    if (s === "expired") return "Giải đấu đã hết hạn";
+    if (s === "rejected") return "Giải đấu đã bị từ chối";
+    return "Không thể thực hiện thao tác ở trạng thái này";
   };
 
   const buildDefaultExpiresAt = () => {
@@ -1096,7 +1105,7 @@ export default function TournamentDetailScreen() {
           title="Chi tiết giải đấu"
           subtitle="Không tìm thấy giải đấu"
           showBackButton
-          onBackPress={() => goBackOrReplace(navigation, backRoute)}
+          onBackPress={() => router.replace(backRoute as never)}
         />
         <View className="flex-1 items-center justify-center px-4">
           <Text className="text-gray-600 text-center">ID giải đấu không hợp lệ.</Text>
@@ -1137,7 +1146,7 @@ export default function TournamentDetailScreen() {
         title={detail?.name || `Giải #${tournamentId}`}
         subtitle="Chi tiết giải đấu"
         showBackButton
-        onBackPress={() => goBackOrReplace(navigation, backRoute)}
+        onBackPress={() => router.replace(backRoute as never)}
       />
 
       {loading ? (
@@ -1226,27 +1235,35 @@ export default function TournamentDetailScreen() {
                 </View>
               )}
 
-              <View className="flex-row gap-2 mt-3">
-                <TouchableOpacity
-                  className="flex-1 rounded-xl py-2.5 items-center bg-[#0B8FAC]"
-                  onPress={handleOwnerConfirmTournament}
-                  disabled={ownerActionLoading !== null}
-                >
-                  <Text className="text-white font-semibold">
-                    {ownerActionLoading === "confirm" ? "Đang duyệt..." : "Duyệt giải đấu"}
-                  </Text>
-                </TouchableOpacity>
+              {detail.status === "pending" ? (
+                <View className="flex-row gap-2 mt-3">
+                  <TouchableOpacity
+                    className="flex-1 rounded-xl py-2.5 items-center bg-[#0B8FAC]"
+                    onPress={handleOwnerConfirmTournament}
+                    disabled={ownerActionLoading !== null}
+                  >
+                    <Text className="text-white font-semibold">
+                      {ownerActionLoading === "confirm" ? "Đang duyệt..." : "Duyệt giải đấu"}
+                    </Text>
+                  </TouchableOpacity>
 
-                <TouchableOpacity
-                  className="flex-1 rounded-xl py-2.5 items-center bg-[#DC2626]"
-                  onPress={handleOwnerRejectTournament}
-                  disabled={ownerActionLoading !== null}
-                >
-                  <Text className="text-white font-semibold">
-                    {ownerActionLoading === "reject" ? "Đang từ chối..." : "Từ chối"}
+                  <TouchableOpacity
+                    className="flex-1 rounded-xl py-2.5 items-center bg-[#DC2626]"
+                    onPress={handleOwnerRejectTournament}
+                    disabled={ownerActionLoading !== null}
+                  >
+                    <Text className="text-white font-semibold">
+                      {ownerActionLoading === "reject" ? "Đang từ chối..." : "Từ chối"}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <View className="mt-3 rounded-xl bg-gray-100 py-2.5 px-4 items-center">
+                  <Text className="text-gray-500 font-semibold text-sm text-center">
+                    {ownerActionStatusMessage(detail.status)}
                   </Text>
-                </TouchableOpacity>
-              </View>
+                </View>
+              )}
             </View>
           ) : (
             <View className="border border-gray-200 rounded-xl p-3 mb-3">

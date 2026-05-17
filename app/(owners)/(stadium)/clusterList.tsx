@@ -27,7 +27,7 @@ const formatTime = (value?: string) => {
 const getApprovalBadge = (isAccepted: boolean | null) => {
   if (isAccepted === true) {
     return {
-      label: "Admin đã phê duyệt",
+      label: "Đã phê duyệt",
       containerClass: "bg-emerald-50 border-emerald-200",
       textClass: "text-emerald-700",
     };
@@ -35,7 +35,7 @@ const getApprovalBadge = (isAccepted: boolean | null) => {
 
   if (isAccepted === false) {
     return {
-      label: "Admin đã từ chối",
+      label: "Đã từ chối",
       containerClass: "bg-red-50 border-red-200",
       textClass: "text-red-700",
     };
@@ -117,7 +117,7 @@ export default function OwnerClusterListScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView className="flex-1 bg-white items-center justify-center">
+      <SafeAreaView className="flex-1 bg-white items-center justify-center" edges={["top"]}>
         <ActivityIndicator size="large" color="#114F99" />
         <Text className="mt-3 text-gray-700">Đang tải danh sách cụm sân...</Text>
       </SafeAreaView>
@@ -125,7 +125,7 @@ export default function OwnerClusterListScreen() {
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-[#F6F8FC]">
+    <SafeAreaView className="flex-1 bg-[#F6F8FC]" edges={["top"]}>
       <View className="flex-row items-center px-4 pt-4 pb-2 bg-white">
         <TouchableOpacity
           className="w-10 h-10 bg-white border border-gray-200 rounded-xl items-center justify-center"
@@ -150,7 +150,7 @@ export default function OwnerClusterListScreen() {
 
       <ScrollView
         className="flex-1 px-4 pt-4"
-        contentContainerStyle={{ paddingBottom: 24 }}
+        contentContainerStyle={{ paddingBottom: 80 }}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}

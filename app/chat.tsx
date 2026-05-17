@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
+  Keyboard,
   KeyboardAvoidingView,
   Platform,
   Text,
@@ -104,6 +105,17 @@ export default function ChatScreen() {
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [input, setInput] = useState("");
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
+
+  useEffect(() => {
+    const show = Keyboard.addListener("keyboardDidShow", () => setKeyboardVisible(true));
+    const hide = Keyboard.addListener("keyboardDidHide", () => setKeyboardVisible(false));
+    return () => {
+      show.remove();
+      hide.remove();
+    };
+  }, []);
+
   const listRef = useRef<FlatList<ChatMessage>>(null);
   const socketRef = useRef<Socket | null>(null);
 
@@ -289,11 +301,10 @@ export default function ChatScreen() {
   const canSend = useMemo(() => !!input.trim() && !sending, [input, sending]);
 
   return (
-    <SafeAreaView className="flex-1 bg-[#eef2ff]" edges={["top", "bottom"]}>
+    <SafeAreaView className="flex-1 bg-[#eef2ff]" edges={["top"]}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
-        keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 12}
       >
         <View className="flex-row items-center px-4 py-3 bg-white border-b border-gray-200">
           <TouchableOpacity
@@ -320,6 +331,7 @@ export default function ChatScreen() {
             keyExtractor={(item) => String(item.id)}
             contentContainerStyle={{ paddingHorizontal: 12, paddingVertical: 10, paddingBottom: 20 }}
             keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="interactive"
             renderItem={({ item, index }) => {
               const mine = item.sender_id === currentUserId;
               const showDateHeader = index === 0 || !isSameMessageDay(messages[index - 1], item);
@@ -370,7 +382,7 @@ export default function ChatScreen() {
 
         <View
           className="flex-row items-end px-3 py-2 bg-white border-t border-gray-200"
-          style={{ paddingBottom: insets.bottom }}
+          style={{ paddingBottom: keyboardVisible ? 0 : insets.bottom }}
         >
           <TextInput
             value={input}

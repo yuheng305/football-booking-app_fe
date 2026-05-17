@@ -187,6 +187,7 @@ export interface TournamentDetailData {
   mode?: string;
   cluster_id?: number;
   cluster_name?: string;
+  status?: "pending" | "confirmed" | "success" | "canceled" | "expired" | "rejected" | string;
   payment_status?: "paid" | "pending" | "confirmed" | "no_bookings" | string;
   entry_fee: number;
   organizer_id?: number;

@@ -71,7 +71,7 @@ const TIME_OPTIONS: string[] = Array.from({ length: 48 }).map((_, index) => {
 const getApprovalBadge = (isAccepted: boolean | null) => {
   if (isAccepted === true) {
     return {
-      label: "Admin đã phê duyệt",
+      label: "Đã phê duyệt",
       containerClass: "bg-emerald-50 border-emerald-200",
       textClass: "text-emerald-700",
     };
@@ -79,7 +79,7 @@ const getApprovalBadge = (isAccepted: boolean | null) => {
 
   if (isAccepted === false) {
     return {
-      label: "Admin đã từ chối",
+      label: "Đã từ chối",
       containerClass: "bg-red-50 border-red-200",
       textClass: "text-red-700",
     };

@@ -500,8 +500,21 @@ export default function BookingManagement() {
     if (s === "confirmed" || s === "payment_required" || s === "approved") return "Chờ thanh toán";
     if (s === "completed" || s === "success") return "Đã thanh toán";
     if (s === "canceled" || s === "cancelled") return "Đã hủy";
+    if (s === "expired") return "Hết hạn";
     if (s === "rejected") return "Từ chối";
     return "Không xác định";
+  };
+
+  const getTournamentBadgeStyle = (status: string) => {
+    const s = String(status ?? "").toLowerCase();
+    if (s === "pending") return { backgroundColor: "#FEF3C7", color: "#92400E" };
+    if (s === "confirmed" || s === "payment_required" || s === "approved")
+      return { backgroundColor: "#EEF4FF", color: "#114F99" };
+    if (s === "completed" || s === "success") return { backgroundColor: "#D1FAE5", color: "#065F46" };
+    if (s === "canceled" || s === "cancelled" || s === "rejected")
+      return { backgroundColor: "#FEE2E2", color: "#991B1B" };
+    if (s === "expired") return { backgroundColor: "#FFEDD5", color: "#9A3412" };
+    return { backgroundColor: "#F3F4F6", color: "#6B7280" };
   };
 
   const buildDefaultExpiresAt = () => {
@@ -1062,9 +1075,10 @@ export default function BookingManagement() {
         </View>
       ) : (
         ownerTournaments.map((item) => {
-          const tournamentStatus =
-            (item as OwnerTournamentItem & { status?: TournamentOwnerBookingStatus }).status ??
-            tournamentStatusFilter;
+          const rawStatus = item.status;
+          const badgeLabel = rawStatus && rawStatus !== "all"
+            ? getTournamentFilterLabel(rawStatus as TournamentOwnerBookingStatus)
+            : "Không xác định";
 
           return (
             <View key={item.id} className="bg-white rounded-2xl border border-gray-200 p-4 mb-3">
@@ -1085,9 +1099,16 @@ export default function BookingManagement() {
                   </Text>
                 </View>
 
-                <View className="px-3 py-1 rounded-full bg-[#eef4ff]">
-                  <Text className="text-xs font-semibold text-[#114F99]">
-                    {getTournamentFilterLabel(tournamentStatus)}
+                <View
+                  className="px-3 py-1 rounded-full"
+                  style={{ backgroundColor: getTournamentBadgeStyle(rawStatus ?? "").backgroundColor, flexShrink: 0 }}
+                >
+                  <Text
+                    className="text-xs font-semibold"
+                    numberOfLines={1}
+                    style={{ color: getTournamentBadgeStyle(rawStatus ?? "").color }}
+                  >
+                    {badgeLabel}
                   </Text>
                 </View>
               </View>

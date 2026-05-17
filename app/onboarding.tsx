@@ -11,6 +11,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRef, useState } from "react";
+import authService from "../src/services/auth.service";
 
 const Onboarding = () => {
   const [activeSlide, setActiveSlide] = useState(0);
@@ -66,7 +67,10 @@ const Onboarding = () => {
 
         {item.isLastSlide && (
           <TouchableOpacity
-            onPress={() => router.replace("/login")}
+            onPress={async () => {
+              await authService.markOnboardingCompleted();
+              router.replace("/login");
+            }}
             className="bg-blue-500 rounded-lg items-center mt-6"
             style={{ paddingHorizontal: 80, paddingVertical: 14 }}
           >

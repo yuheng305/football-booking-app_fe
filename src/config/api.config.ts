@@ -63,6 +63,7 @@ export const API_CONFIG = {
     LOGOUT: "/auth/logout",
     REFRESH: "/auth/refresh",
     ME: "/auth/me",
+    UPDATE_ME: "/users/me",
     UPDATE_PASSWORD: "/auth/update_password",
     FORGOT_PASSWORD: "/auth/forgot_password",
     RESEND_VERIFICATION_EMAIL: "/auth/resend_verified_email",

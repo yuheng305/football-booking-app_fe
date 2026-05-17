@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -11,8 +11,12 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
+import * as SecureStore from "expo-secure-store";
 import authService from "../src/services/auth.service";
 import { ROLE_ROUTES } from "../src/constants/roles";
+
+const SECURE_EMAIL_KEY = "saved_email";
+const SECURE_PASSWORD_KEY = "saved_password";
 
 const Login: React.FC = () => {
   const [emailOrUsername, setEmailOrUsername] = useState<string>("");
@@ -20,6 +24,19 @@ const Login: React.FC = () => {
   const [rememberMe, setRememberMe] = useState<boolean>(false);
   const [showPassword, setShowPassword] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(false);
+
+  useEffect(() => {
+    const loadSavedCredentials = async () => {
+      const savedEmail = await SecureStore.getItemAsync(SECURE_EMAIL_KEY);
+      const savedPassword = await SecureStore.getItemAsync(SECURE_PASSWORD_KEY);
+      if (savedEmail && savedPassword) {
+        setEmailOrUsername(savedEmail);
+        setPassword(savedPassword);
+        setRememberMe(true);
+      }
+    };
+    loadSavedCredentials();
+  }, []);
 
   const handleLogin = async () => {
     if (!emailOrUsername || !password) {
@@ -35,31 +52,29 @@ const Login: React.FC = () => {
         password,
       });
 
+      if (rememberMe) {
+        await Promise.all([
+          SecureStore.setItemAsync(SECURE_EMAIL_KEY, emailOrUsername.trim()),
+          SecureStore.setItemAsync(SECURE_PASSWORD_KEY, password),
+        ]);
+      } else {
+        await Promise.all([
+          SecureStore.deleteItemAsync(SECURE_EMAIL_KEY),
+          SecureStore.deleteItemAsync(SECURE_PASSWORD_KEY),
+        ]);
+      }
+
       if (user) {
-        // Navigate based on role
         const destination = ROLE_ROUTES[user.role] || ("/(tabs)/home" as const);
         console.log(`Logged in as ${user.role}, navigating to: ${destination}`);
         router.replace(destination);
       }
     } catch (error: unknown) {
       console.error("Login error:", error);
-
-      let errorMessage = "Đã có lỗi xảy ra. Vui lòng thử lại!";
-
-      if (error instanceof Error) {
-        if (error.message.includes("Network request failed")) {
-          errorMessage =
-            "Không thể kết nối đến server. Vui lòng kiểm tra kết nối internet!";
-        } else if (
-          error.message.includes("401") ||
-          error.message.includes("Unauthorized")
-        ) {
-          errorMessage = "Email hoặc mật khẩu không đúng!";
-        } else {
-          errorMessage = error.message;
-        }
-      }
-
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : "Đã có lỗi xảy ra. Vui lòng thử lại!";
       Alert.alert("Lỗi đăng nhập", errorMessage);
     } finally {
       setIsLoading(false);
@@ -150,7 +165,6 @@ const Login: React.FC = () => {
           )}
         </TouchableOpacity>
 
-        {/* Forgot Password Link */}
         <TouchableOpacity
           onPress={() => router.push("/forgot-password")}
           className="mb-4"

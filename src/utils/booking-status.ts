@@ -45,9 +45,15 @@ export const getBookingStatusMeta = (status?: string | null): BookingStatusMeta 
         textColorClass: "text-green-600",
         badgeClass: "bg-green-100 text-green-700",
       };
+    case "expired":
+      return {
+        normalized,
+        label: "Hết hạn",
+        textColorClass: "text-orange-700",
+        badgeClass: "bg-orange-100 text-orange-700",
+      };
     case "canceled":
     case "cancelled":
-    case "expired":
     case "failed":
     case "rejected":
       return {

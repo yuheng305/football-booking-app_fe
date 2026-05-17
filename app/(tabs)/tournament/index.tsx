@@ -69,6 +69,7 @@ export default function Tournament() {
     if (status === "confirmed" || status === "payment_required" || status === "approved")
       return "Chờ thanh toán";
     if (status === "no_bookings") return "Chưa có lượt đặt sân";
+    if (status === "canceled" || status === "cancelled") return "Đã hủy";
     return status || "Không rõ";
   };
 
@@ -79,13 +80,14 @@ export default function Tournament() {
     if (status === "confirmed" || status === "payment_required" || status === "approved")
       return "bg-amber-100 text-amber-700";
     if (status === "no_bookings") return "bg-slate-100 text-slate-600";
+    if (status === "canceled" || status === "cancelled") return "bg-red-100 text-red-600";
     return "bg-slate-100 text-slate-600";
   };
 
   const tournamentLevelLabel = (level?: number | null) => {
-    if (level === 1) return "Level 1: Giải đấu tiêu chuẩn";
-    if (level === 2) return "Level 2: Giải đấu trực tiếp theo vòng";
-    if (level != null && Number.isFinite(level)) return `Level ${level}`;
+    if (level === 1) return "Cấp độ: Giải đấu tiêu chuẩn";
+    if (level === 2) return "Cấp độ: Giải đấu trực tiếp theo vòng";
+    if (level != null && Number.isFinite(level)) return "Cấp độ";
     return "Chưa xác định";
   };
 

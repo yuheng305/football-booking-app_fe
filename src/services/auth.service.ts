@@ -26,6 +26,7 @@ const STORAGE_KEYS = {
   AUTH_TOKEN: "authToken",
   REFRESH_TOKEN: "refreshToken",
   USER_DATA: "userData",
+  ONBOARDING_DONE: "hasCompletedOnboarding",
 };
 
 class AuthService {
@@ -318,6 +319,19 @@ class AuthService {
     }
   }
 
+  async markOnboardingCompleted(): Promise<void> {
+    await AsyncStorage.setItem(STORAGE_KEYS.ONBOARDING_DONE, "true");
+  }
+
+  async hasCompletedOnboarding(): Promise<boolean> {
+    try {
+      const value = await AsyncStorage.getItem(STORAGE_KEYS.ONBOARDING_DONE);
+      return value === "true";
+    } catch {
+      return false;
+    }
+  }
+
   /**
    * Update current user profile
    */
@@ -329,7 +343,7 @@ class AuthService {
   }): Promise<UserProfile> {
     try {
       const response = await apiClient.patch<GetMeResponse>(
-        API_CONFIG.AUTH_ENDPOINTS.ME,
+        API_CONFIG.AUTH_ENDPOINTS.UPDATE_ME,
         data
       );
 

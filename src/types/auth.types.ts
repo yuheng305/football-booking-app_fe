@@ -26,6 +26,7 @@ export interface UserProfile {
   role: UserRole;
   age: number;
   status: "active" | "inactive";
+  avatar_url: string | null;
   created_at: string;
   updated_at: string;
 }
