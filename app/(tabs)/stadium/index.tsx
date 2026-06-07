@@ -20,6 +20,9 @@ import { clusterService } from "@/src/services/cluster.service";
 import { bookingDraftService } from "@/src/services/booking-draft.service";
 import { imageService } from "@/src/services/image.service";
 import { formatSportDisplay } from "@/src/utils/sport-type.util";
+import LocationMapView from "@/component/LocationMapView";
+import * as ExpoLocation from 'expo-location';
+import ClusterMapView from '@/component/ClusterMapView';
 
 interface Cluster {
   id: number;
@@ -32,6 +35,8 @@ interface Cluster {
   street: string;
   district: string;
   city: string;
+  latitude?: number | null;
+  longitude?: number | null;
   status: string;
   open_time: string;
   close_time: string;
@@ -102,6 +107,29 @@ const TIME_PRESETS = [
   { label: "Chiều", from: "12:00", to: "18:00" },
   { label: "Tối", from: "18:00", to: "22:00" },
 ];
+
+const RADIUS_PRESETS = [
+  { label: '5 km', value: 5 },
+  { label: '10 km', value: 10 },
+  { label: '20 km', value: 20 },
+  { label: '50 km', value: 50 },
+];
+
+const getDistanceKm = (lat1: number, lng1: number, lat2: number, lng2: number): number => {
+  const R = 6371;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLng = ((lng2 - lng1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) *
+    Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+};
+
+const formatDistance = (km: number): string => {
+  if (km < 1) return `${Math.round(km * 1000)} m`;
+  return `${km.toFixed(1)} km`;
+};
 
 const normalizePriceInput = (value: string) => value.replace(/[^\d]/g, "");
 
@@ -217,6 +245,37 @@ const Location = () => {
   const [wardSearch, setWardSearch] = useState("");
   const fetchRequestIdRef = useRef(0);
 
+  // Location states
+  const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [locationStatus, setLocationStatus] = useState<'idle' | 'loading' | 'granted' | 'denied'>('idle');
+  const [searchRadius, setSearchRadius] = useState(10);
+
+  // Map view states
+  const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
+  const [selectedMapCluster, setSelectedMapCluster] = useState<Cluster | null>(null);
+  const [focusedMapCoords, setFocusedMapCoords] = useState<[number, number] | null>(null);
+
+  const getLocation = async () => {
+    setLocationStatus('loading');
+    try {
+      const { status } = await ExpoLocation.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        setLocationStatus('denied');
+        return;
+      }
+      const loc = await ExpoLocation.getCurrentPositionAsync({ accuracy: ExpoLocation.Accuracy.Balanced });
+      setUserLocation({ latitude: loc.coords.latitude, longitude: loc.coords.longitude });
+      setLocationStatus('granted');
+    } catch {
+      setLocationStatus('denied');
+    }
+  };
+
+  // Fetch location on mount
+  useEffect(() => {
+    getLocation();
+  }, []);
+
   // Fetch provinces from open API
   useEffect(() => {
     // Already have MAJOR_PROVINCES, no need to fetch
@@ -279,7 +338,7 @@ const Location = () => {
     }
   };
 
-  // Fetch clusters when filters change
+  // Fetch clusters when filters or location change
   useEffect(() => {
     setOffset(0);
     setClusters([]);
@@ -295,6 +354,8 @@ const Location = () => {
     maxPrice,
     fromTime,
     toTime,
+    userLocation,
+    searchRadius,
   ]);
 
   const fetchClusters = async (currentOffset: number = 0, isRefresh: boolean = false) => {
@@ -318,6 +379,9 @@ const Location = () => {
         max_price: maxPrice ? Number(maxPrice) : undefined,
         from_time: fromTime || undefined,
         to_time: toTime || undefined,
+        latitude: userLocation?.latitude,
+        longitude: userLocation?.longitude,
+        radius: userLocation ? searchRadius : undefined,
       });
 
       if (requestId !== fetchRequestIdRef.current) {
@@ -414,9 +478,31 @@ const Location = () => {
   };
 
   const handleLoadMore = () => {
-    if (!loadingMore && hasMore) {
+    if (!loading && !loadingMore && hasMore) {
       fetchClusters(offset, false);
     }
+  };
+
+  const handleMapMarkerPress = (cluster: Cluster) => {
+    setSelectedMapCluster(cluster);
+    if (typeof cluster.longitude === 'number' && typeof cluster.latitude === 'number') {
+      setFocusedMapCoords([cluster.longitude, cluster.latitude]);
+    }
+  };
+
+  const handleDismissMapPopup = () => {
+    setSelectedMapCluster(null);
+    setFocusedMapCoords(null);
+  };
+
+  const handleToggleViewMode = () => {
+    setViewMode(prev => {
+      if (prev === 'map') {
+        handleDismissMapPopup();
+        return 'list';
+      }
+      return 'map';
+    });
   };
 
   const handleClearFilters = () => {
@@ -772,6 +858,76 @@ const Location = () => {
           );
         })}
       </ScrollView>
+
+      {/* List / Map segmented control */}
+      <View className="px-4 mb-2">
+        <View className="flex-row bg-gray-100 rounded-xl p-1">
+          <TouchableOpacity
+            className={`flex-1 py-2 rounded-lg flex-row items-center justify-center ${viewMode === 'list' ? 'bg-white' : ''}`}
+            onPress={() => setViewMode('list')}
+            activeOpacity={1}
+            style={viewMode === 'list' ? { shadowColor: '#000', shadowOpacity: 0.08, shadowRadius: 4, elevation: 2 } : {}}
+          >
+            <Ionicons name="list" size={16} color={viewMode === 'list' ? '#2563eb' : '#6b7280'} />
+            <Text className={`ml-1 text-sm font-semibold ${viewMode === 'list' ? 'text-blue-600' : 'text-gray-500'}`}>
+              Danh sách
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            className={`flex-1 py-2 rounded-lg flex-row items-center justify-center ${viewMode === 'map' ? 'bg-white' : ''}`}
+            onPress={() => setViewMode('map')}
+            activeOpacity={1}
+            style={viewMode === 'map' ? { shadowColor: '#000', shadowOpacity: 0.08, shadowRadius: 4, elevation: 2 } : {}}
+          >
+            <Ionicons name="map-outline" size={16} color={viewMode === 'map' ? '#2563eb' : '#6b7280'} />
+            <Text className={`ml-1 text-sm font-semibold ${viewMode === 'map' ? 'text-blue-600' : 'text-gray-500'}`}>
+              Bản đồ
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      {/* Location + radius */}
+      <View className="px-4 pb-2">
+        <View className="flex-row items-center mb-1.5">
+          <Ionicons name="location-outline" size={13} color={userLocation ? "#2563eb" : "#9ca3af"} />
+          <Text className="text-xs ml-1" style={{ color: userLocation ? "#2563eb" : "#9ca3af" }}>
+            {locationStatus === 'loading'
+              ? 'Đang lấy vị trí...'
+              : userLocation
+              ? 'Gần bạn'
+              : 'Không xác định được vị trí'}
+          </Text>
+          {userLocation ? (
+            <TouchableOpacity onPress={getLocation} className="ml-1.5" hitSlop={8}>
+              <Ionicons name="refresh-outline" size={13} color="#2563eb" />
+            </TouchableOpacity>
+          ) : locationStatus === 'denied' ? (
+            <TouchableOpacity onPress={getLocation} className="ml-1.5" hitSlop={8}>
+              <Text className="text-xs text-blue-500">Thử lại</Text>
+            </TouchableOpacity>
+          ) : null}
+        </View>
+        {userLocation && (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            {RADIUS_PRESETS.map(preset => {
+              const active = searchRadius === preset.value;
+              return (
+                <TouchableOpacity
+                  key={preset.value}
+                  onPress={() => setSearchRadius(preset.value)}
+                  className={`mr-2 px-3 py-1 rounded-full border ${active ? 'bg-blue-500 border-blue-500' : 'bg-white border-gray-300'}`}
+                  activeOpacity={1}
+                >
+                  <Text className={`text-xs font-semibold ${active ? 'text-white' : 'text-gray-600'}`}>
+                    {preset.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        )}
+      </View>
 
       {hasActiveFilters && (
         <View className="px-4 mb-2">
@@ -1151,100 +1307,117 @@ const Location = () => {
         </View>
       </Modal>
 
-      {loading && <Text className="text-center text-lg mt-4">Đang tải...</Text>}
-
-      {error && <Text className="text-center text-red-500 mt-4">{error}</Text>}
-
-      {!loading && !error && clusters.length > 0 && (
-        <ScrollView
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 120 }}
-          style={{ zIndex: 0, elevation: 0, backgroundColor: "#ffffff" }}
-          className="flex-col mt-4"
-        >
-          {clusters.map((cluster) => (
-            (() => {
-              const visual = getClusterPlayerVisual(cluster);
-              const clusterImageUrl = clusterImageMap[cluster.id];
-
-              return (
-            <View
-              key={cluster.id}
-              className="flex-row w-full items-center px-3 py-4 border-b border-black bg-white"
-            >
-              <View className="items-center justify-center" style={{ width: 96, height: 96 }}>
-                <Image
-                  source={clusterImageUrl ? { uri: clusterImageUrl } : visual.source}
-                  resizeMode={clusterImageUrl ? "cover" : "contain"}
-                  className="w-full h-full"
-                  style={{
-                    borderRadius: clusterImageUrl ? 12 : 0,
-                    transform: clusterImageUrl
-                      ? []
-                      : [
-                          { scale: visual.scale * 1.08 },
-                          { translateX: (visual.translateX ?? 0) - 8 },
-                          { translateY: visual.translateY },
-                        ],
-                  }}
-                />
-              </View>
-              <View className="flex-1 px-3 justify-center">
-                <Text className="text-[#1f2937] text-sm" numberOfLines={2} ellipsizeMode="tail">
-                  {cluster.street}, {cluster.district}, {cluster.city}
-                </Text>
-                <Text
-                  className="text-[#060b28] font-bold text-2xl mt-1"
-                  numberOfLines={2}
-                  ellipsizeMode="tail"
-                >
-                  {cluster.name}
-                </Text>
-                <Text className="text-gray-600 text-xs mt-1" numberOfLines={1}>
-                  {cluster.open_time} - {cluster.close_time}
-                </Text>
-              </View>
-              <TouchableOpacity
-                className="bg-white rounded-2xl px-5 py-2 border-2 border-gray-500 self-center"
-                onPress={() => handleOpenClusterPreview(cluster)}
-              >
-                <Text className="text-gray-500 font-semibold text-center text-lg">
-                  Xem
-                </Text>
-              </TouchableOpacity>
-            </View>
-              );
-            })()
-          ))}
-          
-          {/* Load More Button */}
-          {hasMore && (
-            <TouchableOpacity
-              className="bg-blue-500 py-3 rounded-lg my-4 items-center"
-              onPress={handleLoadMore}
-              disabled={loadingMore}
-              activeOpacity={1}
-            >
-              {loadingMore ? (
-                <ActivityIndicator color="white" />
-              ) : (
-                <Text className="text-white font-semibold">Tải thêm</Text>
-              )}
-            </TouchableOpacity>
-          )}
-          
-          {!hasMore && clusters.length > 0 && (
-            <Text className="text-center text-gray-500 my-4">
-              Đã hiển thị tất cả sân
-            </Text>
-          )}
-        </ScrollView>
+      {loading && (
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+          <ActivityIndicator size="large" color="#2563eb" />
+        </View>
       )}
 
-      {!loading && !error && clusters.length === 0 && (
-        <Text className="text-center text-lg mt-4">
-          Không có sân nào phù hợp với bộ lọc.
-        </Text>
+      {!loading && viewMode === 'map' && (
+        <ClusterMapView
+          clusters={clusters}
+          userLocation={userLocation}
+          selectedCluster={selectedMapCluster}
+          focusedCoords={focusedMapCoords}
+          onMarkerPress={handleMapMarkerPress}
+          onDismiss={handleDismissMapPopup}
+          onViewDetail={handleOpenClusterPreview}
+          onBook={handleStartBooking}
+        />
+      )}
+
+      {!loading && viewMode === 'list' && (
+        <>
+          {error && <Text className="text-center text-red-500 mt-4">{error}</Text>}
+          <FlatList
+            data={clusters}
+            keyExtractor={(item) => item.id.toString()}
+            renderItem={({ item: cluster }) => {
+              const visual = getClusterPlayerVisual(cluster);
+              const clusterImageUrl = clusterImageMap[cluster.id];
+              return (
+                <View className="flex-row w-full items-center px-3 py-4 border-b border-black bg-white">
+                  <View className="items-center justify-center" style={{ width: 96, height: 96 }}>
+                    <Image
+                      source={clusterImageUrl ? { uri: clusterImageUrl } : visual.source}
+                      resizeMode={clusterImageUrl ? "cover" : "contain"}
+                      className="w-full h-full"
+                      style={{
+                        borderRadius: clusterImageUrl ? 12 : 0,
+                        transform: clusterImageUrl
+                          ? []
+                          : [
+                              { scale: visual.scale * 1.08 },
+                              { translateX: (visual.translateX ?? 0) - 8 },
+                              { translateY: visual.translateY },
+                            ],
+                      }}
+                    />
+                  </View>
+                  <View className="flex-1 px-3 justify-center">
+                    <Text className="text-[#1f2937] text-sm" numberOfLines={2} ellipsizeMode="tail">
+                      {cluster.street}, {cluster.district}, {cluster.city}
+                    </Text>
+                    <Text
+                      className="text-[#060b28] font-bold text-2xl mt-1"
+                      numberOfLines={2}
+                      ellipsizeMode="tail"
+                    >
+                      {cluster.name}
+                    </Text>
+                    <Text className="text-gray-600 text-xs mt-1" numberOfLines={1}>
+                      {cluster.open_time} - {cluster.close_time}
+                    </Text>
+                    {userLocation && typeof cluster.latitude === 'number' && typeof cluster.longitude === 'number' && (
+                      <View className="flex-row items-center mt-1">
+                        <Ionicons name="navigate-outline" size={11} color="#2563eb" />
+                        <Text className="text-blue-600 text-xs ml-1 font-semibold">
+                          {formatDistance(getDistanceKm(userLocation.latitude, userLocation.longitude, cluster.latitude, cluster.longitude))}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+                  <TouchableOpacity
+                    className="bg-white rounded-2xl px-5 py-2 border-2 border-gray-500 self-center"
+                    onPress={() => handleOpenClusterPreview(cluster)}
+                  >
+                    <Text className="text-gray-500 font-semibold text-center text-lg">Xem</Text>
+                  </TouchableOpacity>
+                </View>
+              );
+            }}
+            onEndReached={handleLoadMore}
+            onEndReachedThreshold={0.3}
+            style={{ flex: 1, backgroundColor: '#ffffff' }}
+            contentContainerStyle={{ paddingBottom: 120, flexGrow: 1 }}
+            ListHeaderComponent={
+              userLocation && clusters.length > 0 ? (
+                <View className="flex-row items-center px-3 py-2 bg-blue-50 border-b border-blue-100">
+                  <Ionicons name="navigate" size={12} color="#2563eb" />
+                  <Text className="text-xs text-blue-600 ml-1 font-medium">
+                    Sắp xếp theo khoảng cách từ vị trí của bạn
+                  </Text>
+                </View>
+              ) : null
+            }
+            ListEmptyComponent={
+              !error ? (
+                <Text className="text-center text-lg mt-4">
+                  Không có sân nào phù hợp với bộ lọc.
+                </Text>
+              ) : null
+            }
+            ListFooterComponent={
+              loadingMore ? (
+                <View className="py-4 items-center">
+                  <ActivityIndicator color="#2563eb" />
+                </View>
+              ) : !hasMore && clusters.length > 0 ? (
+                <Text className="text-center text-gray-500 my-4">Đã hiển thị tất cả sân</Text>
+              ) : null
+            }
+          />
+        </>
       )}
 
       <Modal
@@ -1331,6 +1504,17 @@ const Location = () => {
                   <Text className="text-slate-700 text-sm mt-1">
                     Trạng thái: {previewCluster.status === "active" ? "Đang hoạt động" : "Tạm ngưng"}
                   </Text>
+                </View>
+
+                <View className="mt-3">
+                  <Text className="text-[#0f172a] font-bold text-base mb-2">
+                    Vị trí trên bản đồ
+                  </Text>
+                  <LocationMapView
+                    latitude={previewCluster.latitude}
+                    longitude={previewCluster.longitude}
+                    name={previewCluster.name}
+                  />
                 </View>
 
                 <Text className="text-slate-600 mt-3 leading-6">

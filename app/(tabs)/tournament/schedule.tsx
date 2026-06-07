@@ -198,7 +198,7 @@ export default function TournamentScheduleScreen() {
           className="border border-indigo-300 bg-indigo-50 rounded-xl py-3 items-center mb-3"
         >
           <Text className="text-indigo-700 font-semibold">
-            {isRepeatMode ? "Chỉnh lịch mẫu" : "+ Thêm lịch khác"}
+            {isRepeatMode ? "Chỉnh lịch mẫu" : "Thêm lịch khác"}
           </Text>
         </TouchableOpacity>
 

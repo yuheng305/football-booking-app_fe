@@ -212,21 +212,6 @@ export default function BookingDetail() {
     setConfirmRejectModalVisible(false);
   };
 
-  const handleOpenChat = () => {
-    if (!playerId) {
-      Alert.alert("Thông báo", "Không tìm thấy người chơi để liên hệ");
-      return;
-    }
-
-    router.push({
-      pathname: "/chat",
-      params: {
-        receiverId: String(playerId),
-        name: playerInfo?.fullName || "Người đặt",
-      },
-    } as any);
-  };
-
   return (
     <SafeAreaView className="flex-1 bg-white">
       {/* <View className="w-full h-[44px] bg-black" /> */}
@@ -456,12 +441,6 @@ export default function BookingDetail() {
         )}
       </AppPopup>
 
-      <TouchableOpacity
-        className="absolute right-5 bottom-6 w-14 h-14 rounded-full bg-blue-600 items-center justify-center shadow"
-        onPress={handleOpenChat}
-      >
-        <Ionicons name="chatbubble-ellipses" size={24} color="#fff" />
-      </TouchableOpacity>
     </SafeAreaView>
   );
 }

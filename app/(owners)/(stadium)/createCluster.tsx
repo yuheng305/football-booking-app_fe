@@ -18,6 +18,7 @@ import { useRouter } from "expo-router";
 
 import { clusterService } from "@/src/services/cluster.service";
 import type { CreateClusterRequest } from "@/src/types/cluster.types";
+import LocationMapPicker, { type PickedCoords } from "@/component/LocationMapPicker";
 import {
   ownerClusterDetailTarget,
   resolveOwnerClusterCreateBackTarget,
@@ -109,7 +110,13 @@ export default function CreateClusterScreen() {
   const [timePickerTarget, setTimePickerTarget] = useState<"open" | "close" | null>(
     null
   );
+  const [coords, setCoords] = useState<PickedCoords | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  const addressHint = useMemo(
+    () => [street, district, city].filter((part) => part.trim()).join(", "),
+    [street, district, city]
+  );
 
   const selectedSportNames = useMemo(
     () =>
@@ -241,6 +248,9 @@ export default function CreateClusterScreen() {
       city: city.trim(),
       open_time: openTime,
       close_time: closeTime,
+      ...(coords
+        ? { latitude: coords.latitude, longitude: coords.longitude }
+        : {}),
     };
 
     try {
@@ -445,6 +455,19 @@ export default function CreateClusterScreen() {
               <Ionicons name="chevron-down" size={20} color="#667085" />
             )}
           </TouchableOpacity>
+        </View>
+
+        <View className="mb-4">
+          <Text className="text-black text-[15px] font-medium mb-2">
+            Vị trí trên bản đồ
+          </Text>
+          <LocationMapPicker
+            latitude={coords?.latitude}
+            longitude={coords?.longitude}
+            onChange={setCoords}
+            addressHint={addressHint}
+            disabled={submitting}
+          />
         </View>
 
         <View className="mb-4">

@@ -396,10 +396,7 @@ class TournamentService {
   }): Promise<OrganizerTournamentListData> {
     const { organizerId, offset = 0, limit = 20 } = params;
 
-    const endpoint = API_CONFIG.TOURNAMENT_ENDPOINTS.ORGANIZER_LIST.replace(
-      ":organizerId",
-      String(organizerId)
-    );
+    const endpoint = API_CONFIG.TOURNAMENT_ENDPOINTS.ORGANIZER_LIST;
 
     const response = await apiClient.get<
       OrganizerTournamentListData | ApiEnvelope<OrganizerTournamentListData>

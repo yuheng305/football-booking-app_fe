@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { View } from "react-native";
 import { router } from "expo-router";
 import authService from "../src/services/auth.service";
-import { resolveUserRoleFromStorage } from "../src/utils/role.util";
+import { resolveUserRoleFromStorage, getRawUserRoleFromStorage } from "../src/utils/role.util";
 import { ROLE_ROUTES } from "../src/constants/roles";
 
 export default function Index() {
@@ -14,8 +14,11 @@ export default function Index() {
       ]);
 
       if (token) {
-        const role = await resolveUserRoleFromStorage();
-        router.replace(ROLE_ROUTES[role] ?? "/(tabs)/home");
+        const [rawRole, resolvedRole] = await Promise.all([
+          getRawUserRoleFromStorage(),
+          resolveUserRoleFromStorage(),
+        ]);
+        router.replace(ROLE_ROUTES[rawRole ?? ""] ?? ROLE_ROUTES[resolvedRole] ?? "/(tabs)/home");
       } else if (hasOnboarded) {
         router.replace("/login");
       } else {

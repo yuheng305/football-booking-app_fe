@@ -14,7 +14,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
@@ -27,6 +27,8 @@ import {
   resolveOwnerClusterDetailBackTarget,
 } from "@/src/utils/owner-stadium-navigation.util";
 import { formatSportDisplay, SPORT_TYPE_PICKER_OPTIONS } from "@/src/utils/sport-type.util";
+import LocationMapPicker, { type PickedCoords } from "@/component/LocationMapPicker";
+import LocationMapView from "@/component/LocationMapView";
 
 const SPORT_TYPE_OPTIONS = SPORT_TYPE_PICKER_OPTIONS;
 interface Province {
@@ -93,6 +95,7 @@ const getApprovalBadge = (isAccepted: boolean | null) => {
 };
 
 export default function OwnerClusterDetail() {
+  const insets = useSafeAreaInsets();
   const router = useRouter();
   const params = useLocalSearchParams<{ id?: string }>();
   const selectedClusterId = Number(params.id);
@@ -132,6 +135,7 @@ export default function OwnerClusterDetail() {
     status: "active" as "active" | "inactive",
     sport_type_ids: [] as number[],
   });
+  const [editCoords, setEditCoords] = useState<PickedCoords | null>(null);
 
   const formatTime = (time: string) => {
     if (!time) return "--:--";
@@ -300,6 +304,11 @@ export default function OwnerClusterDetail() {
       status: cluster.status ?? "active",
       sport_type_ids: cluster.sport_types?.map((sport) => sport.id) ?? [],
     });
+    setEditCoords(
+      typeof cluster.latitude === "number" && typeof cluster.longitude === "number"
+        ? { latitude: cluster.latitude, longitude: cluster.longitude }
+        : null
+    );
     setEditProvinceCode(matchedProvince ? String(matchedProvince.code) : "");
     setEditAreaDistrictCode("");
     setEditAreaDistrictName("");
@@ -388,6 +397,9 @@ export default function OwnerClusterDetail() {
       close_time: editForm.close_time,
       status: editForm.status,
       sport_type_ids: editForm.sport_type_ids,
+      ...(editCoords
+        ? { latitude: editCoords.latitude, longitude: editCoords.longitude }
+        : {}),
     };
     try {
       setSavingUpdate(true);
@@ -633,6 +645,19 @@ export default function OwnerClusterDetail() {
               {cluster.street}, {cluster.district}, {cluster.city}
             </Text>
           </View>
+          {typeof cluster.latitude === "number" && typeof cluster.longitude === "number" ? (
+            <View className="mt-3">
+              <LocationMapView
+                latitude={cluster.latitude}
+                longitude={cluster.longitude}
+                name={cluster.name}
+              />
+            </View>
+          ) : (
+            <Text className="text-gray-400 text-xs mt-2">
+              Chưa có vị trí bản đồ — nhấn "Cập nhật thông tin cụm sân" để thêm.
+            </Text>
+          )}
         </View>
 
         <View className="bg-white rounded-2xl p-4 mb-4 border border-gray-100">
@@ -696,7 +721,7 @@ export default function OwnerClusterDetail() {
               </TouchableOpacity>
             </View>
 
-            <ScrollView keyboardShouldPersistTaps="handled">
+            <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: Math.max(insets.bottom, 16) }}>
               <Text className="text-black text-[15px] font-medium mb-2">Tên cụm sân</Text>
               <TextInput
                 className="bg-gray-100 border border-gray-300 rounded-lg p-3 text-black text-[15px] mb-3"
@@ -796,6 +821,21 @@ export default function OwnerClusterDetail() {
                   <Ionicons name="chevron-down" size={20} color="#667085" />
                 )}
               </TouchableOpacity>
+
+              <Text className="text-black text-[15px] font-medium mb-2">
+                Vị trí trên bản đồ
+              </Text>
+              <View className="mb-3">
+                <LocationMapPicker
+                  latitude={editCoords?.latitude}
+                  longitude={editCoords?.longitude}
+                  onChange={setEditCoords}
+                  addressHint={[editForm.street, editForm.district, editForm.city]
+                    .filter((part) => part.trim())
+                    .join(", ")}
+                  disabled={savingUpdate}
+                />
+              </View>
 
               <Text className="text-black text-[15px] font-medium mb-2">Trạng thái</Text>
               <View className="flex-row mb-3">

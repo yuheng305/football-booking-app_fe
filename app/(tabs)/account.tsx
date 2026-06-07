@@ -20,6 +20,8 @@ import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { authService } from "@/src/services/auth.service";
 import { imageService } from "@/src/services/image.service";
+import apiClient from "@/src/utils/api.client";
+import { DEV_API_OVERRIDE_KEY, KNOWN_API_URLS } from "@/src/config/api.config";
 
 const User = () => {
   const [firstName, setFirstName] = useState("");
@@ -40,6 +42,32 @@ const User = () => {
   const [uploadingQr, setUploadingQr] = useState(false);
   const [loading, setLoading] = useState(true);
   const [role, setRole] = useState("");
+  const [devTapCount, setDevTapCount] = useState(0);
+  const [showDevSwitcher, setShowDevSwitcher] = useState(false);
+  const [activeApiUrl, setActiveApiUrl] = useState(() => apiClient.getBaseUrl());
+  const [customUrl, setCustomUrl] = useState("");
+
+  const handleDevTap = () => {
+    setDevTapCount((prev) => {
+      const next = prev + 1;
+      if (next >= 5) {
+        setActiveApiUrl(apiClient.getBaseUrl());
+        setShowDevSwitcher(true);
+        return 0;
+      }
+      return next;
+    });
+  };
+
+  const applyApiUrl = async (url: string) => {
+    const trimmed = url.trim().replace(/\/+$/, "");
+    if (!trimmed) return;
+    apiClient.setBaseUrl(trimmed);
+    await AsyncStorage.setItem(DEV_API_OVERRIDE_KEY, trimmed);
+    setActiveApiUrl(trimmed);
+    setShowDevSwitcher(false);
+    Alert.alert("Đã đổi API URL", trimmed, [{ text: "OK" }]);
+  };
 
   const splitFullName = (fullName: string) => {
     const trimmed = fullName.trim();
@@ -458,8 +486,76 @@ const User = () => {
               Đăng xuất
             </Text>
           </TouchableOpacity>
+
+          <TouchableOpacity onPress={handleDevTap} activeOpacity={1} className="mt-6 mb-2 items-center">
+            <Text className="text-gray-300 text-xs">GoPitch v1.0.0</Text>
+          </TouchableOpacity>
         </View>
       </ScrollView>
+
+      {/* Dev URL Switcher — mở bằng cách bấm 5 lần vào version text */}
+      <Modal
+        visible={showDevSwitcher}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowDevSwitcher(false)}
+      >
+        <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "flex-end" }}>
+          <View style={{ backgroundColor: "#fff", borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20, paddingBottom: 36 }}>
+            <Text style={{ fontWeight: "700", fontSize: 16, marginBottom: 4 }}>🔧 Đổi API Server</Text>
+            <Text style={{ color: "#6b7280", fontSize: 12, marginBottom: 16 }}>
+              Đang dùng: {activeApiUrl}
+            </Text>
+
+            {KNOWN_API_URLS.map((item) => {
+              const isActive = activeApiUrl.replace(/\/+$/, "") === item.url.replace(/\/+$/, "");
+              return (
+                <TouchableOpacity
+                  key={item.url}
+                  onPress={() => applyApiUrl(item.url)}
+                  style={{
+                    flexDirection: "row", alignItems: "center",
+                    padding: 14, borderRadius: 12, marginBottom: 8,
+                    backgroundColor: isActive ? "#eff6ff" : "#f9fafb",
+                    borderWidth: 1, borderColor: isActive ? "#3b82f6" : "#e5e7eb",
+                  }}
+                >
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontWeight: "600", color: isActive ? "#1d4ed8" : "#111827" }}>{item.label}</Text>
+                    <Text style={{ fontSize: 11, color: "#6b7280", marginTop: 2 }}>{item.url}</Text>
+                  </View>
+                  {isActive && <Text style={{ color: "#3b82f6", fontWeight: "700" }}>✓</Text>}
+                </TouchableOpacity>
+              );
+            })}
+
+            <Text style={{ fontWeight: "600", marginBottom: 6, marginTop: 8 }}>URL tuỳ chỉnh</Text>
+            <TextInput
+              value={customUrl}
+              onChangeText={setCustomUrl}
+              placeholder="https://your-api.com/api/v1"
+              placeholderTextColor="#9ca3af"
+              autoCapitalize="none"
+              style={{
+                borderWidth: 1, borderColor: "#d1d5db", borderRadius: 10,
+                padding: 12, fontSize: 13, color: "#111827", marginBottom: 10,
+              }}
+            />
+            <TouchableOpacity
+              onPress={() => applyApiUrl(customUrl)}
+              style={{ backgroundColor: "#114F99", borderRadius: 12, padding: 14, alignItems: "center", marginBottom: 8 }}
+            >
+              <Text style={{ color: "#fff", fontWeight: "700" }}>Áp dụng URL tuỳ chỉnh</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => setShowDevSwitcher(false)}
+              style={{ padding: 12, alignItems: "center" }}
+            >
+              <Text style={{ color: "#6b7280" }}>Huỷ</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
 
       <Modal
         visible={showQrInfo}

@@ -147,7 +147,9 @@ export interface OrganizerTournamentItem {
   entry_fee: number | null;
   cluster_id: number;
   organizer_id: number;
+  status?: string;
   payment_status?: "paid" | "pending" | "confirmed" | "no_bookings" | string;
+  bookings_status_counts?: Record<string, number>;
   created_at: string;
   updated_at: string;
 }

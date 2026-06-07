@@ -263,7 +263,6 @@ export default function TournamentDetailScreen() {
   const [loadingHostInfo, setLoadingHostInfo] = useState(false);
   const [showHostInfo, setShowHostInfo] = useState(false);
   const [ownerActionLoading, setOwnerActionLoading] = useState<"confirm" | "reject" | null>(null);
-  const [showPaymentInfo, setShowPaymentInfo] = useState(false);
   const [showRoundsInfo, setShowRoundsInfo] = useState(false);
   const [level1Bookings, setLevel1Bookings] = useState<Booking[]>([]);
   const [level1BookingsLoading, setLevel1BookingsLoading] = useState(false);
@@ -1391,15 +1390,7 @@ export default function TournamentDetailScreen() {
 
           {!isOwnerView && (
           <View className="border border-gray-200 rounded-xl p-3 mb-3">
-            <TouchableOpacity
-              className="flex-row items-center justify-between"
-              onPress={() => setShowPaymentInfo((prev) => !prev)}
-            >
-              <Text className="text-gray-900 text-base font-semibold">Thanh toán giải đấu</Text>
-              <Text className="text-gray-500 text-xs font-semibold">
-                {showPaymentInfo ? "Thu gọn" : "Xem thêm"}
-              </Text>
-            </TouchableOpacity>
+            <Text className="text-gray-900 text-base font-semibold">Thanh toán giải đấu</Text>
 
             <View className="mt-2 self-start">
               <Text
@@ -1411,37 +1402,33 @@ export default function TournamentDetailScreen() {
               </Text>
             </View>
 
-            {showPaymentInfo && (
-              <View className="mt-3">
-                {paymentStatus === "confirmed" ? (
-                  <TouchableOpacity
-                    className={`rounded-xl py-2.5 items-center ${
-                      isPayingTournament ? "bg-gray-300" : "bg-amber-600"
-                    }`}
-                    onPress={handlePayTournament}
-                    disabled={isPayingTournament}
-                  >
-                    <Text className="text-white font-semibold">
-                      {isPayingTournament ? "Đang tạo link thanh toán..." : "Thanh toán ngay"}
-                    </Text>
-                  </TouchableOpacity>
-                ) : paymentStatus === "pending" ? (
-                  <Text className="text-gray-600 text-sm">
-                    {
-                      'Giải đấu đang chờ chủ sân duyệt. Sau khi được duyệt, trạng thái sẽ chuyển sang "Chờ thanh toán".'
-                    }
+            <View className="mt-3">
+              {paymentStatus === "confirmed" ? (
+                <TouchableOpacity
+                  className={`rounded-xl py-2.5 items-center ${
+                    isPayingTournament ? "bg-gray-300" : "bg-amber-600"
+                  }`}
+                  onPress={handlePayTournament}
+                  disabled={isPayingTournament}
+                >
+                  <Text className="text-white font-semibold">
+                    {isPayingTournament ? "Đang tạo link thanh toán..." : "Thanh toán ngay"}
                   </Text>
-                ) : paymentStatus === "no_bookings" ? (
-                  <Text className="text-gray-600 text-sm">
-                    Chưa có lượt đặt sân được xác nhận nên chưa thể tạo thanh toán.
-                  </Text>
-                ) : null}
-              </View>
-            )}
+                </TouchableOpacity>
+              ) : paymentStatus === "pending" ? (
+                <Text className="text-gray-600 text-sm">
+                  {'Giải đấu đang chờ chủ sân duyệt. Sau khi được duyệt, trạng thái sẽ chuyển sang "Chờ thanh toán".'}
+                </Text>
+              ) : paymentStatus === "no_bookings" ? (
+                <Text className="text-gray-600 text-sm">
+                  Chưa có lượt đặt sân được xác nhận nên chưa thể tạo thanh toán.
+                </Text>
+              ) : null}
+            </View>
           </View>
           )}
 
-          {!isOwnerView && (
+          {!isOwnerView && detail.level === 2 && (
           <View className="border border-gray-200 rounded-xl p-3">
             <TouchableOpacity
               className="flex-row items-center justify-between"

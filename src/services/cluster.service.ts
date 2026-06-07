@@ -66,6 +66,12 @@ class ClusterService {
         params.to_time = query.to_time;
       }
 
+      if (query.latitude !== undefined && query.longitude !== undefined) {
+        params.latitude = query.latitude;
+        params.longitude = query.longitude;
+        params.radius = query.radius ?? 50;
+      }
+
       const response = await apiClient.get<GetClustersResponse>(
         API_CONFIG.CLUSTER_ENDPOINTS.SEARCH,
         { params }

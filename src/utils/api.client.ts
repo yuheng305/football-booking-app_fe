@@ -74,6 +74,15 @@ class ApiClient {
     this.refreshTokenPromise = null;
   }
 
+  /** Đổi base URL tại runtime (dùng cho dev URL switcher). */
+  setBaseUrl(url: string) {
+    this.baseURL = url.replace(/\/+$/, "");
+  }
+
+  getBaseUrl(): string {
+    return this.baseURL;
+  }
+
   /**
    * Set Authorization token
    */

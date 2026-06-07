@@ -13,6 +13,9 @@ export interface Cluster {
   street: string;
   district: string; // BE field name; app stores ward/commune name here.
   city: string;
+  /** Tọa độ vị trí cụm sân trên bản đồ. Có thể null khi BE chưa lưu. */
+  latitude?: number | null;
+  longitude?: number | null;
   status: "active" | "inactive";
   open_time: string; // HH:MM:SS
   close_time: string; // HH:MM:SS
@@ -30,6 +33,8 @@ export interface CreateClusterRequest {
   street: string;
   district: string; // ward/commune name, kept as "district" for BE compatibility.
   city: string;
+  latitude?: number | null;
+  longitude?: number | null;
   open_time: string;
   close_time: string;
 }
@@ -40,6 +45,8 @@ export interface UpdateClusterRequest {
   street?: string;
   district?: string; // ward/commune name, kept as "district" for BE compatibility.
   city?: string;
+  latitude?: number | null;
+  longitude?: number | null;
   open_time?: string;
   close_time?: string;
   status?: "active" | "inactive";
@@ -90,4 +97,7 @@ export interface SearchClustersQuery {
   to_time?: string;
   offset?: number;
   limit?: number;
+  latitude?: number;
+  longitude?: number;
+  radius?: number;
 }

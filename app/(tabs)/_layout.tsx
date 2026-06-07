@@ -181,7 +181,7 @@ export default function TabLayout() {
         <Tabs.Screen
           key={screenName}
           name={screenName}
-          options={{ href: null }}
+          options={{ href: null, tabBarStyle: { display: 'none' } }}
         />
       ))}
     </Tabs>

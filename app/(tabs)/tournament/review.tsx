@@ -94,9 +94,11 @@ export default function TournamentReviewScreen() {
         <View className="border border-gray-200 rounded-xl p-3 mb-3">
           <Text className="text-lg font-semibold text-gray-900">{draft.name}</Text>
           <Text className="text-sm text-gray-500 mt-1">Môn: {toVietnameseSportType(draft.sportType)}</Text>
-          <Text className="text-sm text-gray-500">
-            Thời gian: {formatDate(draft.startDate)} đến {formatDate(draft.endDate)}
-          </Text>
+          {(draft.startDate || draft.endDate) ? (
+            <Text className="text-sm text-gray-500">
+              Thời gian: {formatDate(draft.startDate)} đến {formatDate(draft.endDate)}
+            </Text>
+          ) : null}
           <Text className="text-sm text-gray-500">
             Chế độ: {frequencyLabel[draft.frequency || "custom"] || "Tùy chỉnh"}
           </Text>

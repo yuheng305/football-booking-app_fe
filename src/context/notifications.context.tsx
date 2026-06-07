@@ -243,15 +243,24 @@ export const NotificationsProvider: React.FC<{ children: React.ReactNode }> = ({
         socket.off("error");
         socket.offAny();
 
+        const emitAuthenticate = () => {
+          socket.emit("authenticate", { user_id: userId });
+          console.log("[NOTIFICATIONS] authenticate emitted", { userId });
+        };
+
         socket.on("connect", () => {
           console.log("[NOTIFICATIONS] socket connected", {
             socketId: socket.id,
             userId,
             pathname,
           });
-          socket.emit("authenticate", { user_id: userId });
-          console.log("[NOTIFICATIONS] authenticate emitted", { userId });
+          emitAuthenticate();
         });
+
+        // Socket already connected (reuse existing) — authenticate immediately
+        if (socket.connected) {
+          emitAuthenticate();
+        }
 
         socket.on("authenticated", (payload: any) => {
           console.log("[NOTIFICATIONS] socket authenticated", {
@@ -439,7 +448,7 @@ export const NotificationsProvider: React.FC<{ children: React.ReactNode }> = ({
               top: topInset + 16,
               left: 16,
               right: 16,
-              elevation: 12,
+              elevation: 50,
               shadowColor: "#0f172a",
               shadowOpacity: 0.22,
               shadowRadius: 14,

@@ -132,7 +132,7 @@ export const API_CONFIG = {
     OWNER_CONFIRM: "/tournaments/:id?action=owner-confirm",
     OWNER_REJECT: "/tournaments/:id?action=owner-reject",
     OWNER_LIST: "/tournaments/owner",
-    ORGANIZER_LIST: "/tournaments/organizer/:organizerId",
+    ORGANIZER_LIST: "/tournaments",
   },
   CHAT_ENDPOINTS: {
     LIST_CONVERSATIONS: "/chats/conversations",
@@ -143,3 +143,13 @@ export const API_CONFIG = {
 };
 
 export default API_CONFIG;
+
+/** AsyncStorage key lưu URL override từ dev switcher. */
+export const DEV_API_OVERRIDE_KEY = "@gopitch_dev_api_url";
+
+/** Danh sách URL hiện biết — hiện trong dev switcher. */
+export const KNOWN_API_URLS: { label: string; url: string }[] = [
+  { label: "Production — gopitch.site", url: "https://gopitch.site/api/v1" },
+  { label: "Staging — render.com", url: "https://datn-be-9zkr.onrender.com/api/v1" },
+  { label: "Dev server — IP trực tiếp", url: "http://13.214.178.239:8030/api/v1" },
+];

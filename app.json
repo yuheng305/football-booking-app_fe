@@ -39,7 +39,14 @@
           "backgroundColor": "#ffffff"
         }
       ],
-      "expo-secure-store"
+      "expo-secure-store",
+      "@maplibre/maplibre-react-native",
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Cho phép $(PRODUCT_NAME) dùng vị trí để xác định cụm sân trên bản đồ."
+        }
+      ]
     ],
     "assetBundlePatterns": [
       "**/*"
@@ -62,7 +69,7 @@
     },
     "updates": {
       "url": "https://u.expo.dev/4a27d556-89a4-42f9-9483-0aaba9f5c55a",
-      "checkAutomatically": "NEVER"
+      "checkAutomatically": "ON_LOAD"
     }
   }
 }

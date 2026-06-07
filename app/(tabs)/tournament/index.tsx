@@ -15,6 +15,7 @@ import HeaderUser from "../../../component/HeaderUser";
 import tournamentService from "@/src/services/tournament.service";
 import { OrganizerTournamentItem } from "@/src/types/tournament.types";
 import { toVietnameseSportType } from "@/src/utils/sport-type.util";
+import { getTournamentStatusMeta } from "@/src/utils/booking-status";
 
 export default function Tournament() {
   const router = useRouter();
@@ -63,26 +64,6 @@ export default function Tournament() {
     return "Chưa xác định";
   };
 
-  const paymentStatusLabel = (status?: string) => {
-    if (status === "paid" || status === "success" || status === "completed") return "Đã thanh toán";
-    if (status === "pending") return "Chờ chủ sân duyệt";
-    if (status === "confirmed" || status === "payment_required" || status === "approved")
-      return "Chờ thanh toán";
-    if (status === "no_bookings") return "Chưa có lượt đặt sân";
-    if (status === "canceled" || status === "cancelled") return "Đã hủy";
-    return status || "Không rõ";
-  };
-
-  const paymentStatusClass = (status?: string) => {
-    if (status === "paid" || status === "success" || status === "completed")
-      return "bg-emerald-100 text-emerald-700";
-    if (status === "pending") return "bg-sky-100 text-sky-700";
-    if (status === "confirmed" || status === "payment_required" || status === "approved")
-      return "bg-amber-100 text-amber-700";
-    if (status === "no_bookings") return "bg-slate-100 text-slate-600";
-    if (status === "canceled" || status === "cancelled") return "bg-red-100 text-red-600";
-    return "bg-slate-100 text-slate-600";
-  };
 
   const tournamentLevelLabel = (level?: number | null) => {
     if (level === 1) return "Cấp độ: Giải đấu tiêu chuẩn";
@@ -235,11 +216,9 @@ export default function Tournament() {
                     <View className="flex-row items-start justify-between gap-3">
                       <Text className="text-gray-900 font-semibold flex-1">#{tournament.id} - {tournament.name}</Text>
                       <Text
-                        className={`text-[11px] font-semibold px-2 py-1 rounded-full ${paymentStatusClass(
-                          tournament.payment_status
-                        )}`}
+                        className={`text-[11px] font-semibold px-2 py-1 rounded-full ${getTournamentStatusMeta(tournament.status).badgeClass}`}
                       >
-                        {paymentStatusLabel(tournament.payment_status)}
+                        {getTournamentStatusMeta(tournament.status).label}
                       </Text>
                     </View>
                     <Text className="text-gray-500 text-xs mt-1">

@@ -213,10 +213,16 @@ export default function GlobalFloatingActionGroup() {
       pointerEvents="box-none"
       {...panResponder.panHandlers}
     >
-      <View className="relative w-14 h-14 mb-3">
+      <View style={{ width: FAB_SIZE, height: FAB_SIZE, marginBottom: 12 }}>
         <TouchableOpacity
-          className="w-14 h-14 rounded-full items-center justify-center"
-          style={{ backgroundColor: "#17345c" }}
+          style={{
+            width: FAB_SIZE,
+            height: FAB_SIZE,
+            borderRadius: FAB_SIZE / 2,
+            backgroundColor: "#17345c",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
           onPress={() => router.push("/notifications")}
           activeOpacity={0.85}
         >
@@ -238,9 +244,16 @@ export default function GlobalFloatingActionGroup() {
         )}
       </View>
 
-      <View className="relative w-14 h-14">
+      <View style={{ width: FAB_SIZE, height: FAB_SIZE }}>
         <TouchableOpacity
-          className="w-14 h-14 rounded-full bg-blue-600 items-center justify-center shadow"
+          style={{
+            width: FAB_SIZE,
+            height: FAB_SIZE,
+            borderRadius: FAB_SIZE / 2,
+            backgroundColor: "#2563eb",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
           onPress={() => router.push("/chats")}
           activeOpacity={0.85}
         >

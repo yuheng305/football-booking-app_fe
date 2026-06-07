@@ -70,11 +70,14 @@ export function resolveProviderNotificationNavigation(
   }
 
   if (entityType === "booking") {
-    return {
-      kind: "push",
-      pathname: "/(owners)/(booking)/bookingDetail",
-      params: { id: String(entityId) },
-    };
+    if (isFieldOwnerRole(ctx.rawRole)) {
+      return {
+        kind: "push",
+        pathname: "/(owners)/(booking)/bookingDetail",
+        params: { id: String(entityId) },
+      };
+    }
+    return { kind: "pushHref", href: "/(tabs)/(users)/history" };
   }
 
   if (entityType === "payment" && isPaymentConfirmed) {
@@ -121,7 +124,7 @@ export function resolveProviderNotificationNavigation(
   }
 
   if (isPayment) {
-    if (ctx.appRole === "owner") {
+    if (isFieldOwnerRole(ctx.rawRole)) {
       return { kind: "pushHref", href: "/(owners)/(booking)/ownerBookingManagement" };
     }
     return { kind: "pushHref", href: "/(tabs)/payment" };

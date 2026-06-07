@@ -658,8 +658,8 @@ export default function TournamentVenueScreen() {
               <Text className="text-sm text-gray-500 mb-2">Sân con</Text>
               <Text className="text-xs text-indigo-700 mb-2">
                 {isRepeatMode
-                  ? "Chọn xong sân + giờ, bấm nút \"Lưu lịch mẫu lặp\" bên dưới."
-                  : "Chọn xong sân + giờ, bấm nút \"+ Thêm lịch này\" bên dưới."}
+                  ? "Chọn xong sân và giờ, bấm nút \"Lưu lịch mẫu lặp\" bên dưới."
+                  : "Chọn xong sân và giờ, bấm nút \"Lưu lịch đã chọn\" bên dưới."}
               </Text>
               {availability.length > 0 && (
                 <TouchableOpacity
@@ -855,10 +855,17 @@ export default function TournamentVenueScreen() {
         <View className="flex-1 bg-black/40 justify-center px-5">
           <View className="bg-white rounded-2xl p-4">
             <Text className="text-gray-900 text-lg font-semibold">Cách chọn nhanh</Text>
-            <Text className="text-gray-700 text-sm mt-2">1) Mỗi giải chỉ dùng duy nhất 1 cụm sân.</Text>
-            <Text className="text-gray-700 text-sm mt-1">2) Chọn cụm sân trước, sau đó chọn 1 sân con trong danh sách.</Text>
-            <Text className="text-gray-700 text-sm mt-1">3) Chọn giờ theo khoảng: chạm điểm bắt đầu rồi chạm điểm kết thúc.</Text>
-            <Text className="text-gray-700 text-sm mt-1">4) Khoảng giờ liền nhau sẽ lưu thành 1 khung giờ liên tục.</Text>
+            {[
+              "Mỗi giải chỉ dùng duy nhất 1 cụm sân.",
+              "Chọn cụm sân trước, sau đó chọn 1 sân con trong danh sách.",
+              "Chọn giờ theo khoảng: chạm điểm bắt đầu rồi chạm điểm kết thúc.",
+              "Khoảng giờ liền nhau sẽ lưu thành 1 khung giờ liên tục.",
+            ].map((text, i) => (
+              <View key={i} style={{ flexDirection: "row", marginTop: i === 0 ? 8 : 4 }}>
+                <Text className="text-gray-500 text-sm" style={{ width: 20 }}>{i + 1}.</Text>
+                <Text className="text-gray-700 text-sm flex-1">{text}</Text>
+              </View>
+            ))}
             <TouchableOpacity
               onPress={() => setShowHelpModal(false)}
               className="mt-4 border border-gray-300 rounded-xl py-3 items-center"
